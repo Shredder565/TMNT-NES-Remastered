@@ -202,11 +202,11 @@ func _ready() -> void:
 	var leo: Turtle = sewer.get_node("Turtle")
 	for i in 20:
 		await get_tree().physics_frame
-	check(leo.on_floor() and absf(leo.position.y - 96.0) < 0.5, "turtle starts standing on the upper ledge")
+	check(leo.on_floor() and floorf(leo.position.y) == 96.0, "turtle starts standing on the upper ledge")
 	leo.position.x = 150.0
 	for i in 6:
 		await get_tree().physics_frame
-	check(leo.on_floor() and absf(leo.position.y - 96.0) < 0.5, "he can stand on the ladder top")
+	check(leo.on_floor() and floorf(leo.position.y) == 96.0, "he can stand on the ladder top")
 	Input.action_press("move_down")
 	for i in 6:
 		await get_tree().physics_frame
@@ -216,14 +216,14 @@ func _ready() -> void:
 	Input.action_release("move_down")
 	for i in 6:
 		await get_tree().physics_frame
-	check(leo.state != Turtle.State.CLIMB and absf(leo.position.y - 176.0) < 0.5 and leo.on_floor(), "climbing down ends on the floor")
+	check(leo.state != Turtle.State.CLIMB and floorf(leo.position.y) == 176.0 and leo.on_floor(), "climbing down ends on the floor")
 	Input.action_press("move_up")
 	for i in 90:
 		await get_tree().physics_frame
 	Input.action_release("move_up")
 	for i in 6:
 		await get_tree().physics_frame
-	check(leo.state != Turtle.State.CLIMB and absf(leo.position.y - 96.0) < 0.5 and leo.on_floor(), "climbing up ends back on the ledge")
+	check(leo.state != Turtle.State.CLIMB and floorf(leo.position.y) == 96.0 and leo.on_floor(), "climbing up ends back on the ledge")
 	sewer.set_flying(true)
 	Input.action_press("move_up")
 	for i in 10:
@@ -232,7 +232,7 @@ func _ready() -> void:
 	check(absf(leo.position.y - 56.0) < 0.5, "fly mode moves him freely")
 	sewer.set_flying(false)
 
-	print("The turtle against walls, ledges and ceilings, as measured in the original")
+	print("The turtle against walls, ledges and ceilings, by the original's rules")
 	leo.position = Vector2(40, 96)
 	leo.speed = Vector2i.ZERO
 	for i in 6:
@@ -243,7 +243,7 @@ func _ready() -> void:
 		await get_tree().physics_frame
 		if leo.position.y > 96.0 and dropped_at == 0.0:
 			dropped_at = leo.position.x
-	check(dropped_at >= 80.0 and dropped_at < 86.0, "he walks 16 pixels past a ledge's end before he drops (the ledge ends at 64; he dropped at %.2f)" % dropped_at)
+	check(dropped_at >= 74.0 and dropped_at < 84.0, "walking, he drops two updates after both feet (6 pixels each side) are past a ledge's end (the ledge ends at 64; he dropped at %.2f)" % dropped_at)
 	Input.action_release("move_right")
 	for i in 30:
 		await get_tree().physics_frame
@@ -254,7 +254,7 @@ func _ready() -> void:
 	Input.action_press("move_right")
 	for i in 16:
 		await get_tree().physics_frame
-	check(leo.position.y == 96.0 and leo.position.x > 112.0 and leo.on_floor(), "falling beside a ledge with his feet 2 pixels below its top, he goes in and is put on top")
+	check(floorf(leo.position.y) == 96.0 and leo.position.x > 112.0 and leo.on_floor(), "falling beside a ledge with his feet 2 pixels below its top, he goes in and is put on top")
 	Input.action_release("move_right")
 	for i in 4:
 		await get_tree().physics_frame
@@ -266,8 +266,8 @@ func _ready() -> void:
 	var got_on := false
 	for i in 60:
 		await get_tree().physics_frame
-		got_on = got_on or leo.position.y == 96.0
-	check(leo.position.y == 176.0 and not got_on, "4 pixels below, its side stops him and he falls past")
+		got_on = got_on or floorf(leo.position.y) == 96.0
+	check(floorf(leo.position.y) == 176.0 and not got_on, "4 pixels below, its side stops him and he falls past")
 	Input.action_release("move_right")
 	leo.position = Vector2(40, 176)
 	leo.speed = Vector2i.ZERO
@@ -279,7 +279,7 @@ func _ready() -> void:
 		await get_tree().physics_frame
 		under_ledge = minf(under_ledge, leo.position.y)
 	Input.action_release("jump")
-	check(under_ledge >= 132.0 and under_ledge < 138.0, "jumping under a ledge he stops with the point 28 above his feet at its underside (%.1f; it is at 104)" % under_ledge)
+	check(under_ledge >= 129.0 and under_ledge < 137.0, "jumping under a ledge he stops once the point 32 above his feet is inside it (%.1f; its underside is at 104)" % under_ledge)
 	for i in 30:
 		await get_tree().physics_frame
 	leo.position = Vector2(100, 150)
@@ -288,17 +288,16 @@ func _ready() -> void:
 	leo.speed = Vector2i(0, 1200)
 	Input.action_press("move_right")
 	var landing_x := -1.0
-	var after_landing_x := -1.0
+	var before_landing_x := -1.0
 	for i in 40:
 		var before_x := leo.position.x
 		var was_up := not leo.on_floor()
 		await get_tree().physics_frame
 		if was_up and leo.on_floor():
 			landing_x = leo.position.x
-		elif landing_x >= 0.0 and after_landing_x < 0.0 and leo._frame % Turtle.TICK_FRAMES == 0:
-			after_landing_x = leo.position.x
+			before_landing_x = before_x
 	Input.action_release("move_right")
-	check(landing_x > 100.0 and after_landing_x == landing_x and leo.position.x > landing_x, "the update after he lands he does not move sideways, then walks on")
+	check(landing_x > 100.0 and before_landing_x == landing_x and leo.position.x > landing_x and leo.speed.y == 0, "the update he lands on he does not move sideways, then walks on")
 	for i in 10:
 		await get_tree().physics_frame
 

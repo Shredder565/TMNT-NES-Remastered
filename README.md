@@ -97,8 +97,9 @@ its energy shows under the turtle's. Three more places stop the screen
 until the enemies there are beaten. Beating the last boss opens world 2's
 overworld.
 
-How the turtle meets walls, ledges and ceilings was fitted to a
-side-by-side run against the original (`Research/turtle_collision.md`).
+How the turtle meets walls, ledges and ceilings follows the original's own
+rules, read from its code and checked in a side-by-side run
+(`Research/turtle_collision.md`).
 
 What is still missing from world 1 is listed at the end of
 `Research/world1.md`.
@@ -126,3 +127,9 @@ The tile viewer (F1) shows the index of the tile under the mouse.
 - Never commit a ROM, or any image ripped from one. `.gitignore` blocks `*.nes`.
 - Ripped images are written to Godot's user folder, outside the project:
   `%APPDATA%\Godot\app_userdata\TMNT Remake\rom_assets`.
+- The same goes for the game's program code. `Research/tools/disassemble_rom.py`
+  turns your own ROM into a readable listing in `rom_listing/`, which
+  `.gitignore` blocks. We read the listing, write down in `Research/` what
+  the original does in our own words, and write our own code from that.
+  The listing itself, or code translated line for line from it, is never
+  committed.

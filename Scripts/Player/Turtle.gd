@@ -19,22 +19,14 @@ const CLIMB_SPEED := 576        ## ladders: also 2.25 px per update
 const JUMP_SPEED := -1536       ## -6 px per update at take-off
 const GRAVITY := 84             ## added to the fall speed every update
 const BODY_HEIGHT := 30.0        ## the box enemies touch, and the practice room's collision
-## The points of the tile map the original tests (see _move_in_room).
-const SIDE_REACH := 6.0
-const SIDE_LOW := 3.0
-const SIDE_HIGH := 20.0
-const HEAD_REACH := 3.0
-const HEAD_POINT := 32.0
-const CEILING_POINT := 28.0
-const TRAILING_FOOT := 16.0
-const LANDING_DEPTH := 3.0
 const SHORT_JUMP_TICK := 4      ## 4 updates after take-off: button released?
 const SHORT_JUMP_SPEED := -624  ## ...then the rise is cut to this (low jump, 33 px)
 const BOOST_TICK := 8           ## 8 updates after take-off: button still held?
 const BOOST_SPEED := -1536      ## ...then a second push (high jump, 97 px)
 const KNOCKBACK := Vector2i(384, -258)  ## approximate, read from one hit
 ## --- Not measured yet: guesses ---
-const MAX_FALL_SPEED := 3072    ## the original was still speeding up at 2076
+const WALK_OFF_DELAY := 2
+const MAX_FALL_SPEED := 2559    ## the original holds the whole pixels of his fall at 9
 
 @export var turtle_name := "Leonardo"
 @export var bandana_color := Color(0.2, 0.45, 1.0)
@@ -54,6 +46,7 @@ var sprites: SpriteSet                 ## null until a ROM is supplied: then pla
 var grounded := false                  ## standing on something
 var _bumped_head := false
 var _was_grounded := true
+var _unheld_ticks := 0
 var _just_landed := false
 var room: RoomData                     ## set by the room, so the turtle can find ladders
 var climb_distance := 0.0              ## pixels climbed, used to step the ladder animation
@@ -130,7 +123,7 @@ func _tick() -> void:
 		if jump_tick > 0:
 			jump_tick = -1
 	else:
-		if _bumped_head and speed.y < 0:
+		if _bumped_head:
 			speed.y = 0
 			jump_tick = -1
 		speed.y = mini(speed.y + GRAVITY, MAX_FALL_SPEED)
@@ -235,10 +228,7 @@ func _control() -> void:
 	_set_crouching(Input.is_action_pressed("move_down") and on_floor())
 
 	var taking_off := _jump_pressed and on_floor() and state != State.CROUCH and not _just_landed
-	if _just_landed:
-		# The update he lands on, the original does not move him sideways.
-		speed.x = 0
-	elif taking_off:
+	if taking_off:
 		pass   # a jump keeps the sideways speed he already had (none from a standstill)
 	elif on_floor():
 		# On the ground the turtle starts and stops instantly.
@@ -270,65 +260,78 @@ func _control() -> void:
 		attack_tick = 0
 		attack_length = 8 if state == State.CROUCH else 6
 
-## Moves him through a ROM room the way the original does: by testing a
-## few points of the tile map, not a box. Measured in the emulator
-## (Research/turtle_collision.md):
-## - Sideways he is stopped by anything solid 6 pixels ahead at 3 or at 20
-##   pixels above his feet, or 3 pixels ahead at 32 above (his head).
-##   Stopped means he does not move that update; he is not slid up to it.
-## - Going up he stops when the point 28 above his feet, at his middle,
-##   would enter something solid.
-## - Falling, he lands when the point 3 pixels above his feet, in the
-##   middle, is in a floor, and is put on top of it. Once standing, the
-##   point at his feet and a second one 16 pixels behind him hold him up.
-## Because the low points are 3 pixels up, a ledge whose top is 1 or 2
-## pixels above his feet does not stop him: he goes in and is put on top.
+## Moves him through a ROM room by the original's own rules, read from its
+## code (bank 4, $9D0C and $9FB0 on; Research/turtle_collision.md). It
+## tests single points of the tile map, given here from his feet:
+## - Walking: a wall at 9 pixels ahead, 7 or 24 up, stops him. He stays up
+##   while either foot, 6 pixels to each side, has something under it.
+##   Standing still it is the one point under his middle.
+## - In the air: going up, something at 32 above his middle stops the
+##   rise. Sideways he is stopped by 6 ahead at 32 up, or 7 ahead at 20 or
+##   3 up. Coming down he lands when the point 3 up, at his middle, is in
+##   a floor: he is lifted until he stands on it, and pushed out of a wall
+##   2 pixels at a time if he is against one.
+## Every test is made where he is, before he moves, as the original does.
 func _move_in_room() -> void:
-	var step := Vector2(speed) / 256.0
 	_bumped_head = false
-	# Both tests are made from where he is now, then both moves are made.
-	var across := step.x
-	if across != 0.0 and _side_blocked(position.x + across, signf(across)):
-		across = 0.0
-	if step.y < 0.0:
-		if room.solid_at(position.x, position.y + step.y - CEILING_POINT):
-			_bumped_head = true
+	var x := floorf(position.x)
+	var feet := floorf(position.y)
+	if grounded and speed.y < 0:
+		grounded = false   # a jump has begun
+	if grounded:
+		var walking := speed.x != 0
+		if walking:
+			var ahead := 9.0 if speed.x > 0 else -9.0
+			if room.solid_at(x + ahead, feet - 7.0) or room.solid_at(x + ahead, feet - 24.0):
+				speed.x = 0
+		var held := false
+		if walking:
+			held = _stands_on(x + 6.0, feet + 1.0) or _stands_on(x - 6.0, feet + 1.0)
 		else:
-			position.y += step.y
-		grounded = false
-	else:
-		var feet := position.y + step.y
-		if grounded:
-			# Standing: floor under his middle, or 16 pixels behind him, so
-			# he walks about 16 pixels past a ledge's end before he drops
-			# (measured: 14 to 19 at four ledge ends, 6 at a fifth).
-			grounded = _floor_under(position.x, feet, position.y) or _floor_under(position.x - facing * TRAILING_FOOT, feet, position.y)
-			if not grounded:
-				position.y = feet
-		elif _floor_under(position.x, feet - LANDING_DEPTH, position.y - LANDING_DEPTH):
-			# Falling: he lands once he is 3 pixels into the floor, and is
-			# put on top of it.
-			var top := floorf((feet - LANDING_DEPTH) / RoomData.TILE) * RoomData.TILE
-			if room.solid_at(position.x, top - 1.0) and not room.solid_at(position.x, top - RoomData.TILE - 1.0):
-				top -= RoomData.TILE   # a fast fall went a whole tile in: the floor's top is one up
-			position.y = top
-			grounded = true
-		else:
-			position.y = feet
-	position.x += across
+			held = _stands_on(x, feet + 1.0)
+		# Measured: he starts to drop two updates later than this test
+		# alone would have it. Why is not known; the delay is copied.
+		_unheld_ticks = 0 if held else _unheld_ticks + 1
+		if _unheld_ticks > WALK_OFF_DELAY:
+			grounded = false
+			speed.y = 0
+			_unheld_ticks = 0
+		position.x += speed.x / 256.0
+		return
+	if speed.y < 0 and room.solid_at(x, feet - 32.0):
+		_bumped_head = true
+		speed.y = 0
+	var side := 1.0 if speed.x >= 0 else -1.0
+	if room.solid_at(x + side * 6.0, feet - 32.0) or room.solid_at(x + side * 7.0, feet - 20.0) or room.solid_at(x + side * 7.0, feet - 3.0):
+		speed.x = 0
+	if speed.y >= 0 and _lands_on(x, feet):
+		var lifted := 0
+		while _lands_on(x, feet + 2.0) and lifted < 32:
+			feet -= 1.0     # up until the point just above his soles is clear
+			lifted += 1
+		while room.solid_at(x + side * 8.0, feet - 13.0) and absf(x - position.x) < 32.0:
+			x -= side * 2.0
+		# The fractions of his position are kept, as in the original.
+		position = Vector2(x + position.x - floorf(position.x), feet + position.y - floorf(position.y))
+		speed = Vector2i.ZERO
+		grounded = true
+		_unheld_ticks = 0
+		return
+	position += Vector2(speed) / 256.0
 
-func _side_blocked(x: float, side: float) -> bool:
-	if room.solid_at(x + side * SIDE_REACH, position.y - SIDE_LOW) or room.solid_at(x + side * SIDE_REACH, position.y - SIDE_HIGH):
-		return true
-	return state != State.CROUCH and room.solid_at(x + side * HEAD_REACH, position.y - HEAD_POINT)
+## Something he can stand on: anything but empty space, a hurting tile or
+## a doorway (the original's list).
+func _stands_on(x: float, y: float) -> bool:
+	var kind := room.kind_at_pixel(x, y)
+	return kind != RoomData.KIND_EMPTY and kind != RoomData.KIND_HURTS and kind != RoomData.KIND_DOOR
 
-## Is there something to stand on at this point? A ladder's top counts
-## only when he comes down onto it from above.
-func _floor_under(x: float, feet: float, feet_before: float) -> bool:
-	if room.solid_at(x, feet):
+## Coming down: is the point 3 pixels above his feet in a floor? A ladder
+## counts only at its top.
+func _lands_on(x: float, feet: float) -> bool:
+	if room.solid_at(x, feet - 3.0):
 		return true
-	var top := floorf(feet / RoomData.TILE) * RoomData.TILE
-	return feet_before <= top and room.is_ladder_top_at(x, feet)
+	return room.is_ladder_cell(floori(x / RoomData.TILE), floori((feet - 3.0) / RoomData.TILE)) \
+		and not room.is_ladder_cell(floori(x / RoomData.TILE), floori((feet - 13.0) / RoomData.TILE))
 
 ## True when he stands on something. (Godot's is_on_floor only knows about
 ## its own collision, which the ROM rooms do not use for him.)

@@ -12,3 +12,4 @@ rom_assets/
 Tools/
 # Each PC's own note of where its Godot is
 godot_path.txt
+rom_listing/
