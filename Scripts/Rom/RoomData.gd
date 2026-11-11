@@ -38,6 +38,7 @@ var screens_wide := 1                  ## how many screens across the map is
 var screen_size := Vector2i(256, 192)  ## one screen in pixels (256 x 256 on the overworld)
 var doors: Array[Door] = []            ## the doorways in this map and where they lead
 var enemy_spots: Array[EnemySpot] = [] ## where the original puts its enemies
+var encounters: Array[Encounter] = []  ## what appears when the camera reaches a place (bosses)
 
 ## A room drawn with text: '#' solid, 'H' ladder, anything else empty.
 static func from_text(lines: PackedStringArray, room_name := "Test room") -> RoomData:

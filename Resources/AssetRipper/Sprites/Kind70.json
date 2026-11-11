@@ -1,0 +1,346 @@
+{
+ "about": "Which ROM tiles make up object kind 70, the boss met in world 1's second room (it looks like Bebop), taken from the game's sprite table while it was on screen. Tile numbers and positions only; no graphics. Positions are in pixels from its own position value, facing right.",
+ "tile_height": 16,
+ "palettes": {
+  "2": [
+   15,
+   8,
+   36,
+   55
+  ],
+  "3": [
+   15,
+   15,
+   38,
+   55
+  ]
+ },
+ "animations": {
+  "walk": {
+   "frames": [
+    "f128",
+    "f129",
+    "f130"
+   ],
+   "ticks": 4,
+   "loop": true
+  },
+  "stand": {
+   "frames": [
+    "f131"
+   ],
+   "ticks": 1,
+   "loop": true
+  },
+  "bump": {
+   "frames": [
+    "f131",
+    "f131",
+    "f132"
+   ],
+   "ticks": 4,
+   "loop": true
+  },
+  "jump": {
+   "frames": [
+    "f133"
+   ],
+   "ticks": 1,
+   "loop": true
+  }
+ },
+ "frames": {
+  "f128": [
+   {
+    "x": -14,
+    "y": -13,
+    "index": 2246,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -29,
+    "index": 2226,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -6,
+    "y": -13,
+    "index": 2248,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -45,
+    "index": 2222,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -29,
+    "index": 2228,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 8,
+    "y": -37,
+    "index": 2224,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f129": [
+   {
+    "x": -13,
+    "y": -13,
+    "index": 2250,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -29,
+    "index": 2226,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -5,
+    "y": -13,
+    "index": 2252,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -45,
+    "index": 2222,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -29,
+    "index": 2228,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 8,
+    "y": -37,
+    "index": 2224,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f130": [
+   {
+    "x": -12,
+    "y": -12,
+    "index": 2254,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -28,
+    "index": 2226,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": -12,
+    "index": 2256,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -44,
+    "index": 2222,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -28,
+    "index": 2228,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 8,
+    "y": -36,
+    "index": 2224,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f131": [
+   {
+    "x": -12,
+    "y": -31,
+    "index": 2212,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -12,
+    "y": -15,
+    "index": 2230,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": -31,
+    "index": 2214,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": -15,
+    "index": 2232,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 4,
+    "y": -31,
+    "index": 2216,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f132": [
+   {
+    "x": -12,
+    "y": -31,
+    "index": 2212,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -12,
+    "y": -15,
+    "index": 2230,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": -31,
+    "index": 2214,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": -15,
+    "index": 2232,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 4,
+    "y": -31,
+    "index": 2218,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f133": [
+   {
+    "x": -11,
+    "y": -9,
+    "index": 2234,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -25,
+    "index": 2226,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -3,
+    "y": -9,
+    "index": 2236,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -41,
+    "index": 2222,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -25,
+    "index": 2228,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 5,
+    "y": -9,
+    "index": 2238,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 8,
+    "y": -33,
+    "index": 2224,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ]
+ }
+}

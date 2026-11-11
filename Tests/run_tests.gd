@@ -677,6 +677,67 @@ func _ready() -> void:
 	check(bullet.position == Vector2(100 - 5 - 5, 36), "its bullet starts 5 across and 20 up and flies 5 pixels an update")
 	thrower.free()
 	clear_shots.call()
+	victim.position = Vector2(140, 56)
+	var pig := Bebop.new()
+	pig.setup(Vector2(100, 60), yard, null, victim)
+	add_child(pig)
+	pig.set_physics_process(false)
+	var pig_states: Array[int] = []
+	var pig_spans: Array[int] = []
+	var pig_stops: Array[float] = []
+	var pig_bumps := 0
+	for i in 120:
+		var pig_was := pig.state
+		pig.tick()
+		if pig.state != pig_was:
+			pig_states.append(pig.state)
+			pig_spans.append(i)
+			if pig_was == Bebop.State.BUMP:
+				pig_stops.append(victim.position.x - pig.position.x)
+			pig_bumps += 1 if pig.state == Bebop.State.BUMP else 0
+	check(pig.health == 72 and pig.touch_damage == 19, "the other boss (kind 70) has 72 hit points and does 19 on touch")
+	check(pig_states.slice(0, 3) == [Bebop.State.WALK, Bebop.State.BUMP, Bebop.State.STAND] and pig_stops[0] == 12.0 and pig_spans[2] - pig_spans[1] == 12, "it walks 2 pixels an update up to the turtle, stops 12 pixels short and waits 12 updates (%.0f)" % pig_stops[0])
+	var pig_turns := 0
+	for i in pig_states.size() - 1:
+		if (pig_states[i] == Bebop.State.FACE or pig_states[i] == Bebop.State.AWAY) and pig_spans[i] % 16 == 7:
+			pig_turns += 1
+	check(pig_bumps >= 5 and pig_turns >= 4 and pig_states.has(Bebop.State.FACE) and pig_states.has(Bebop.State.AWAY) and absf(victim.position.x - pig.position.x) < 24.0, "beside him it sets off again every 16 updates, at him and away by turns, and stops again (%d, %d)" % [pig_bumps, pig_turns])
+	pig.view_left = 0.0
+	victim.position = Vector2(160, 56)
+	pig.position = Vector2(24, 60)
+	pig.direction = -1
+	pig.speed_x = -512
+	pig.state = Bebop.State.WALK
+	pig.state_ticks = 0
+	pig.tick()
+	check(pig.direction == 1 and pig.position.x == 26.0, "it turns round 25 pixels from the left edge of the fight's screen")
+	pig.state_ticks = 47
+	pig.direction = -1
+	pig.speed_x = -512
+	pig.position = Vector2(60, 60)
+	pig.tick()
+	pig.tick()
+	check(pig.state == Bebop.State.WALK and pig.direction == 1, "after 48 updates of walking it faces the turtle again")
+	pig.position = Vector2(120, 60)
+	victim.position = Vector2(96, 56)
+	pig.direction = -1
+	pig.speed_x = -512
+	pig.state_ticks = 0
+	pig.clock = 0x1E
+	pig.tick()
+	check(pig.state == Bebop.State.WALK, "16 to 35 pixels away it does not jump while the frame counter is against it")
+	pig.position = Vector2(120, 60)
+	pig.clock = 0x3E
+	pig.tick()
+	var pig_top := 60.0
+	var pig_air := 1
+	check(pig.state == Bebop.State.JUMP, "and jumps when it is not")
+	while pig.state == Bebop.State.JUMP and pig_air < 60:
+		pig.tick()
+		pig_air += 1
+		pig_top = minf(pig_top, pig.position.y)
+	check(absf((60.0 - pig_top) - 43.0) < 2.5 and pig_air >= 33 and pig_air <= 37 and pig.position.y == 60.0 and pig.state == Bebop.State.AWAY, "the jump rises about 43 pixels, lasts 35 updates or so, and ends in a walk away (%.1f, %d)" % [60.0 - pig_top, pig_air])
+	pig.free()
 	victim.position = Vector2(200, 56)
 	var pacer_spot := EnemySpot.new()
 	pacer_spot.kind = 0x4B
@@ -960,6 +1021,56 @@ func _ready() -> void:
 		for spot in sewer.room.enemy_spots:
 			chainsaws += 1 if spot.kind == 0x91 and Crawler.KINDS.has(spot.kind) else 0
 		check(chainsaws == 3, "its 3 chainsaw carriers (kind 91) now move")
+		var first_room := levels.room(0, 1)
+		var bosses_listed := 0
+		for w in RomLevels.WORLDS:
+			for a in levels.area_count(w):
+				for entry in levels.room(w, a).encounters:
+					bosses_listed += 1 if entry.is_boss else 0
+		check(first_room.encounters.size() == 1 and first_room.encounters[0].kind == 0x70 and first_room.encounters[0].position == Vector2(608, 180) and first_room.encounters[0].camera_x() == 508.0, "the ROM's encounter table puts kind 70 at (608, 180) in the second room, for a camera at 508")
+		var last_room := levels.room(0, 5)
+		check(last_room.encounters.size() == 1 and last_room.encounters[0].kind == 0x71 and last_room.encounters[0].position == Vector2(208, 68) and last_room.encounters[0].hit_points == 96, "and kind 71 at (208, 68) in the last room, for a camera at the left end")
+		check(bosses_listed == 6, "the table names 6 bosses in the whole game (%d)" % bosses_listed)
+		sewer.load_area(0, 1)
+		leo.position = Vector2(700, 170)
+		for i in 4:
+			leo.invulnerable_timer = 1.0
+			await get_tree().physics_frame
+		check(sewer.boss == null and not sewer.fighting, "arriving with the screen already at the room's right end brings no boss")
+		leo.position = Vector2(600, 170)
+		for i in 3:
+			leo.invulnerable_timer = 1.0
+			await get_tree().physics_frame
+		leo.position = Vector2(637, 170)
+		for i in 3:
+			leo.invulnerable_timer = 1.0
+			await get_tree().physics_frame
+		check(sewer.boss is Bebop and sewer.boss.health == 72 and sewer.boss.touch_damage == 19 and sewer.boss.sprites != null, "the screen reaching 508 from the left brings kind 70 in, with 72 hit points and 19 touch damage from the ROM")
+		check(sewer.fighting and sewer.fight_corner == Vector2(508, 0) and sewer.boss_bar.visible and sewer._company != null and sewer._company.position == Vector2(704, 83), "the screen is held there, the boss's energy shows, and the two on the ledge stand by")
+		leo.position = Vector2(400, 170)
+		for i in 3:
+			leo.invulnerable_timer = 1.0
+			await get_tree().physics_frame
+		check(leo.position.x >= 528.0, "the turtle cannot leave the fight's screen (%.0f)" % leo.position.x)
+		sewer.boss.take_hit(36)
+		for i in 2:
+			leo.invulnerable_timer = 1.0
+			await get_tree().physics_frame
+		check(sewer.boss_bar.health == 4, "half its energy gone shows as 4 blocks of 8")
+		sewer.boss.take_hit(999)
+		for i in 4:
+			leo.invulnerable_timer = 1.0
+			await get_tree().physics_frame
+		check(not sewer.fighting and not sewer.boss_bar.visible and sewer._company == null and sewer.world == 0 and not sewer.room.top_down, "beating it frees the screen and the world goes on")
+		leo.position = Vector2(600, 170)
+		for i in 3:
+			leo.invulnerable_timer = 1.0
+			await get_tree().physics_frame
+		leo.position = Vector2(637, 170)
+		for i in 3:
+			leo.invulnerable_timer = 1.0
+			await get_tree().physics_frame
+		check(not sewer.fighting, "and it does not come back")
 		sewer.load_area(0, 5)
 		sewer.set_flying(true)
 		leo.position = Vector2(300, 160)

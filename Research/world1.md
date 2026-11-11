@@ -10,7 +10,7 @@ in 1/256ths of a pixel per update; an update is two frames.
 | Area | Size (screens) | Placed enemy kinds | Also found |
 | --- | --- | --- | --- |
 | 0 | 4 x 1 | 8D, 81, 98 | a slice of pizza at (928, 32) |
-| 1 | 3 x 1 | 8D, 81, 98 | |
+| 1 | 3 x 1 | 8D, 81, 98 | the first boss, kind 70 (see `encounters.md`) |
 | 2 | 4 x 1 | 81, 98 | item kind 0B at (560, 64) |
 | 3 | 3 x 1 | 86, 49, AA | a slice of pizza at (640, 40) |
 | 4 | 2 x 1 | 86, 49, 91 | a whole pizza at (32, 48), a slice at (304, 64) |
@@ -80,18 +80,20 @@ and starts the next world on its overworld. The remake shows
 "WORLD 1 CLEAR" for three seconds and opens world 2's overworld. Whatever
 the original shows in between (April's rescue) is not done.
 
-## Not found
+## The other boss, and April
 
-- **The other boss.** I expected a second boss in world 1 (kind 70, by its
-  place next to 71 in the list of boss kinds). No object of kind 70 to 7F
-  other than 71 appeared anywhere in world 1's rooms, standing on every
-  floor position for about two seconds each. It may need a condition I did
-  not meet, or it may not be in this world.
-- **April.** No object that looked like her was seen.
+Found in update 21: see `encounters.md`. Kind 70 comes in on area 1's last
+screen, with a picture of Rocksteady holding April on the ledge above. My
+earlier search missed it because it only appears when the screen scrolls
+there from the left. The same notes give the ROM table that places both
+bosses, so the remake no longer lists them by hand, and correct the
+guess above about where kind 71 appears: the rule is "camera at X 0",
+which is the same thing as the turtle being left of X 128.
 
 ## Still missing from world 1
 
 The overworld's enemies (kinds 40, 9A, 9B) do not move and cannot be
 fought; kind AA; the turtle being captured and the others taking over;
-score; sound; and everything listed as approximate on the enemies' own
-pages.
+what the original shows when the world is won (April's rescue); score;
+sound; the three encounter entries that are not bosses; and everything
+listed as approximate on the enemies' own pages.

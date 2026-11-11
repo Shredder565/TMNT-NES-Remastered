@@ -73,7 +73,9 @@ number, are the 5 kinds not recorded yet. See `Research/enemy_kinds.md`.
 | `Scripts/Enemies/PathEnemy.gd` | Enemy kind 88, which rides up and down |
 | `Scripts/Enemies/Shot.gd` | The things enemies throw and fire |
 | `Scripts/Enemies/Puff.gd` | The puff a beaten enemy leaves |
-| `Scripts/Enemies/Rocksteady.gd` | The boss of world 1 |
+| `Scripts/Enemies/Boss.gd` | What the bosses share |
+| `Scripts/Enemies/Bebop.gd` | World 1's first boss, in the second sewer |
+| `Scripts/Enemies/Rocksteady.gd` | World 1's last boss |
 | `Scripts/Levels/Item.gd` | Pizzas and other things to pick up |
 | `Scripts/Player/OverworldTurtle.gd` | The small turtle that walks the overworld map |
 | `Scripts/Levels/RoomScene.gd` | Shows a room or a map and takes the turtle through doors |
@@ -84,8 +86,11 @@ number, are the 5 kinds not recorded yet. See `Research/enemy_kinds.md`.
 ## World 1
 
 World 1 can be played from its overworld to its end: the six rooms, their
-enemies, three pizzas and one other item, and the boss in the last room.
-Beating the boss opens world 2's overworld. What is still missing from it
+enemies, three pizzas and one other item, the first boss at the end of the
+second sewer and the last boss in the last room. The bosses come in where
+the ROM's own table says, the screen holds still while one is fought, and
+its energy shows under the turtle's. Beating the last boss opens world 2's
+overworld. What is still missing from it
 is listed at the end of `Research/world1.md`.
 
 ## Sprite map format

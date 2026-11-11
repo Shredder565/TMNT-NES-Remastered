@@ -1,0 +1,127 @@
+{
+ "about": "Which ROM tiles make up object kind 11, the two figures who stand on the ledge during the fight in world 1's second room (they look like Rocksteady holding April), taken from the game's sprite table. Tile numbers and positions only; no graphics. Positions are in pixels from its own position value.",
+ "tile_height": 16,
+ "palettes": {
+  "2": [
+   15,
+   8,
+   36,
+   55
+  ],
+  "3": [
+   15,
+   15,
+   38,
+   55
+  ]
+ },
+ "animations": {
+  "stand": {
+   "frames": [
+    "f138"
+   ],
+   "ticks": 1,
+   "loop": true
+  }
+ },
+ "frames": {
+  "f138": [
+   {
+    "x": -8,
+    "y": -31,
+    "index": 2262,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -15,
+    "index": 2230,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -47,
+    "index": 2258,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -31,
+    "index": 2264,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -15,
+    "index": 2232,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 8,
+    "y": -47,
+    "index": 2260,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 8,
+    "y": -31,
+    "index": 2266,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 16,
+    "y": -16,
+    "index": 2292,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 24,
+    "y": -32,
+    "index": 2286,
+    "palette": 3,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 24,
+    "y": -16,
+    "index": 2290,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 32,
+    "y": -32,
+    "index": 2284,
+    "palette": 3,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 32,
+    "y": -16,
+    "index": 2288,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   }
+  ]
+ }
+}

@@ -53,6 +53,9 @@ const T_KIND_INFO_HIGH := 0x883D  ## kinds $80 and up: hit points, first animati
 const T_KIND_INFO_LOW := 0x8749   ## kinds below $80: hit points, first animation
 const T_WEAPON_DAMAGE := 0x9BCB   ## per turtle: damage of a hit, then when below half energy
 const T_TOUCH_DAMAGE := 0x8B05    ## per kind: energy the turtle loses on touching it
+const T_ENCOUNTERS := 0x9E6D      ## per world -> per area: list of (row, column, x, y, slot[, $Fn]), ends $FF
+const T_ENCOUNTER_LINEUPS := 0x9E5F ## per $Fn code: the line-up that entry's kind comes from
+const ENCOUNTER_BYTES := 5
 const ENEMY_LINEUPS := 18
 const OVERWORLD_LINEUP := 16      ## every overworld uses this one
 const ENEMY_SPOT_BYTES := 3
@@ -157,8 +160,35 @@ func room(world: int, area: int) -> RoomData:
 	for i in 4:
 		lineups.append(_byte(6, lineup_address + i))
 	data.enemy_spots = _enemy_spots(_word(6, _word(6, T_ENEMY_SPOTS + world * 2) + area * 2), data, lineups)
+	data.encounters = _encounters(_word(6, _word(6, T_ENCOUNTERS + world * 2) + area * 2))
 	data.start = data.find_spawn()
 	return data
+
+## The things that appear when the camera reaches a place in the room
+## (Research/encounters.md). Bosses carry a code naming their own line-up;
+## for the other entries the kind is not known and stays -1.
+func _encounters(address: int) -> Array[Encounter]:
+	var found: Array[Encounter] = []
+	if address < 0x8000 or address >= 0xC000:
+		return found
+	while _byte(6, address) != 0xFF and found.size() < 8:
+		var entry := Encounter.new()
+		entry.row = _byte(6, address)
+		entry.column = _byte(6, address + 1)
+		entry.position = Vector2(entry.column * 256 + _byte(6, address + 2),
+			entry.row * SCREEN_BLOCKS.y * 32 + _byte(6, address + 3))
+		entry.slot = _byte(6, address + 4)
+		address += ENCOUNTER_BYTES
+		var code := _byte(6, address)
+		if code >= 0xF0 and code != 0xFF:
+			address += 1
+			entry.is_boss = true
+			entry.kind = _kind_in_slot(_byte(6, T_ENCOUNTER_LINEUPS + (code & 0x0F)), entry.slot & 7)
+			if entry.kind > 0:
+				entry.hit_points = hit_points(entry.kind)
+				entry.touch_damage = touch_damage(entry.kind)
+		found.append(entry)
+	return found
 
 ## A world's top-down map, with the doors (manholes, buildings) on it.
 ## Returns null for the sixth world, which has none.
