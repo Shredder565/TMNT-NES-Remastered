@@ -35,6 +35,10 @@ F1 to open the tile viewer (needs a ROM). F3/F4 step through the 46 areas,
 F7 shows the current world's overworld map, F8 switches the stand-in enemies
 on and off, F6 toggles flying through walls, F2 opens the practice room.
 
+A controller works as soon as it is plugged in, with no setup (Xbox layout;
+PlayStation and Switch pads map onto it): d-pad or left stick to move, climb
+and crouch, A to jump, X or B to attack, Start to pause.
+
 With a ROM the game opens on the first overworld map, as the original does.
 Walk onto a manhole or into a doorway to go in. Inside, climb a ladder out of
 the top of the screen, or press Up in front of a doorway, to come back out.
@@ -59,7 +63,7 @@ number, are the 5 kinds not recorded yet. See `Research/enemy_kinds.md`.
 | Folder | What is in it |
 | --- | --- |
 | `Scenes/` | Scene files: the boot scene, ROM screen, test room, turtle, tile viewer |
-| `Scripts/Singletons/Game.gd` | Shared settings: file paths and key bindings |
+| `Scripts/Singletons/Game.gd` | Shared settings: file paths, key and controller bindings |
 | `Scripts/Rom/RomInfo.gd` | Checks that a file is the right game |
 | `Scripts/Rom/ChrRipper.gd` | Turns the ROM's tile data into images |
 | `Scripts/Player/Turtle.gd` | Movement, jump and attack for one turtle |

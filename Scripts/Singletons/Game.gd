@@ -2,12 +2,12 @@ extends Node
 ## Autoload ("singleton"). Godot creates one copy of this when the game starts
 ## and every other script can reach it by the name Game.
 ## It holds the things the whole project needs: file locations, the key
-## bindings, and whether a ROM has been supplied.
+## and controller bindings, and whether a ROM has been supplied.
 
 ## user:// is a per-user folder Godot manages for us. On Windows it is
 ## %APPDATA%\Godot\app_userdata\TMNT Remake. Nothing in it is ever committed to Git.
 ## Shown on the ROM screen so we can tell which update is installed.
-const BUILD := 21
+const BUILD := 22
 
 const ROM_PATH := "user://baserom.nes"
 const ROM_ASSETS_PATH := "user://rom_assets"
@@ -38,6 +38,29 @@ const DEFAULT_KEYS := {
 	"toggle_enemies": [KEY_F8],
 }
 
+## Action name -> controller buttons, on from the start with no setup.
+## The names are Godot's, which follow the Xbox layout: the d-pad moves,
+## A jumps, X or B attacks (the NES pad's A and B), Start pauses. Any
+## controller Godot recognises (Xbox, PlayStation, Switch) maps onto these.
+const DEFAULT_PAD_BUTTONS := {
+	"move_left": [JOY_BUTTON_DPAD_LEFT],
+	"move_right": [JOY_BUTTON_DPAD_RIGHT],
+	"move_up": [JOY_BUTTON_DPAD_UP],
+	"move_down": [JOY_BUTTON_DPAD_DOWN],
+	"jump": [JOY_BUTTON_A],
+	"attack": [JOY_BUTTON_X, JOY_BUTTON_B],
+	"pause": [JOY_BUTTON_START],
+}
+## Action name -> [stick axis, direction]: the left stick moves too.
+const DEFAULT_PAD_AXES := {
+	"move_left": [JOY_AXIS_LEFT_X, -1.0],
+	"move_right": [JOY_AXIS_LEFT_X, 1.0],
+	"move_up": [JOY_AXIS_LEFT_Y, -1.0],
+	"move_down": [JOY_AXIS_LEFT_Y, 1.0],
+}
+const STICK_DEADZONE := 0.5       ## how far the stick must be pushed to count
+const ANY_CONTROLLER := -1        ## listen to every controller plugged in
+
 func _ready() -> void:
 	_register_input_actions()
 
@@ -49,6 +72,19 @@ func _register_input_actions() -> void:
 			var event := InputEventKey.new()
 			event.physical_keycode = keycode
 			InputMap.action_add_event(action, event)
+	for action: String in DEFAULT_PAD_BUTTONS:
+		InputMap.action_set_deadzone(action, STICK_DEADZONE)
+		for button: int in DEFAULT_PAD_BUTTONS[action]:
+			var press := InputEventJoypadButton.new()
+			press.button_index = button
+			press.device = ANY_CONTROLLER
+			InputMap.action_add_event(action, press)
+	for action: String in DEFAULT_PAD_AXES:
+		var push := InputEventJoypadMotion.new()
+		push.axis = DEFAULT_PAD_AXES[action][0]
+		push.axis_value = DEFAULT_PAD_AXES[action][1]
+		push.device = ANY_CONTROLLER
+		InputMap.action_add_event(action, push)
 
 ## True when a ROM has been copied in and still passes the checks.
 func has_rom() -> bool:

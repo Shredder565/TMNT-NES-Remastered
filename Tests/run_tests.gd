@@ -87,6 +87,27 @@ func _ready() -> void:
 		await get_tree().physics_frame
 	check(turtle.is_on_floor() and absf(turtle.position.y - 208.0) < 1.0, "turtle falls and lands on the floor")
 	check(InputMap.has_action("jump") and InputMap.has_action("attack"), "key bindings are registered")
+	var pad_a := InputEventJoypadButton.new()
+	pad_a.button_index = JOY_BUTTON_A
+	pad_a.device = 3
+	pad_a.pressed = true
+	var pad_x := InputEventJoypadButton.new()
+	pad_x.button_index = JOY_BUTTON_X
+	pad_x.pressed = true
+	var pad_start := InputEventJoypadButton.new()
+	pad_start.button_index = JOY_BUTTON_START
+	pad_start.pressed = true
+	var pad_left := InputEventJoypadButton.new()
+	pad_left.button_index = JOY_BUTTON_DPAD_LEFT
+	pad_left.pressed = true
+	check(pad_a.is_action("jump") and pad_x.is_action("attack") and pad_start.is_action("pause") and pad_left.is_action("move_left"), "a controller works with no setup: A jumps, X attacks, Start pauses, the d-pad moves (on any controller number)")
+	var stick := InputEventJoypadMotion.new()
+	stick.axis = JOY_AXIS_LEFT_X
+	stick.axis_value = 0.9
+	var nudge := InputEventJoypadMotion.new()
+	nudge.axis = JOY_AXIS_LEFT_X
+	nudge.axis_value = 0.3
+	check(stick.is_action_pressed("move_right") and not stick.is_action_pressed("move_left") and not nudge.is_action_pressed("move_right"), "the left stick moves too, once pushed past half way")
 
 	print("Movement copied from the original")
 	room.get_node("DummyEnemy").set_physics_process(false)
