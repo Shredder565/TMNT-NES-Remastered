@@ -128,6 +128,21 @@ func nearest_walkable(point: Vector2) -> Vector2:
 func solid_at(x: float, y: float) -> bool:
 	return is_solid_cell(floori(x / TILE), floori(y / TILE))
 
+## Is this point in the top cell of a ladder that comes up through a floor?
+## (The same cells ladder_tops() lists.)
+func is_ladder_top_at(x: float, y: float) -> bool:
+	var col := floori(x / TILE)
+	var row := floori(y / TILE)
+	if not is_ladder_cell(col, row) or is_ladder_cell(col, row - 1):
+		return false
+	var first := col
+	while is_ladder_cell(first - 1, row):
+		first -= 1
+	var last := col
+	while is_ladder_cell(last + 1, row):
+		last += 1
+	return is_solid_cell(first - 1, row) or is_solid_cell(last + 1, row)
+
 ## If the point is on a ladder, returns the ladder's centre line (x).
 ## Otherwise returns NAN.
 func ladder_center_at(x: float, y: float) -> float:

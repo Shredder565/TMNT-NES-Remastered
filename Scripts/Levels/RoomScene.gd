@@ -72,10 +72,13 @@ const WORLD_END_BOSS := Rocksteady.KIND
 const BOSS_COMPANY := {
 	Bebop.KIND: [0x11, Vector2(196, 83), true],
 }
-## During a boss fight the screen stays put and the turtle is kept between
-## these two distances from its left edge (measured).
-const FIGHT_LEFT := 20.0
-const FIGHT_RIGHT := 220.0
+## The turtle is kept between these two distances from the screen's left
+## edge (measured: 20 from a room's ends, and from the edge of the screen
+## a boss fight is held on).
+const SCREEN_LEFT := 20.0
+const SCREEN_RIGHT := 236.0
+const HOLD_ENTER_FRAMES := 16       ## clear screen to the extra enemy coming in
+const HOLD_LEAVE_FRAMES := 64       ## that enemy beaten to the screen being freed
 const TURTLE_ENERGY := 128           ## the original's full energy; the bar shows it as 8 blocks
 const ENERGY_BLOCKS := 8
 
@@ -100,6 +103,10 @@ var boss_bar: Control                ## the boss's energy, under the turtle's
 var fight_corner := Vector2.ZERO     ## where the screen is held during a boss fight
 var fighting := false
 var _company: Node2D                 ## what stands by during the fight
+var hold: Encounter                  ## the held fight going on, if any
+var hold_stage := 0                  ## 1: clear the screen. 2: beat the enemy that came in
+var _hold_frames := 0
+var _holds_done := {}                ## this room's held fights already fought (by number)
 var _boss_done := {}                 ## (world, area) -> true once that room's boss has appeared
 var _clearing := false               ## true while the "world clear" message is up
 var _boss_key := Vector2i(-1, -1)    ## the room the living boss belongs to
@@ -236,6 +243,7 @@ func _place_items() -> void:
 	boss = null
 	_company = null
 	_end_fight()
+	_holds_done.clear()
 	if levels == null or room == null or room.top_down or not room.name.begins_with("World"):
 		return
 	for entry: Array in ITEMS.get(Vector2i(world, area), []):
@@ -243,15 +251,21 @@ func _place_items() -> void:
 		item.setup(entry[0], entry[1], SpriteSet.cached("Kind%02X" % entry[0]))
 		items.add_child(item)
 
-## Brings a boss in when the camera reaches the place the ROM's encounter
-## table gives for it (Research/encounters.md), and holds the screen there.
+## Starts a fight when the camera reaches a place the ROM's encounter
+## table names (Research/encounters.md), and holds the screen there.
 func _check_boss() -> void:
-	var key := Vector2i(world, area)
-	if levels == null or not show_enemies or _boss_done.has(key) or room.top_down or not room.name.begins_with("World"):
+	if levels == null or not show_enemies or fighting or room.top_down or not room.name.begins_with("World"):
 		return
+	var key := Vector2i(world, area)
 	var corner := _view_corner()
-	for entry in room.encounters:
-		if not entry.is_boss or not BOSS_KINDS.has(entry.kind):
+	var before := _boss_camera_x
+	_boss_camera_x = corner.x
+	for index in room.encounters.size():
+		var entry := room.encounters[index]
+		if entry.is_boss:
+			if _boss_done.has(key) or not BOSS_KINDS.has(entry.kind):
+				continue
+		elif _holds_done.has(index) or entry.kind <= 0:
 			continue
 		if floori(corner.y / VIEW_SIZE.y) != entry.row:
 			continue
@@ -259,11 +273,36 @@ func _check_boss() -> void:
 		if entry.column == 0:
 			if corner.x > 0.0:
 				continue
-		elif corner.x < wanted - 1.0 or _boss_camera_x >= wanted - 1.0 or corner.x - _boss_camera_x > 64.0:
-			continue   # the camera has to scroll there from the left
-		_start_fight(entry, key)
+		elif absf(corner.x - before) > 64.0 or minf(corner.x, before) > wanted + 1.0 or maxf(corner.x, before) < wanted - 1.0:
+			continue   # the camera has to scroll onto that spot, from either side
+		if entry.is_boss:
+			_start_fight(entry, key)
+		else:
+			_start_hold(entry, index)
 		break
-	_boss_camera_x = corner.x
+
+## A held fight: the screen stops; see _run_fight for the rest.
+func _start_hold(entry: Encounter, index: int) -> void:
+	_holds_done[index] = true
+	hold = entry
+	hold_stage = 1
+	_hold_frames = 0
+	_hold_screen(Vector2(entry.camera_x(), entry.row * VIEW_SIZE.y))
+
+func _hold_screen(corner: Vector2) -> void:
+	fight_corner = corner
+	fighting = true
+	var camera: Camera2D = turtle.get_node("Camera2D")
+	camera.limit_left = int(fight_corner.x)
+	camera.limit_right = int(fight_corner.x) + VIEW_SIZE.x
+
+## How many enemies (and things they threw) are on the map just now.
+func living_enemies() -> int:
+	var count := 0
+	for thing in enemies.get_children():
+		if not (thing is Puff) and not thing.is_queued_for_deletion():
+			count += 1
+	return count
 
 func _start_fight(entry: Encounter, key: Vector2i) -> void:
 	_boss_done[key] = true
@@ -277,12 +316,8 @@ func _start_fight(entry: Encounter, key: Vector2i) -> void:
 	boss.weapon_damage = damage.x
 	boss.weapon_damage_low = damage.y
 	boss.defeated.connect(_on_boss_defeated.bind(entry.kind))
-	fight_corner = Vector2(entry.camera_x(), entry.row * VIEW_SIZE.y)
+	_hold_screen(Vector2(entry.camera_x(), entry.row * VIEW_SIZE.y))
 	boss.view_left = fight_corner.x
-	fighting = true
-	var camera: Camera2D = turtle.get_node("Camera2D")
-	camera.limit_left = int(fight_corner.x)
-	camera.limit_right = int(fight_corner.x) + VIEW_SIZE.x
 	items.add_child(boss)   # kept apart from the enemies so the camera rule never removes it
 	if BOSS_COMPANY.has(entry.kind):
 		var company: Array = BOSS_COMPANY[entry.kind]
@@ -310,6 +345,8 @@ func _make_prop(kind: int, at: Vector2) -> Node2D:
 func _end_fight() -> void:
 	if boss_bar != null:
 		boss_bar.hide()
+	hold = null
+	hold_stage = 0
 	if not fighting:
 		return
 	fighting = false
@@ -318,13 +355,37 @@ func _end_fight() -> void:
 		camera.limit_left = 0
 		camera.limit_right = room.size_pixels().x
 
-## Keeps the turtle on the fight's screen and the boss's energy on show.
+## Keeps the turtle on the screen; shows a boss's energy; and runs a held
+## fight: once the screen is clear of enemies, one more comes in after 16
+## frames, and 64 frames after that one is beaten the screen is freed.
 func _run_fight() -> void:
+	var left := _view_corner().x
+	turtle.position.x = clampf(turtle.position.x, left + SCREEN_LEFT, left + SCREEN_RIGHT)
 	if not fighting:
 		return
-	turtle.position.x = clampf(turtle.position.x, fight_corner.x + FIGHT_LEFT, fight_corner.x + FIGHT_RIGHT)
 	if boss != null and is_instance_valid(boss):
 		boss_bar.set_health(ceili(maxi(boss.health, 0) * float(ENERGY_BLOCKS) / maxi(boss.full_health, 1)), ENERGY_BLOCKS)
+	if hold == null:
+		return
+	if not show_enemies:
+		_end_fight()
+		return
+	if living_enemies() > 0:
+		_hold_frames = 0
+		return
+	_hold_frames += 1
+	if hold_stage == 1 and _hold_frames >= HOLD_ENTER_FRAMES:
+		var spot := EnemySpot.new()
+		spot.position = fight_corner + hold.offset
+		spot.kind = hold.kind
+		spot.kinds = PackedInt32Array([hold.kind, hold.kind, hold.kind, hold.kind])
+		spot.hit_points = hold.hit_points
+		spot.touch_damage = hold.touch_damage
+		_make_enemy(spot)
+		hold_stage = 2
+		_hold_frames = 0
+	elif hold_stage == 2 and _hold_frames >= HOLD_LEAVE_FRAMES:
+		_end_fight()
 
 ## Beating the first boss frees the screen, and those who stood by are
 ## gone. Beating the last one ends the world: the original then starts the
@@ -433,7 +494,7 @@ func _apply_floor_kinds() -> void:
 		return
 	_floor_frame += 1
 	var feet := turtle.position
-	if turtle.is_on_floor():
+	if turtle.on_floor():
 		var under := room.kind_at_pixel(feet.x, feet.y + 1.0)
 		if under == RoomData.KIND_DEADLY and _floor_frame % Turtle.TICK_FRAMES == 0:
 			turtle.drain(RoomData.HURT_DAMAGE)
@@ -505,7 +566,7 @@ func _room_door_in_use() -> Door:
 	if turtle.state == Turtle.State.CLIMB:
 		if fposmod(centre.y, room.screen_size.y) >= LADDER_EXIT_HEIGHT:
 			return null
-	elif turtle.state != Turtle.State.NORMAL or not turtle.is_on_floor() or not room.door_cell_near(centre):
+	elif turtle.state != Turtle.State.NORMAL or not turtle.on_floor() or not room.door_cell_near(centre):
 		return null
 	return room.door_at(centre, _door_reach())
 

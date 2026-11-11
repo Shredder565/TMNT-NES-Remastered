@@ -95,5 +95,6 @@ which is the same thing as the turtle being left of X 128.
 The overworld's enemies (kinds 40, 9A, 9B) do not move and cannot be
 fought; kind AA; the turtle being captured and the others taking over;
 what the original shows when the world is won (April's rescue); score;
-sound; the three encounter entries that are not bosses; and everything
-listed as approximate on the enemies' own pages.
+sound; what `turtle_collision.md` lists as still different in how the
+turtle moves; and everything listed as approximate on the enemies' own
+pages.

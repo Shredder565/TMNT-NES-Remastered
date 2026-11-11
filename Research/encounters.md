@@ -34,13 +34,34 @@ The entries with a code are the bosses: six in the whole game. World 1:
 | 1 | 00 02 60 B4 B0 F0 | 70 | (608, 180) | X 508 |
 | 5 | 00 00 D0 44 B9 F1 | 71 | (208, 68) | X 0 |
 
-Both match what the emulator showed. The remake now reads this table
+Both match what the emulator showed. The remake reads this table
 (`RomLevels._encounters`) instead of listing bosses by hand.
 
-**Not understood:** the entries without a code (world 1 has three, in
-areas 0, 2 and 3, all with slot byte 9B). Meeting their camera condition
-set $5E to 1 and nothing else that I could see happened. The remake
-ignores them.
+## Held fights: the entries without a code (read from code, then measured)
+
+Update 21 called these "not understood". They are fights the screen
+stops for. World 1 has three: area 0 (camera 508), area 2 (764) and
+area 3 (252). What happens:
+
+1. The camera reaches the entry's spot, from either side (the test is on
+   the camera's position only). $5E becomes 1. The screen stops and the
+   turtle is kept on it.
+2. Nothing more happens while any enemy, or anything an enemy threw, is
+   on the screen. (The check is at $EEE9 in bank 7.)
+3. Fourteen frames after the screen is clear, one more enemy comes in
+   ($5E = 2). Its kind is the entry's slot in the room's own line-up: kind
+   98 in areas 0 and 2, kind 91 in area 3. It appears at the entry's X
+   counted from the screen's left edge: (532, 100), (844, 176), (460, 96).
+4. Once that enemy is gone the game plays a sound, waits 64 frames, sets
+   the entry's bit in $AE and frees the screen ($5E = 0).
+
+I tested this by removing the enemies from memory, not by fighting them.
+The remake does the same (`RoomScene._start_hold`). $AE must be cleared
+when a room is entered, since each room numbers its entries from 0; the
+remake lets a room's held fights happen again each time it is entered.
+
+The same either-side rule applies to bosses, so the remake's boss trigger
+was changed to match.
 
 ## During a fight (measured)
 

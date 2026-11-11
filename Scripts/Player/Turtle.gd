@@ -18,6 +18,16 @@ const WALK_SPEED := 576         ## 2.25 px per update = 67.5 px per second
 const CLIMB_SPEED := 576        ## ladders: also 2.25 px per update
 const JUMP_SPEED := -1536       ## -6 px per update at take-off
 const GRAVITY := 84             ## added to the fall speed every update
+const BODY_HEIGHT := 30.0        ## the box enemies touch, and the practice room's collision
+## The points of the tile map the original tests (see _move_in_room).
+const SIDE_REACH := 6.0
+const SIDE_LOW := 3.0
+const SIDE_HIGH := 20.0
+const HEAD_REACH := 3.0
+const HEAD_POINT := 32.0
+const CEILING_POINT := 28.0
+const TRAILING_FOOT := 16.0
+const LANDING_DEPTH := 3.0
 const SHORT_JUMP_TICK := 4      ## 4 updates after take-off: button released?
 const SHORT_JUMP_SPEED := -624  ## ...then the rise is cut to this (low jump, 33 px)
 const BOOST_TICK := 8           ## 8 updates after take-off: button still held?
@@ -41,6 +51,10 @@ var attack_length := 6                 ## 3 frames of 2 updates each, as in the 
 var anim := "stand"
 var anim_tick := 0
 var sprites: SpriteSet                 ## null until a ROM is supplied: then placeholder art is used
+var grounded := false                  ## standing on something
+var _bumped_head := false
+var _was_grounded := true
+var _just_landed := false
 var room: RoomData                     ## set by the room, so the turtle can find ladders
 var climb_distance := 0.0              ## pixels climbed, used to step the ladder animation
 var invulnerable_timer := 0.0
@@ -97,18 +111,26 @@ func _tick() -> void:
 		_attack_pressed = false
 		_update_art()
 		return
-	# move_and_slide moves by velocity / 60 each call, so this moves exactly
-	# speed / 256 pixels.
-	velocity = Vector2(speed) / 256.0 * Engine.physics_ticks_per_second
-	move_and_slide()
+	if room != null:
+		_move_in_room()
+	else:
+		# The practice room has no tile map: Godot's own collision does it.
+		# move_and_slide moves by velocity / 60 each call, so this moves
+		# exactly speed / 256 pixels.
+		velocity = Vector2(speed) / 256.0 * Engine.physics_ticks_per_second
+		move_and_slide()
+		grounded = is_on_floor()
+		_bumped_head = is_on_ceiling()
 
-	if is_on_floor():
+	_just_landed = grounded and not _was_grounded
+	_was_grounded = grounded
+	if grounded:
 		if speed.y > 0:
 			speed.y = 0
 		if jump_tick > 0:
 			jump_tick = -1
 	else:
-		if is_on_ceiling() and speed.y < 0:
+		if _bumped_head and speed.y < 0:
 			speed.y = 0
 			jump_tick = -1
 		speed.y = mini(speed.y + GRAVITY, MAX_FALL_SPEED)
@@ -118,7 +140,7 @@ func _tick() -> void:
 			_control()
 		State.HURT:
 			_hurt_ticks += 1
-			if is_on_floor() and _hurt_ticks > 2:
+			if on_floor() and _hurt_ticks > 2:
 				state = State.NORMAL
 				speed.x = 0
 		State.DEAD:
@@ -134,7 +156,7 @@ func _update_art() -> void:
 		wanted = "climb"
 	elif attack_tick >= 0:
 		wanted = "attack_crouch" if state == State.CROUCH else "attack"
-	elif state == State.HURT or state == State.DEAD or not is_on_floor():
+	elif state == State.HURT or state == State.DEAD or not on_floor():
 		wanted = "jump"
 	elif state == State.CROUCH:
 		wanted = "crouch"
@@ -210,9 +232,15 @@ func _control() -> void:
 		weapon_hitbox.scale.x = facing
 
 	# Crouch: hold down on the ground. No walking while crouched.
-	_set_crouching(Input.is_action_pressed("move_down") and is_on_floor())
+	_set_crouching(Input.is_action_pressed("move_down") and on_floor())
 
-	if is_on_floor():
+	var taking_off := _jump_pressed and on_floor() and state != State.CROUCH and not _just_landed
+	if _just_landed:
+		# The update he lands on, the original does not move him sideways.
+		speed.x = 0
+	elif taking_off:
+		pass   # a jump keeps the sideways speed he already had (none from a standstill)
+	elif on_floor():
 		# On the ground the turtle starts and stops instantly.
 		speed.x = 0 if state == State.CROUCH else direction * WALK_SPEED
 	elif direction != 0:
@@ -226,7 +254,7 @@ func _control() -> void:
 			speed.y = SHORT_JUMP_SPEED
 		elif jump_tick == BOOST_TICK and Input.is_action_pressed("jump"):
 			speed.y = BOOST_SPEED
-	if _jump_pressed and is_on_floor() and state != State.CROUCH:
+	if taking_off:
 		speed.y = JUMP_SPEED
 		jump_tick = 0
 
@@ -242,12 +270,77 @@ func _control() -> void:
 		attack_tick = 0
 		attack_length = 8 if state == State.CROUCH else 6
 
+## Moves him through a ROM room the way the original does: by testing a
+## few points of the tile map, not a box. Measured in the emulator
+## (Research/turtle_collision.md):
+## - Sideways he is stopped by anything solid 6 pixels ahead at 3 or at 20
+##   pixels above his feet, or 3 pixels ahead at 32 above (his head).
+##   Stopped means he does not move that update; he is not slid up to it.
+## - Going up he stops when the point 28 above his feet, at his middle,
+##   would enter something solid.
+## - Falling, he lands when the point 3 pixels above his feet, in the
+##   middle, is in a floor, and is put on top of it. Once standing, the
+##   point at his feet and a second one 16 pixels behind him hold him up.
+## Because the low points are 3 pixels up, a ledge whose top is 1 or 2
+## pixels above his feet does not stop him: he goes in and is put on top.
+func _move_in_room() -> void:
+	var step := Vector2(speed) / 256.0
+	_bumped_head = false
+	# Both tests are made from where he is now, then both moves are made.
+	var across := step.x
+	if across != 0.0 and _side_blocked(position.x + across, signf(across)):
+		across = 0.0
+	if step.y < 0.0:
+		if room.solid_at(position.x, position.y + step.y - CEILING_POINT):
+			_bumped_head = true
+		else:
+			position.y += step.y
+		grounded = false
+	else:
+		var feet := position.y + step.y
+		if grounded:
+			# Standing: floor under his middle, or 16 pixels behind him, so
+			# he walks about 16 pixels past a ledge's end before he drops
+			# (measured: 14 to 19 at four ledge ends, 6 at a fifth).
+			grounded = _floor_under(position.x, feet, position.y) or _floor_under(position.x - facing * TRAILING_FOOT, feet, position.y)
+			if not grounded:
+				position.y = feet
+		elif _floor_under(position.x, feet - LANDING_DEPTH, position.y - LANDING_DEPTH):
+			# Falling: he lands once he is 3 pixels into the floor, and is
+			# put on top of it.
+			var top := floorf((feet - LANDING_DEPTH) / RoomData.TILE) * RoomData.TILE
+			if room.solid_at(position.x, top - 1.0) and not room.solid_at(position.x, top - RoomData.TILE - 1.0):
+				top -= RoomData.TILE   # a fast fall went a whole tile in: the floor's top is one up
+			position.y = top
+			grounded = true
+		else:
+			position.y = feet
+	position.x += across
+
+func _side_blocked(x: float, side: float) -> bool:
+	if room.solid_at(x + side * SIDE_REACH, position.y - SIDE_LOW) or room.solid_at(x + side * SIDE_REACH, position.y - SIDE_HIGH):
+		return true
+	return state != State.CROUCH and room.solid_at(x + side * HEAD_REACH, position.y - HEAD_POINT)
+
+## Is there something to stand on at this point? A ladder's top counts
+## only when he comes down onto it from above.
+func _floor_under(x: float, feet: float, feet_before: float) -> bool:
+	if room.solid_at(x, feet):
+		return true
+	var top := floorf(feet / RoomData.TILE) * RoomData.TILE
+	return feet_before <= top and room.is_ladder_top_at(x, feet)
+
+## True when he stands on something. (Godot's is_on_floor only knows about
+## its own collision, which the ROM rooms do not use for him.)
+func on_floor() -> bool:
+	return grounded
+
 func _set_crouching(on: bool) -> void:
 	if on == (state == State.CROUCH):
 		return
 	state = State.CROUCH if on else State.NORMAL
-	# The collision box is 40 tall standing and 28 crouching (both guesses).
-	var height := 28.0 if on else 40.0
+	# The box enemies touch: 30 tall standing, 28 crouching (both guesses).
+	var height := 28.0 if on else BODY_HEIGHT
 	(body_shape.shape as RectangleShape2D).size.y = height
 	body_shape.position.y = -height / 2.0
 	weapon_hitbox.position.y = 12.0 if on else 0.0

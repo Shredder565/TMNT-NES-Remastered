@@ -160,14 +160,15 @@ func room(world: int, area: int) -> RoomData:
 	for i in 4:
 		lineups.append(_byte(6, lineup_address + i))
 	data.enemy_spots = _enemy_spots(_word(6, _word(6, T_ENEMY_SPOTS + world * 2) + area * 2), data, lineups)
-	data.encounters = _encounters(_word(6, _word(6, T_ENCOUNTERS + world * 2) + area * 2))
+	data.encounters = _encounters(_word(6, _word(6, T_ENCOUNTERS + world * 2) + area * 2), lineups[0])
 	data.start = data.find_spawn()
 	return data
 
 ## The things that appear when the camera reaches a place in the room
 ## (Research/encounters.md). Bosses carry a code naming their own line-up;
-## for the other entries the kind is not known and stays -1.
-func _encounters(address: int) -> Array[Encounter]:
+## the other entries are held fights, whose one enemy comes from the
+## room's own line-up.
+func _encounters(address: int, lineup: int) -> Array[Encounter]:
 	var found: Array[Encounter] = []
 	if address < 0x8000 or address >= 0xC000:
 		return found
@@ -177,6 +178,7 @@ func _encounters(address: int) -> Array[Encounter]:
 		entry.column = _byte(6, address + 1)
 		entry.position = Vector2(entry.column * 256 + _byte(6, address + 2),
 			entry.row * SCREEN_BLOCKS.y * 32 + _byte(6, address + 3))
+		entry.offset = Vector2(_byte(6, address + 2), entry.row * SCREEN_BLOCKS.y * 32 + _byte(6, address + 3))
 		entry.slot = _byte(6, address + 4)
 		address += ENCOUNTER_BYTES
 		var code := _byte(6, address)
@@ -184,9 +186,11 @@ func _encounters(address: int) -> Array[Encounter]:
 			address += 1
 			entry.is_boss = true
 			entry.kind = _kind_in_slot(_byte(6, T_ENCOUNTER_LINEUPS + (code & 0x0F)), entry.slot & 7)
-			if entry.kind > 0:
-				entry.hit_points = hit_points(entry.kind)
-				entry.touch_damage = touch_damage(entry.kind)
+		else:
+			entry.kind = _kind_in_slot(lineup, entry.slot & 7)   # from the room's own line-up
+		if entry.kind > 0:
+			entry.hit_points = hit_points(entry.kind)
+			entry.touch_damage = touch_damage(entry.kind)
 		found.append(entry)
 	return found
 

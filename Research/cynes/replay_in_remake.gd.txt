@@ -1,0 +1,42 @@
+extends Node
+func _keys(kind: int, f: int) -> Array:
+	var right := kind != 2
+	var jump := (f % 64 < 30) if kind == 1 else (f % 96 < 22)
+	return [right, jump]
+func _ready() -> void:
+	var runs: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("/home/claude/work/play_emu.json"))
+	var sewer = load("res://Scenes/Levels/Area1Sewer.tscn").instantiate()
+	sewer.start_on_overworld = false
+	add_child(sewer)
+	await get_tree().physics_frame
+	sewer.show_enemies = false
+	var out := {}
+	for key: String in runs:
+		var run: Dictionary = runs[key]
+		sewer.load_area(0, int(run.area))
+		var leo = sewer.turtle
+		leo.max_health = 1000000
+		leo.health = 1000000
+		leo.position = Vector2(run.start[0], run.start[1])
+		for a in ["move_left", "move_right", "jump"]:
+			Input.action_release(a)
+		for i in 100:
+			await get_tree().physics_frame
+		var trace := []
+		for f in 1000:
+			var k := _keys(int(run.kind), f)
+			var side := "move_right" if k[0] else "move_left"
+			Input.action_press(side)
+			if k[1]:
+				Input.action_press("jump")
+			else:
+				Input.action_release("jump")
+			await get_tree().physics_frame
+			trace.append([leo.position.x, leo.position.y, sewer.area, 0 if sewer.room.top_down else 1])
+			if sewer.area != int(run.area) or sewer.room.top_down:
+				break
+		out[key] = trace
+	var file := FileAccess.open("/home/claude/work/play_remake.json", FileAccess.WRITE)
+	file.store_string(JSON.stringify(out))
+	file.close()
+	get_tree().quit()

@@ -85,7 +85,7 @@ func _ready() -> void:
 	turtle.position = Vector2(40, 150)
 	for i in 90:
 		await get_tree().physics_frame
-	check(turtle.is_on_floor() and absf(turtle.position.y - 208.0) < 1.0, "turtle falls and lands on the floor")
+	check(turtle.on_floor() and absf(turtle.position.y - 208.0) < 1.0, "turtle falls and lands on the floor")
 	check(InputMap.has_action("jump") and InputMap.has_action("attack"), "key bindings are registered")
 	var pad_a := InputEventJoypadButton.new()
 	pad_a.button_index = JOY_BUTTON_A
@@ -132,7 +132,7 @@ func _ready() -> void:
 				Input.action_release("jump")
 			await get_tree().physics_frame
 			top = minf(top, turtle.position.y)
-		check(absf((208.0 - top) - hold[1]) <= 1.5 and turtle.is_on_floor(),
+		check(absf((208.0 - top) - hold[1]) <= 1.5 and turtle.on_floor(),
 			"%s jump rises %.1f pixels (got %.2f)" % [hold[2], hold[1], 208.0 - top])
 	room.get_node("DummyEnemy").position.x = 240.0
 	room.get_node("DummyEnemy").set_physics_process(true)
@@ -202,11 +202,11 @@ func _ready() -> void:
 	var leo: Turtle = sewer.get_node("Turtle")
 	for i in 20:
 		await get_tree().physics_frame
-	check(leo.is_on_floor() and absf(leo.position.y - 96.0) < 0.5, "turtle starts standing on the upper ledge")
+	check(leo.on_floor() and absf(leo.position.y - 96.0) < 0.5, "turtle starts standing on the upper ledge")
 	leo.position.x = 150.0
 	for i in 6:
 		await get_tree().physics_frame
-	check(leo.is_on_floor() and absf(leo.position.y - 96.0) < 0.5, "he can stand on the ladder top")
+	check(leo.on_floor() and absf(leo.position.y - 96.0) < 0.5, "he can stand on the ladder top")
 	Input.action_press("move_down")
 	for i in 6:
 		await get_tree().physics_frame
@@ -216,14 +216,14 @@ func _ready() -> void:
 	Input.action_release("move_down")
 	for i in 6:
 		await get_tree().physics_frame
-	check(leo.state != Turtle.State.CLIMB and absf(leo.position.y - 176.0) < 0.5 and leo.is_on_floor(), "climbing down ends on the floor")
+	check(leo.state != Turtle.State.CLIMB and absf(leo.position.y - 176.0) < 0.5 and leo.on_floor(), "climbing down ends on the floor")
 	Input.action_press("move_up")
 	for i in 90:
 		await get_tree().physics_frame
 	Input.action_release("move_up")
 	for i in 6:
 		await get_tree().physics_frame
-	check(leo.state != Turtle.State.CLIMB and absf(leo.position.y - 96.0) < 0.5 and leo.is_on_floor(), "climbing up ends back on the ledge")
+	check(leo.state != Turtle.State.CLIMB and absf(leo.position.y - 96.0) < 0.5 and leo.on_floor(), "climbing up ends back on the ledge")
 	sewer.set_flying(true)
 	Input.action_press("move_up")
 	for i in 10:
@@ -231,6 +231,76 @@ func _ready() -> void:
 	Input.action_release("move_up")
 	check(absf(leo.position.y - 56.0) < 0.5, "fly mode moves him freely")
 	sewer.set_flying(false)
+
+	print("The turtle against walls, ledges and ceilings, as measured in the original")
+	leo.position = Vector2(40, 96)
+	leo.speed = Vector2i.ZERO
+	for i in 6:
+		await get_tree().physics_frame
+	Input.action_press("move_right")
+	var dropped_at := 0.0
+	for i in 60:
+		await get_tree().physics_frame
+		if leo.position.y > 96.0 and dropped_at == 0.0:
+			dropped_at = leo.position.x
+	check(dropped_at >= 80.0 and dropped_at < 86.0, "he walks 16 pixels past a ledge's end before he drops (the ledge ends at 64; he dropped at %.2f)" % dropped_at)
+	Input.action_release("move_right")
+	for i in 30:
+		await get_tree().physics_frame
+	leo.position = Vector2(107, 97.5)
+	leo.grounded = false
+	leo._was_grounded = false
+	leo.speed = Vector2i.ZERO
+	Input.action_press("move_right")
+	for i in 16:
+		await get_tree().physics_frame
+	check(leo.position.y == 96.0 and leo.position.x > 112.0 and leo.on_floor(), "falling beside a ledge with his feet 2 pixels below its top, he goes in and is put on top")
+	Input.action_release("move_right")
+	for i in 4:
+		await get_tree().physics_frame
+	leo.position = Vector2(100, 100)
+	leo.grounded = false
+	leo._was_grounded = false
+	leo.speed = Vector2i.ZERO
+	Input.action_press("move_right")
+	var got_on := false
+	for i in 60:
+		await get_tree().physics_frame
+		got_on = got_on or leo.position.y == 96.0
+	check(leo.position.y == 176.0 and not got_on, "4 pixels below, its side stops him and he falls past")
+	Input.action_release("move_right")
+	leo.position = Vector2(40, 176)
+	leo.speed = Vector2i.ZERO
+	for i in 6:
+		await get_tree().physics_frame
+	Input.action_press("jump")
+	var under_ledge := 1000.0
+	for i in 70:
+		await get_tree().physics_frame
+		under_ledge = minf(under_ledge, leo.position.y)
+	Input.action_release("jump")
+	check(under_ledge >= 132.0 and under_ledge < 138.0, "jumping under a ledge he stops with the point 28 above his feet at its underside (%.1f; it is at 104)" % under_ledge)
+	for i in 30:
+		await get_tree().physics_frame
+	leo.position = Vector2(100, 150)
+	leo.grounded = false
+	leo._was_grounded = false
+	leo.speed = Vector2i(0, 1200)
+	Input.action_press("move_right")
+	var landing_x := -1.0
+	var after_landing_x := -1.0
+	for i in 40:
+		var before_x := leo.position.x
+		var was_up := not leo.on_floor()
+		await get_tree().physics_frame
+		if was_up and leo.on_floor():
+			landing_x = leo.position.x
+		elif landing_x >= 0.0 and after_landing_x < 0.0 and leo._frame % Turtle.TICK_FRAMES == 0:
+			after_landing_x = leo.position.x
+	Input.action_release("move_right")
+	check(landing_x > 100.0 and after_landing_x == landing_x and leo.position.x > landing_x, "the update after he lands he does not move sideways, then walks on")
+	for i in 10:
+		await get_tree().physics_frame
 
 	print("Floor kinds")
 	check(data.is_solid_cell(10, 22) and RoomData.KIND_DEADLY == 15, "ordinary floor is solid")
@@ -1092,6 +1162,44 @@ func _ready() -> void:
 			leo.invulnerable_timer = 1.0
 			await get_tree().physics_frame
 		check(not sewer.fighting, "and it does not come back")
+		var held_room := levels.room(0, 0)
+		check(held_room.encounters.size() == 1 and not held_room.encounters[0].is_boss and held_room.encounters[0].kind == 0x98 and held_room.encounters[0].offset == Vector2(24, 100) and levels.room(0, 3).encounters[0].kind == 0x91, "the table's other entries are held fights: kind 98 in the first sewer, kind 91 in the fourth room")
+		sewer.load_area(0, 0)
+		leo.position = Vector2(600, 170)
+		for i in 3:
+			leo.invulnerable_timer = 1.0
+			await get_tree().physics_frame
+		leo.position = Vector2(637, 170)
+		for i in 3:
+			leo.invulnerable_timer = 1.0
+			await get_tree().physics_frame
+		check(sewer.fighting and sewer.hold_stage == 1 and sewer.fight_corner == Vector2(508, 0) and sewer.boss == null, "the first sewer's screen stops at 508 for a held fight")
+		for i in 30:
+			leo.invulnerable_timer = 1.0
+			await get_tree().physics_frame
+		check(sewer.hold_stage == 1 and sewer.living_enemies() > 0, "nothing more happens while enemies are on the screen")
+		for thing in sewer.enemies.get_children():
+			thing.free()
+		for i in 20:
+			leo.invulnerable_timer = 1.0
+			await get_tree().physics_frame
+		var extra: Node2D = sewer.enemies.get_child(0) if sewer.enemies.get_child_count() > 0 else null
+		check(sewer.hold_stage == 2 and sewer.living_enemies() == 1 and extra is Soldier and absf(extra.position.x - 532.0) < 40.0, "with the screen clear one more enemy comes in, of kind 98")
+		leo.position = Vector2(400, 170)
+		for i in 3:
+			leo.invulnerable_timer = 1.0
+			await get_tree().physics_frame
+		check(leo.position.x >= 528.0, "and the turtle is kept on that screen")
+		for thing in sewer.enemies.get_children():
+			thing.free()
+		for i in 60:
+			leo.invulnerable_timer = 1.0
+			await get_tree().physics_frame
+		check(sewer.fighting, "the screen stays held for 64 frames after it is beaten")
+		for i in 8:
+			leo.invulnerable_timer = 1.0
+			await get_tree().physics_frame
+		check(not sewer.fighting and sewer.hold == null, "then it is freed")
 		sewer.load_area(0, 5)
 		sewer.set_flying(true)
 		leo.position = Vector2(300, 160)

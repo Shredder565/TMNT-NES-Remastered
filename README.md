@@ -93,9 +93,15 @@ World 1 can be played from its overworld to its end: the six rooms, their
 enemies, three pizzas and one other item, the first boss at the end of the
 second sewer and the last boss in the last room. The bosses come in where
 the ROM's own table says, the screen holds still while one is fought, and
-its energy shows under the turtle's. Beating the last boss opens world 2's
-overworld. What is still missing from it
-is listed at the end of `Research/world1.md`.
+its energy shows under the turtle's. Three more places stop the screen
+until the enemies there are beaten. Beating the last boss opens world 2's
+overworld.
+
+How the turtle meets walls, ledges and ceilings was fitted to a
+side-by-side run against the original (`Research/turtle_collision.md`).
+
+What is still missing from world 1 is listed at the end of
+`Research/world1.md`.
 
 ## Sprite map format
 
