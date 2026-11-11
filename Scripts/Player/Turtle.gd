@@ -23,7 +23,11 @@ const SHORT_JUMP_TICK := 4      ## 4 updates after take-off: button released?
 const SHORT_JUMP_SPEED := -624  ## ...then the rise is cut to this (low jump, 33 px)
 const BOOST_TICK := 8           ## 8 updates after take-off: button still held?
 const BOOST_SPEED := -1536      ## ...then a second push (high jump, 97 px)
-const KNOCKBACK := Vector2i(384, -258)  ## approximate, read from one hit
+## Being hit throws him back at 1.3125 pixels an update to the right or
+## 1.5 to the left, and 1 pixel up (the original's numbers, bank 4 $A66B).
+const KNOCKBACK_RIGHT := 336
+const KNOCKBACK_LEFT := -384
+const KNOCKBACK_UP := -258
 ## --- Not measured yet: guesses ---
 const WALK_OFF_DELAY := 2
 const MAX_FALL_SPEED := 2559    ## the original holds the whole pixels of his fall at 9
@@ -170,41 +174,93 @@ func _update_art() -> void:
 		rom_sprite.texture = sprites.textures[frame]
 		rom_sprite.position = sprites.offsets[frame]
 
-## On a ladder: no gravity, straight up and down, centred on the ladder.
+## On a ladder, by the original's rules (bank 4, $A24D; checked in the
+## emulator). Points are from his feet, at his middle unless said.
+## - Left or right: if the three points 9 pixels to that side (32, 20 and
+##   5 up) are empty or ladder, he lets go and falls. Otherwise nothing.
+## - Up: he climbs while there is ladder 36 up. With something solid there
+##   he stops. Past the ladder's top he keeps going while the point 3
+##   below his feet is not empty, then is set down on the first thing
+##   under him, which leaves him 1 pixel into the ladder's top cell.
+## - Down: he climbs down until the floor is 3 below and 3 above his feet,
+##   then is raised to stand on it. With nothing below his feet and
+##   nothing at his middle, he falls.
+## - Jump does nothing on a ladder.
 func _climb() -> void:
-	var feet := position.y
-	var step := int(signf(Input.get_axis("move_up", "move_down"))) * CLIMB_SPEED / 256.0
-	var new_feet := feet + step
-	if step > 0.0 and room.solid_at(position.x, new_feet - 0.01):
-		# Reached the floor at the bottom of the ladder.
-		position.y = floorf(new_feet / RoomData.TILE) * RoomData.TILE
-		_leave_ladder()
+	var x := floorf(position.x)
+	var feet := floorf(position.y)
+	var side := int(signf(Input.get_axis("move_left", "move_right")))
+	if side != 0:
+		facing = side
+		art.scale.x = facing
+		weapon_hitbox.scale.x = facing
+		if _clear_beside(x + side * 9.0, feet - 32.0) and _clear_beside(x + side * 9.0, feet - 20.0) and _clear_beside(x + side * 9.0, feet - 5.0):
+			_let_go()
 		return
-	if step < 0.0 and is_nan(room.ladder_center_at(position.x, new_feet - 1.0)):
-		# Reached the top: step off onto the ledge.
-		position.y = ceilf(new_feet / RoomData.TILE) * RoomData.TILE
-		_leave_ladder()
+	var vertical := int(signf(Input.get_axis("move_up", "move_down")))
+	if vertical == 0:
 		return
-	position.y = new_feet
+	var step := vertical * CLIMB_SPEED / 256.0
+	if vertical < 0:
+		if not _ladder_at(x, feet - 36.0):
+			if room.solid_at(x, feet - 36.0):
+				return
+			if room.kind_at_pixel(x, feet + 3.0) == RoomData.KIND_EMPTY:
+				var lowered := 0
+				feet += 1.0
+				while room.kind_at_pixel(x, feet - 1.0) == RoomData.KIND_EMPTY and lowered < 32:
+					feet += 1.0
+					lowered += 1
+				position.y = feet + position.y - floorf(position.y)
+				_leave_ladder()
+				return
+	else:
+		if room.solid_at(x, feet + 3.0):
+			if room.solid_at(x, feet - 3.0):
+				var raised := 0
+				while room.solid_at(x, feet - 1.0) and raised < 32:
+					feet -= 1.0
+					raised += 1
+				position.y = feet + position.y - floorf(position.y)
+				_leave_ladder()
+				return
+		elif room.kind_at_pixel(x, feet + 3.0) == RoomData.KIND_EMPTY and room.kind_at_pixel(x, feet - 20.0) == RoomData.KIND_EMPTY:
+			_let_go()
+			return
+	position.y += step
 	climb_distance += absf(step)
-	if _jump_pressed:
-		_leave_ladder()
 
+func _ladder_at(x: float, y: float) -> bool:
+	return room.is_ladder_cell(floori(x / RoomData.TILE), floori(y / RoomData.TILE))
+
+func _clear_beside(x: float, y: float) -> bool:
+	return room.kind_at_pixel(x, y) == RoomData.KIND_EMPTY or _ladder_at(x, y)
+
+## Stands him where he is, off the ladder.
 func _leave_ladder() -> void:
 	state = State.NORMAL
 	speed = Vector2i.ZERO
+	grounded = true
+	_was_grounded = true
+	_unheld_ticks = 0
 
-## Starts climbing if a ladder is in reach. Up grabs a ladder behind the
-## turtle; Down grabs one that goes down through the floor he stands on.
+## Drops him from the ladder: he falls from rest.
+func _let_go() -> void:
+	state = State.NORMAL
+	speed = Vector2i.ZERO
+	grounded = false
+	_was_grounded = false
+	jump_tick = -1
+
+## Starts climbing if a ladder is in reach, as the original tests it: Up
+## needs ladder at his middle 28 above his feet, Down needs it 3 below
+## them. He is not moved sideways onto it.
 func _try_grab_ladder(vertical: int) -> bool:
-	if room == null or vertical == 0:
-		return false
-	var probe_y := position.y - 12.0 if vertical < 0 else position.y + 4.0
-	var center := room.ladder_center_at(position.x, probe_y)
-	if is_nan(center) or absf(center - position.x) > 6.0:
-		return false
-	# Going up needs ladder above the feet, or there is nowhere to climb.
-	if vertical < 0 and is_nan(room.ladder_center_at(position.x, position.y - 1.0)):
+	if room == null or vertical == 0 or not on_floor():
+		return false   # the original only takes a ladder from the ground
+	var x := floorf(position.x)
+	var feet := floorf(position.y)
+	if not _ladder_at(x, feet - 28.0 if vertical < 0 else feet + 3.0):
 		return false
 	_set_crouching(false)
 	attack_tick = -1
@@ -212,7 +268,6 @@ func _try_grab_ladder(vertical: int) -> bool:
 	state = State.CLIMB
 	speed = Vector2i.ZERO
 	jump_tick = -1
-	position.x = center
 	return true
 
 func _control() -> void:
@@ -376,7 +431,7 @@ func take_damage(amount: int, from_x: float = NAN) -> void:
 	jump_tick = -1
 	invulnerable_timer = invulnerable_time
 	var away := -facing if is_nan(from_x) else (1 if global_position.x >= from_x else -1)
-	speed = Vector2i(KNOCKBACK.x * away, KNOCKBACK.y)
+	speed = Vector2i(KNOCKBACK_RIGHT if away > 0 else KNOCKBACK_LEFT, KNOCKBACK_UP)
 
 ## Energy lost to something that hurts every update he stays on it (a deadly
 ## floor). There is no knock-back and the blinking safe time does not help.

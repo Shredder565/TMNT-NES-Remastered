@@ -53,6 +53,37 @@ speed is set to 2.44 up; eight updates in, if it is still held, to 6 up
 again. A jump keeps whatever sideways speed he had. Landing sets both
 speeds to 0, which is why he does not move sideways on that update.
 
+## Ladders (read from code at $A24D, checked in the emulator; update 25)
+
+- **Taking a ladder.** Only from the ground. Up takes it if there is
+  ladder at his middle, 28 above his feet. Down takes it if there is
+  ladder 3 below his feet; otherwise Down crouches. He is not moved
+  sideways onto the ladder: anywhere across its 16 pixels will do.
+- **Climbing.** 2.25 pixels an update, up or down.
+- **Up.** He climbs while there is ladder 36 above his feet. Something
+  solid there stops him. Past the ladder's top he keeps going while the
+  point 3 below his feet is not empty, and is then set down on the first
+  thing under him. That leaves him 1 pixel into the ladder's top cell
+  (measured: feet at 97 on a ledge whose top is 96) until he next lands.
+- **Down.** With floor 3 below and 3 above his feet he is raised to stand
+  on it. With nothing 3 below his feet and nothing at his middle he falls.
+- **Left or right.** If the three points 9 pixels to that side (32, 20
+  and 5 above his feet) are empty or ladder, he lets go and falls, and
+  can steer. Otherwise nothing happens.
+- **Jump** does nothing on a ladder.
+
+Before, the remake pulled him to the ladder's centre line, took a ladder
+only within 6 pixels of it, tested other heights, let him take a ladder
+in mid-air, and let jump drop him off.
+
+## Being hit (read from code at $A657; update 25)
+
+He is safe for 24 updates and thrown back: 1.3125 pixels an update to
+the right or 1.5 to the left, and 1 pixel up, falling under the usual
+gravity with no steering until he lands. The remake had 1.5 both ways.
+Which hit throws him which way was not read; the remake throws him away
+from what hit him.
+
 ## What was wrong before, and is now changed
 
 Before update 23 the remake moved the turtle as a 12 x 40 box with
@@ -100,7 +131,7 @@ Known reasons the paths still part:
 - Two runs differ because the original started a fight there (see
   `encounters.md`) and the remake had enemies switched off.
 
-Not ported yet from the turtle's code: ladders (state 9), being hit
-(0E), the weapon, crouching, doors (12), the tile kinds that hurt or
-carry him as the code handles them, and swimming (0F). The overworld
+Not ported yet from the turtle's code: the weapon, crouching, doors,
+the tile kinds that hurt or carry him as the code handles them, and
+swimming (0F). The overworld
 turtle has its own code, not read yet.

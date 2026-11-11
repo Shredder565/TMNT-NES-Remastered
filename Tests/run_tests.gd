@@ -210,7 +210,7 @@ func _ready() -> void:
 	Input.action_press("move_down")
 	for i in 6:
 		await get_tree().physics_frame
-	check(leo.state == Turtle.State.CLIMB and leo.position.x == 152.0, "Down grabs the ladder and centres him on it")
+	check(leo.state == Turtle.State.CLIMB and leo.position.x == 150.0, "Down grabs the ladder under him and leaves him where he stands on it")
 	for i in 90:
 		await get_tree().physics_frame
 	Input.action_release("move_down")
@@ -223,7 +223,44 @@ func _ready() -> void:
 	Input.action_release("move_up")
 	for i in 6:
 		await get_tree().physics_frame
-	check(leo.state != Turtle.State.CLIMB and floorf(leo.position.y) == 96.0 and leo.on_floor(), "climbing up ends back on the ledge")
+	check(leo.state != Turtle.State.CLIMB and floorf(leo.position.y) == 97.0 and leo.on_floor(), "climbing up ends back on the ledge, 1 pixel into the ladder's top as in the original")
+	Input.action_press("move_down")
+	for i in 30:
+		await get_tree().physics_frame
+	Input.action_release("move_down")
+	var held_at := leo.position
+	Input.action_press("jump")
+	for i in 8:
+		await get_tree().physics_frame
+	Input.action_release("jump")
+	check(leo.state == Turtle.State.CLIMB and leo.position == held_at, "jump does nothing on a ladder")
+	Input.action_press("move_right")
+	for i in 4:
+		await get_tree().physics_frame
+	var let_go := leo.state != Turtle.State.CLIMB and not leo.on_floor()
+	for i in 60:
+		await get_tree().physics_frame
+	Input.action_release("move_right")
+	check(let_go and floorf(leo.position.y) == 176.0 and leo.position.x > 160.0, "pressing sideways with room beside the ladder lets go: he drops and steers that way")
+	leo.position = Vector2(150, 176)
+	for i in 6:
+		await get_tree().physics_frame
+	leo.position = Vector2(150, 150)
+	leo.grounded = false
+	leo._was_grounded = false
+	leo.speed = Vector2i.ZERO
+	Input.action_press("move_up")
+	for i in 3:
+		await get_tree().physics_frame
+	var grabbed_in_air := leo.state == Turtle.State.CLIMB
+	Input.action_release("move_up")
+	for i in 40:
+		await get_tree().physics_frame
+	check(not grabbed_in_air, "a ladder cannot be taken in mid-air, only from the ground")
+	leo.position = Vector2(40, 96)
+	leo.speed = Vector2i.ZERO
+	for i in 6:
+		await get_tree().physics_frame
 	sewer.set_flying(true)
 	Input.action_press("move_up")
 	for i in 10:
