@@ -56,6 +56,19 @@ const T_TOUCH_DAMAGE := 0x8B05    ## per kind: energy the turtle loses on touchi
 const T_ENCOUNTERS := 0x9E6D      ## per world -> per area: list of (row, column, x, y, slot[, $Fn]), ends $FF
 const T_ENCOUNTER_LINEUPS := 0x9E5F ## per $Fn code: the line-up that entry's kind comes from
 const ENCOUNTER_BYTES := 5
+## Hit boxes (bank 6): a list of (half width, half height) pairs, and four
+## tables giving the pair to use for each animation number.
+const T_BOX_SIZES := 0x8A43
+const T_BOX_LOW_KIND_HIGH_ANIM := 0x8835   ## kinds below $80, animations $80 and up (add the animation number)
+const T_BOX_LOW_KIND_LOW_ANIM := 0x8935
+const T_BOX_HIGH_KIND_HIGH_ANIM := 0x895B
+const T_BOX_HIGH_KIND_LOW_ANIM := 0x89B5
+## The weapon (bank 4 and bank 7): the turtle's swing animations, and for
+## each one where the weapon is on every frame, from his middle.
+const T_SWING_ANIMATIONS := [0x9F48, 0x9F50, 0x9F4C]   ## up, forward, down: one animation number per turtle
+const T_WEAPON_PLACES := 0xE23F     ## per weapon animation ($9C on): list of (across, down) per frame
+const WEAPON_PLACES_END := 0xE2DD
+const WEAPON_ANIMATION_STEP := 0x0C ## the weapon's animation is the turtle's plus this
 const ENEMY_LINEUPS := 18
 const OVERWORLD_LINEUP := 16      ## every overworld uses this one
 const ENEMY_SPOT_BYTES := 3
@@ -191,6 +204,7 @@ func _encounters(address: int, lineup: int) -> Array[Encounter]:
 		if entry.kind > 0:
 			entry.hit_points = hit_points(entry.kind)
 			entry.touch_damage = touch_damage(entry.kind)
+			entry.half_size = box_half_size(entry.kind, first_animation(entry.kind))
 		found.append(entry)
 	return found
 
@@ -318,6 +332,7 @@ func _enemy_spots(screen_table: int, data: RoomData, lineups: PackedInt32Array) 
 				spot.hit_points = _byte(6, info)
 				spot.first_animation = _byte(6, info + 1)
 				spot.touch_damage = _byte(6, T_TOUCH_DAMAGE + spot.kind)
+				spot.half_size = box_half_size(spot.kind, spot.first_animation)
 			spots.append(spot)
 			address += ENEMY_SPOT_BYTES
 			read += 1
@@ -327,6 +342,40 @@ func _kind_in_slot(lineup: int, slot: int) -> int:
 	if lineup < 0 or lineup >= ENEMY_LINEUPS:
 		return -1
 	return _byte(6, _word(6, T_ENEMY_KINDS + lineup * 2) + slot)
+
+## The animation number an object kind starts with.
+func first_animation(kind: int) -> int:
+	return _byte(6, ((T_KIND_INFO_HIGH + (kind & 0x7F) * 2) if kind >= 0x80 else (T_KIND_INFO_LOW + kind * 2)) + 1)
+
+## Half the width and height of an object's hit box while it shows the
+## given animation. See Research/hit_boxes.md for how the box sits.
+func box_half_size(kind: int, animation: int) -> Vector2i:
+	var table := T_BOX_LOW_KIND_HIGH_ANIM if animation >= 0x80 else T_BOX_LOW_KIND_LOW_ANIM
+	if kind >= 0x80:
+		table = T_BOX_HIGH_KIND_HIGH_ANIM if animation >= 0x80 else T_BOX_HIGH_KIND_LOW_ANIM
+	var index := _byte(6, table + animation)
+	return Vector2i(_byte(6, T_BOX_SIZES + index * 2), _byte(6, T_BOX_SIZES + index * 2 + 1))
+
+## One swing of a turtle's weapon: `direction` 0 up, 1 forward, 2 down.
+## Returns { "places": where the weapon's middle is on each frame, from the
+## turtle's middle and facing right; "half": half its box's size }.
+func weapon_swing(turtle_index: int, direction: int) -> Dictionary:
+	var animation := _byte(4, T_SWING_ANIMATIONS[direction] + turtle_index) + WEAPON_ANIMATION_STEP
+	var slot := animation - 0x9C
+	var start := _word(7, T_WEAPON_PLACES + slot * 2)
+	var end := WEAPON_PLACES_END
+	for other in 12:
+		var pointer := _word(7, T_WEAPON_PLACES + other * 2)
+		if pointer > start and pointer < end:
+			end = pointer
+	var places: Array[Vector2] = []
+	var address := start
+	while address + 1 < end and places.size() < 12:
+		var across := _byte(7, address)
+		var down := _byte(7, address + 1)
+		places.append(Vector2(across - 256 if across > 127 else across, down - 256 if down > 127 else down))
+		address += 2
+	return { "places": places, "half": Vector2(box_half_size(0, animation)) }
 
 ## An object kind's starting hit points.
 func hit_points(kind: int) -> int:

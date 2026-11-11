@@ -22,6 +22,7 @@ const TICK_FRAMES := 2
 const GIVE_UP_DISTANCE := 200.0   ## guess: gone once this far from the turtle (off the screen)
 
 static var damage_of := {}        ## kind -> energy lost on touch; 1 when not filled in
+static var box_of := {}           ## kind -> half the size of its hit box, from the ROM
 
 var kind := 0x99
 var room: RoomData
@@ -72,6 +73,9 @@ func _ready() -> void:
 		block.size = box.size
 		block.color = Color(1.0, 0.9, 0.4)
 		add_child(block)
+	if box_of.has(kind):
+		var half: Vector2i = box_of[kind]
+		box = Rect2(-half.x, -half.y, half.x * 2, maxi(half.y - 2, 1))   # from its height up to 2 above its position
 	var shape := CollisionShape2D.new()
 	var rectangle := RectangleShape2D.new()
 	rectangle.size = box.size

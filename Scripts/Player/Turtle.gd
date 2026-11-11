@@ -30,6 +30,7 @@ const KNOCKBACK_LEFT := -384
 const KNOCKBACK_UP := -258
 ## --- Not measured yet: guesses ---
 const WALK_OFF_DELAY := 2
+const CENTRE_ABOVE_FEET := 20.0   ## the original measures his boxes and his weapon from his middle
 const MAX_FALL_SPEED := 2559    ## the original holds the whole pixels of his fall at 9
 
 @export var turtle_name := "Leonardo"
@@ -44,6 +45,10 @@ var speed := Vector2i.ZERO             ## current speed in 1/256 px per update
 var jump_tick := -1                    ## updates since take-off, -1 when not jumping
 var attack_tick := -1                  ## updates since the swing began, -1 when not attacking
 var attack_length := 6                 ## 3 frames of 2 updates each, as in the original
+var attack_direction := 1              ## 0 up, 1 forward, 2 down
+## From the ROM, set by the room scene when one is installed:
+var weapon_swings: Array = []          ## per direction: { places: where the weapon is each frame, half: its box }
+var body_boxes := {}                   ## "stand", "crouch", "ball" -> half the size of his own hit box
 var anim := "stand"
 var anim_tick := 0
 var sprites: SpriteSet                 ## null until a ROM is supplied: then placeholder art is used
@@ -74,6 +79,7 @@ func _ready() -> void:
 	bandana_art.color = bandana_color
 	# Each turtle needs its own collision shape so crouching can shrink it.
 	body_shape.shape = body_shape.shape.duplicate()
+	weapon_shape.shape = weapon_shape.shape.duplicate()
 	sprites = SpriteSet.load_for(turtle_name)
 	if sprites != null:
 		body_art.visible = false
@@ -148,11 +154,12 @@ func _tick() -> void:
 
 ## Picks the animation for what the turtle is doing and shows its frame.
 func _update_art() -> void:
+	_fit_body()
 	var wanted := "stand"
 	if state == State.CLIMB:
 		wanted = "climb"
 	elif attack_tick >= 0:
-		wanted = "attack_crouch" if state == State.CROUCH else "attack"
+		wanted = ["attack_up", "attack", "attack_crouch"][attack_direction]
 	elif state == State.HURT or state == State.DEAD or not on_floor():
 		wanted = "jump"
 	elif state == State.CROUCH:
@@ -306,14 +313,29 @@ func _control() -> void:
 	# Attack: the sword is out from the second frame of the swing.
 	if attack_tick >= 0:
 		attack_tick += 1
-		if attack_tick == 2:
-			_set_attacking(true)
-		elif attack_tick >= attack_length:
+		if attack_tick >= attack_length:
 			attack_tick = -1
 			_set_attacking(false)
+		elif weapon_swings.is_empty():
+			if attack_tick == 2:
+				_set_attacking(true)   # no ROM: the stand-in swing is out from its second frame
+		else:
+			_place_weapon()
 	elif _attack_pressed:
 		attack_tick = 0
-		attack_length = 8 if state == State.CROUCH else 6
+		if weapon_swings.is_empty():
+			attack_direction = 2 if state == State.CROUCH else 1
+			attack_length = 8 if state == State.CROUCH else 6
+		else:
+			# Up or Down held picks the swing, on the ground and in the air.
+			attack_direction = 1
+			if Input.is_action_pressed("move_up"):
+				attack_direction = 0
+			elif Input.is_action_pressed("move_down"):
+				attack_direction = 2
+			attack_length = weapon_swings[attack_direction].places.size() * 2
+			_set_attacking(true)
+			_place_weapon()
 
 ## Moves him through a ROM room by the original's own rules, read from its
 ## code (bank 4, $9D0C and $9FB0 on; Research/turtle_collision.md). It
@@ -406,6 +428,36 @@ func _set_crouching(on: bool) -> void:
 	if sprites == null:
 		art.scale.y = 0.7 if on else 1.0
 
+## Puts the weapon's box where the original has the weapon on this frame of
+## the swing (two updates a frame). A crouching turtle's boxes sit 8 lower.
+func _place_weapon() -> void:
+	var swing: Dictionary = weapon_swings[attack_direction]
+	var places: Array = swing.places
+	var place: Vector2 = places[mini(attack_tick / 2, places.size() - 1)]
+	var half: Vector2 = swing.half
+	var rectangle := weapon_shape.shape as RectangleShape2D
+	rectangle.size = half * 2.0
+	weapon_hitbox.position.y = 0.0
+	weapon_shape.position = Vector2(place.x, place.y - CENTRE_ABOVE_FEET + (8.0 if state == State.CROUCH else 0.0))
+
+## His own hit box, as the ROM has it: centred on his middle (20 above his
+## feet), smaller while he spins through the air, and lower when he crouches.
+func _fit_body() -> void:
+	if body_boxes.is_empty():
+		return
+	var which := "stand"
+	var lower := 0.0
+	if state == State.CROUCH:
+		which = "crouch"
+		lower = 8.0
+	elif state == State.NORMAL and not on_floor() and attack_tick < 0:
+		which = "ball"
+	var half := Vector2(body_boxes[which])
+	var rectangle := body_shape.shape as RectangleShape2D
+	if rectangle.size != half * 2.0 or body_shape.position.y != lower - CENTRE_ABOVE_FEET:
+		rectangle.size = half * 2.0
+		body_shape.position = Vector2(0.0, lower - CENTRE_ABOVE_FEET)
+
 func _set_attacking(on: bool) -> void:
 	weapon_art.visible = on and sprites == null
 	# Physics shapes must be switched with set_deferred, not directly.
@@ -430,7 +482,8 @@ func take_damage(amount: int, from_x: float = NAN) -> void:
 	_hurt_ticks = 0
 	jump_tick = -1
 	invulnerable_timer = invulnerable_time
-	var away := -facing if is_nan(from_x) else (1 if global_position.x >= from_x else -1)
+	# Thrown away from what hit him; level with it, to the left (bank 6, $989E).
+	var away := -facing if is_nan(from_x) else (1 if floorf(from_x) < floorf(global_position.x) else -1)
 	speed = Vector2i(KNOCKBACK_RIGHT if away > 0 else KNOCKBACK_LEFT, KNOCKBACK_UP)
 
 ## Energy lost to something that hurts every update he stays on it (a deadly

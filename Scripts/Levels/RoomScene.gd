@@ -137,6 +137,14 @@ func _ready() -> void:
 	if levels != null:
 		for shot_kind: int in Shot.KINDS:
 			Shot.damage_of[shot_kind] = levels.touch_damage(shot_kind)
+			Shot.box_of[shot_kind] = levels.box_half_size(shot_kind, levels.first_animation(shot_kind))
+		# The turtle's own boxes and his weapon's swings, as the ROM has them (0 = Leonardo).
+		turtle.body_boxes = {
+			"stand": levels.box_half_size(0, 0x80),
+			"crouch": levels.box_half_size(0, 0x83),
+			"ball": levels.box_half_size(0, 0x87),
+		}
+		turtle.weapon_swings = [levels.weapon_swing(0, 0), levels.weapon_swing(0, 1), levels.weapon_swing(0, 2)]
 	enemies = Node2D.new()
 	enemies.name = "Enemies"
 	add_child(enemies)
@@ -319,6 +327,7 @@ func _start_fight(entry: Encounter, key: Vector2i) -> void:
 	_hold_screen(Vector2(entry.camera_x(), entry.row * VIEW_SIZE.y))
 	boss.view_left = fight_corner.x
 	items.add_child(boss)   # kept apart from the enemies so the camera rule never removes it
+	_fit_box(boss, entry.half_size, entry.kind)
 	if BOSS_COMPANY.has(entry.kind):
 		var company: Array = BOSS_COMPANY[entry.kind]
 		_company = _make_prop(company[0], fight_corner + company[1])
@@ -381,6 +390,7 @@ func _run_fight() -> void:
 		spot.kinds = PackedInt32Array([hold.kind, hold.kind, hold.kind, hold.kind])
 		spot.hit_points = hold.hit_points
 		spot.touch_damage = hold.touch_damage
+		spot.half_size = hold.half_size
 		_make_enemy(spot)
 		hold_stage = 2
 		_hold_frames = 0
@@ -438,7 +448,26 @@ func _make_enemy(spot: EnemySpot) -> void:
 	enemy.set("weapon_damage_low", damage.y)
 	if enemy.get_parent() == null:
 		enemies.add_child(enemy)
+	if not room.top_down:
+		_fit_box(enemy, spot.half_size, spot.kind)
 	_spot_enemies[spot] = enemy
+
+## Gives an enemy the hit box the ROM has for its kind: as wide as the
+## pair says to each side, and from its half height above its position
+## value down to 2 above it. A few kinds have the box centred instead.
+## The one box serves for touching the turtle and for being hit.
+func _fit_box(enemy: Node, half: Vector2i, kind: int) -> void:
+	if half == Vector2i.ZERO:
+		return
+	var box := Rect2(-half.x, -half.y, half.x * 2, maxi(half.y - 2, 1))
+	if (kind >= 0x23 and kind < 0x27) or kind == 0x89:
+		box = Rect2(-half.x, -half.y, half.x * 2, half.y * 2)
+	for found in enemy.find_children("*", "CollisionShape2D", true, false):
+		var shape := found as CollisionShape2D
+		var rectangle := RectangleShape2D.new()
+		rectangle.size = box.size
+		shape.shape = rectangle
+		shape.position = box.get_center()
 
 ## A kind with no behaviour yet: it stands at its place.
 func _make_stand_in(spot: EnemySpot) -> DummyEnemy:
@@ -495,11 +524,23 @@ func _apply_floor_kinds() -> void:
 	_floor_frame += 1
 	var feet := turtle.position
 	if turtle.on_floor():
-		var under := room.kind_at_pixel(feet.x, feet.y + 1.0)
+		var x := floorf(feet.x)
+		var y := floorf(feet.y)
+		# The original looks under his right foot first when he walks, then
+		# his left; standing still, under his middle (bank 4, $9DC6, $9F95).
+		var under := room.kind_at_pixel(x, y + 1.0)
+		if turtle.speed.x != 0:
+			under = room.kind_at_pixel(x + 6.0, y + 1.0)
+			if under == RoomData.KIND_EMPTY:
+				under = room.kind_at_pixel(x - 6.0, y + 1.0)
 		if under == RoomData.KIND_DEADLY and _floor_frame % Turtle.TICK_FRAMES == 0:
 			turtle.drain(RoomData.HURT_DAMAGE)
-		elif under == RoomData.KIND_MOVING_FLOOR and not room.solid_at(feet.x + 8.0, feet.y - 8.0):
-			turtle.position.x += RoomData.MOVING_FLOOR_SPEED / 256.0 / Turtle.TICK_FRAMES
+		elif under == RoomData.KIND_MOVING_FLOOR or under == RoomData.KIND_MOVING_FLOOR_LEFT:
+			# Kind D carries him right and kind C left, 1.25 pixels an update,
+			# unless a wall is on that side (9 ahead at 7 and 24 up, 6 ahead at 32 up).
+			var way := 1.0 if under == RoomData.KIND_MOVING_FLOOR else -1.0
+			if not (room.solid_at(x + way * 9.0, y - 7.0) or room.solid_at(x + way * 9.0, y - 24.0) or room.solid_at(x + way * 6.0, y - 32.0)):
+				turtle.position.x += way * RoomData.MOVING_FLOOR_SPEED / 256.0 / Turtle.TICK_FRAMES
 	for up in range(4, 45, 8):   # every cell his body is in
 		if room.kind_at_pixel(feet.x, feet.y - up) == RoomData.KIND_HURTS:
 			turtle.take_damage(RoomData.HURT_DAMAGE)
@@ -566,8 +607,12 @@ func _room_door_in_use() -> Door:
 	if turtle.state == Turtle.State.CLIMB:
 		if fposmod(centre.y, room.screen_size.y) >= LADDER_EXIT_HEIGHT:
 			return null
-	elif turtle.state != Turtle.State.NORMAL or not turtle.on_floor() or not room.door_cell_near(centre):
+	elif fighting:
+		return null   # no doors while the screen is held for a fight
+	elif turtle.state != Turtle.State.NORMAL or not turtle.on_floor():
 		return null
+	elif not room.is_door_cell(floori(turtle.position.x / RoomData.TILE), floori((floorf(turtle.position.y) - 28.0) / RoomData.TILE)):
+		return null   # the original tests the one point at his middle, 28 above his feet
 	return room.door_at(centre, _door_reach())
 
 func _make_body(rect: Rect2i, one_way: bool) -> StaticBody2D:

@@ -349,6 +349,11 @@ func _ready() -> void:
 	for i in 4:
 		await get_tree().physics_frame
 	check(data.is_solid_cell(12, 22) and absf(leo.position.x - carried_from - 2.5) < 0.01, "a moving floor is solid and carries him 1.25 pixels an update")
+	data.kinds[floor_cell] = RoomData.KIND_MOVING_FLOOR_LEFT
+	carried_from = leo.position.x
+	for i in 4:
+		await get_tree().physics_frame
+	check(data.is_solid_cell(12, 22) and absf(leo.position.x - carried_from + 2.5) < 0.01, "kind C is a floor too, and carries him the other way")
 	data.kinds[floor_cell] = RoomData.KIND_SOLID
 	leo.position.x = 100.0
 	leo.health = 128
@@ -1198,6 +1203,47 @@ func _ready() -> void:
 			leo.invulnerable_timer = 1.0
 			await get_tree().physics_frame
 		check(not sewer.fighting, "and it does not come back")
+		var forward_swing := levels.weapon_swing(0, 1)
+		var up_swing := levels.weapon_swing(0, 0)
+		check(forward_swing.places == [Vector2(-6, -23), Vector2(27, -8), Vector2(23, 17)] and forward_swing.half == Vector2(14, 12) and up_swing.places.size() == 4 and up_swing.half == Vector2(14, 14) and levels.weapon_swing(0, 2).places.size() == 4, "the ROM gives Leonardo's sword 3 places for the forward swing and 4 for the swings up and down")
+		var soldier_box := Vector2i.ZERO
+		var bug_box := Vector2i.ZERO
+		for spot in levels.room(0, 0).enemy_spots:
+			if spot.kind == 0x98:
+				soldier_box = spot.half_size
+			elif spot.kind == 0x8D:
+				bug_box = spot.half_size
+		check(levels.box_half_size(0, 0x80) == Vector2i(5, 16) and levels.box_half_size(0, 0x83) == Vector2i(5, 11) and soldier_box == Vector2i(3, 32) and bug_box == Vector2i(7, 13) and levels.room(0, 1).encounters[0].half_size == Vector2i(8, 30), "and hit boxes: the turtle 10 x 32, crouching 10 x 22, kind 98 6 wide, kind 8D 14 wide, the boss 16 x 60")
+		sewer.enemies_follow_camera = false
+		sewer.load_area(0, 0)
+		var fitted := Vector2.ZERO
+		var fitted_at := Vector2.ZERO
+		for thing in sewer.enemies.get_children():
+			if thing is Crawler and thing.kind == 0x8D:
+				var found_shape := thing.find_children("*", "CollisionShape2D", true, false)[0] as CollisionShape2D
+				fitted = (found_shape.shape as RectangleShape2D).size
+				fitted_at = found_shape.position
+				break
+		check(fitted == Vector2(14, 11) and fitted_at == Vector2(0, -7.5), "an enemy's box runs from its half height above its position down to 2 above it (%s at %s)" % [fitted, fitted_at])
+		sewer.set_show_enemies(false)
+		leo.position = Vector2(136, 176)
+		for i in 6:
+			await get_tree().physics_frame
+		Input.action_press("move_up")
+		Input.action_press("attack")
+		for i in 3:
+			await get_tree().physics_frame
+		Input.action_release("attack")
+		var sword: CollisionShape2D = leo.get_node("WeaponHitbox/CollisionShape2D")
+		check(leo.attack_direction == 0 and leo.anim == "attack_up" and leo.attack_length == 8 and (sword.shape as RectangleShape2D).size == Vector2(28, 28) and not sword.disabled, "Up with attack swings upward: 4 frames, the sword's box 28 x 28")
+		check(sword.position == Vector2(11, -25) or sword.position == Vector2(22, -22), "and the box is where the ROM puts the sword on that frame (%s)" % sword.position)
+		Input.action_release("move_up")
+		for i in 24:
+			await get_tree().physics_frame
+		var body: CollisionShape2D = leo.get_node("CollisionShape2D")
+		check((body.shape as RectangleShape2D).size == Vector2(10, 32) and body.position == Vector2(0, -20), "standing, his own box is 10 x 32 around his middle")
+		sewer.enemies_follow_camera = true
+		sewer.show_enemies = true
 		var held_room := levels.room(0, 0)
 		check(held_room.encounters.size() == 1 and not held_room.encounters[0].is_boss and held_room.encounters[0].kind == 0x98 and held_room.encounters[0].offset == Vector2(24, 100) and levels.room(0, 3).encounters[0].kind == 0x91, "the table's other entries are held fights: kind 98 in the first sewer, kind 91 in the fourth room")
 		sewer.load_area(0, 0)

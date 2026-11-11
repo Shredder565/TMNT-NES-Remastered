@@ -15,6 +15,7 @@ const KIND_LADDER := 9
 const KIND_LADDER_TOP := 11
 const KIND_DOOR := 2          ## a doorway or manhole
 const KIND_WATER := 12        ## blocks the way on the overworld
+const KIND_MOVING_FLOOR_LEFT := 12   ## in rooms the same number is a floor that carries him left
 const KIND_HURTS := 1         ## in rooms: hurts like an enemy's touch, and is not solid
 const KIND_MOVING_FLOOR := 13 ## in rooms: a floor that carries the turtle along
 const KIND_DEADLY := 15       ## in rooms: a floor that drains energy every update
@@ -73,11 +74,16 @@ func is_solid_cell(col: int, row: int) -> bool:
 	var kind := kind_at(col, row)
 	if kind == KIND_SOLID:
 		return true
-	return not top_down and (kind == KIND_MOVING_FLOOR or kind == KIND_DEADLY)
+	return not top_down and (kind == KIND_MOVING_FLOOR or kind == KIND_MOVING_FLOOR_LEFT or kind == KIND_DEADLY)
 
 func is_ladder_cell(col: int, row: int) -> bool:
 	var kind := kind_at(col, row)
 	return kind == KIND_LADDER or kind == KIND_LADDER_TOP
+
+## A doorway is one column of door tiles but opens over 16 pixels: its own
+## column and the one to its right (measured: X 32 to 47 for a door at 32).
+func is_door_cell(col: int, row: int) -> bool:
+	return kind_at(col, row) == KIND_DOOR or kind_at(col - 1, row) == KIND_DOOR
 
 func kind_at_pixel(x: float, y: float) -> int:
 	return kind_at(floori(x / TILE), floori(y / TILE))

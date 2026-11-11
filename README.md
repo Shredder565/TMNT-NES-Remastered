@@ -30,7 +30,8 @@ It is not synced. Without it the `.bat` files look in
 - `play.bat` runs the game without the editor.
 - `run_tests.bat` runs the self-tests and prints PASS or FAIL.
 
-Controls: arrow keys to move and climb ladders, Down to crouch, Z or Space to jump, X to attack,
+Controls: arrow keys to move and climb ladders, Down to crouch, Z or Space to jump, X to attack
+(hold Up or Down to swing upward or downward),
 F1 to open the tile viewer (needs a ROM). F3/F4 step through the 46 areas,
 F7 shows the current world's overworld map, F8 switches the stand-in enemies
 on and off, F6 toggles flying through walls, F2 opens the practice room.

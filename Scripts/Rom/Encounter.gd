@@ -15,6 +15,7 @@ var is_boss := false           ## the entry names a line-up of its own (bosses d
 var kind := -1                 ## the object kind, where it could be worked out
 var hit_points := 1
 var touch_damage := 0
+var half_size := Vector2i.ZERO  ## half the width and height of that kind's hit box, from the ROM
 
 ## The camera X the original waits for: 3 to 5 pixels short of the screen.
 func camera_x() -> float:

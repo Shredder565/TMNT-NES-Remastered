@@ -131,7 +131,7 @@ Known reasons the paths still part:
 - Two runs differ because the original started a fight there (see
   `encounters.md`) and the remake had enemies switched off.
 
-Not ported yet from the turtle's code: the weapon, crouching, doors,
-the tile kinds that hurt or carry him as the code handles them, and
-swimming (0F). The overworld
+Update 26 added the weapon, hit boxes, moving floors and doors: see
+`hit_boxes.md`. Not ported yet from the turtle's code: how the hurting
+tiles are tested point by point, the special weapons, and swimming (0F). The overworld
 turtle has its own code, not read yet.
