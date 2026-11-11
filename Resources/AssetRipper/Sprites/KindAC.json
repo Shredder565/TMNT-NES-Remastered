@@ -1,0 +1,482 @@
+{
+ "about": "Which ROM tiles make up enemy kind AC, taken from the game's sprite table while it was on screen. Tile numbers and positions only; no graphics. Positions are in pixels from its own position value, facing right.",
+ "tile_height": 16,
+ "palettes": {
+  "2": [
+   15,
+   13,
+   18,
+   35
+  ]
+ },
+ "animations": {
+  "walk": {
+   "frames": [
+    "f179",
+    "f180",
+    "f174",
+    "f175"
+   ],
+   "ticks": 4,
+   "loop": true
+  }
+ },
+ "frames": {
+  "f174": [
+   {
+    "x": -16,
+    "y": -64,
+    "index": 4250,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -16,
+    "y": -48,
+    "index": 4260,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -16,
+    "y": -32,
+    "index": 4264,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -16,
+    "y": -16,
+    "index": 5134,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -64,
+    "index": 4258,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -48,
+    "index": 4262,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -16,
+    "index": 5134,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -64,
+    "index": 4258,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -48,
+    "index": 4262,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -16,
+    "index": 5134,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 8,
+    "y": -64,
+    "index": 4250,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 8,
+    "y": -48,
+    "index": 4260,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 8,
+    "y": -32,
+    "index": 4264,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 8,
+    "y": -16,
+    "index": 5134,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f175": [
+   {
+    "x": -16,
+    "y": -64,
+    "index": 4250,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -16,
+    "y": -48,
+    "index": 4260,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -16,
+    "y": -32,
+    "index": 4264,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -16,
+    "y": -16,
+    "index": 5134,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -64,
+    "index": 4256,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -48,
+    "index": 4262,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -16,
+    "index": 5134,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -64,
+    "index": 4254,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -48,
+    "index": 4262,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -16,
+    "index": 5134,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 8,
+    "y": -64,
+    "index": 4250,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 8,
+    "y": -48,
+    "index": 4260,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 8,
+    "y": -32,
+    "index": 4264,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 8,
+    "y": -16,
+    "index": 5134,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f179": [
+   {
+    "x": -16,
+    "y": -64,
+    "index": 4250,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -16,
+    "y": -48,
+    "index": 4260,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -16,
+    "y": -32,
+    "index": 4264,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -16,
+    "y": -16,
+    "index": 5134,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -64,
+    "index": 4252,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -48,
+    "index": 4262,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -16,
+    "index": 5134,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -64,
+    "index": 4252,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -48,
+    "index": 4262,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -16,
+    "index": 5134,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 8,
+    "y": -64,
+    "index": 4250,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 8,
+    "y": -48,
+    "index": 4260,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 8,
+    "y": -32,
+    "index": 4264,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 8,
+    "y": -16,
+    "index": 5134,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f180": [
+   {
+    "x": -16,
+    "y": -64,
+    "index": 4250,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -16,
+    "y": -48,
+    "index": 4260,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -16,
+    "y": -32,
+    "index": 4264,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -16,
+    "y": -16,
+    "index": 5134,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -64,
+    "index": 4254,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -48,
+    "index": 4262,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -16,
+    "index": 5134,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -64,
+    "index": 4256,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -48,
+    "index": 4262,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -16,
+    "index": 5134,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 8,
+    "y": -64,
+    "index": 4250,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 8,
+    "y": -48,
+    "index": 4260,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 8,
+    "y": -32,
+    "index": 4264,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 8,
+    "y": -16,
+    "index": 5134,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ]
+ }
+}

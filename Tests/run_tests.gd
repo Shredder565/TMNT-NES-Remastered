@@ -1,0 +1,941 @@
+extends Node
+## Headless self-test. Run with run_tests.bat, or:
+##   godot --headless --path . res://Tests/RunTests.tscn
+## It builds a fake ROM in memory (no real game data) and checks the ROM
+## reader and the tile ripper against it.
+
+var failures := 0
+
+func check(condition: bool, what: String) -> void:
+	if condition:
+		print("  ok    ", what)
+	else:
+		failures += 1
+		printerr("  FAIL  ", what)
+
+func fake_rom(mapper: int, prg_units: int, chr_units: int) -> PackedByteArray:
+	var rom := PackedByteArray([0x4E, 0x45, 0x53, 0x1A, prg_units, chr_units, (mapper & 0x0F) << 4, mapper & 0xF0])
+	rom.resize(16 + prg_units * 16384 + chr_units * 8192)
+	return rom
+
+func same(a: Color, b: Color) -> bool:
+	return a.to_rgba32() == b.to_rgba32()
+
+func _ready() -> void:
+	print("ROM reader")
+	var rom := fake_rom(1, 8, 16)
+	var chr_start := 16 + 8 * 16384
+	# Tile 300: top row = colours 1,2,3,0,0,0,0,0
+	rom[chr_start + 300 * 16] = 0b10100000
+	rom[chr_start + 300 * 16 + 8] = 0b01100000
+	var info := RomInfo.inspect_bytes(rom)
+	check(info.ok_header, "accepts a well-formed header")
+	check(info.mapper == 1 and info.prg_units == 8 and info.chr_units == 16, "reads mapper and sizes")
+	check(info.shape_matches and info.accepted, "TMNT-shaped ROM is accepted")
+	check(info.known_name == "", "fake ROM is not reported as verified")
+	check(info.sha1.length() == 40, "produces a SHA-1 fingerprint")
+	check(info.chr_rom.size() == 131072, "finds 128 KB of graphics")
+	check(not RomInfo.inspect_bytes(fake_rom(0, 2, 1)).accepted, "rejects an SMB1-shaped ROM")
+	check(not RomInfo.inspect_bytes(PackedByteArray([1, 2, 3])).accepted, "rejects a non-NES file")
+	check(not RomInfo.inspect_bytes(rom.slice(0, 5000)).accepted, "rejects a truncated file")
+	var ctx := HashingContext.new()
+	ctx.start(HashingContext.HASH_SHA1)
+	ctx.update("abc".to_utf8_buffer())
+	check(ctx.finish().hex_encode() == "a9993e364706816aba3e25717850c26c9cd0d89d", "SHA-1 matches the standard test value")
+
+	print("Tile ripper")
+	var ripper := ChrRipper.new(info.chr_rom)
+	check(ripper.tile_count() == 8192 and ripper.bank_count() == 32, "8192 tiles in 32 banks")
+	var px := ripper.tile_pixels(300)
+	check(px[0] == 1 and px[1] == 2 and px[2] == 3 and px[3] == 0, "decodes the two bitplanes")
+	var image := ripper.bank_image(1)
+	check(image.get_size() == Vector2i(128, 128), "bank sheet is 128x128")
+	# tile 300 = bank 1, tile 44 -> column 12, row 2
+	check(same(image.get_pixel(96, 16), ChrRipper.PREVIEW_PALETTE[1]), "tile lands in the right cell")
+	var sprite := ripper.build_sprite({"size": [8, 8], "tiles": [{"x": 0, "y": 0, "index": 300, "flip_h": true}]})
+	check(same(sprite.get_pixel(7, 0), ChrRipper.PREVIEW_PALETTE[1]), "horizontal flip works")
+
+	print("Sprite maps")
+	var map: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://Resources/AssetRipper/Sprites/Leonardo.json"))
+	var sprite_set := SpriteSet.build(map, ripper)
+	check(sprite_set.textures.size() == 18, "Leonardo's map builds 18 frames")
+	check(sprite_set.textures["stand"].get_size() == Vector2(16, 48), "standing frame is 16x48 pixels")
+	check(sprite_set.offsets["stand"] == Vector2(-8, -48), "standing frame sits on the feet point")
+	var all_found := true
+	for anim_name: String in sprite_set.animations:
+		for frame_name: String in sprite_set.animations[anim_name].frames:
+			all_found = all_found and sprite_set.textures.has(frame_name)
+	check(all_found, "every animation frame exists")
+	check(sprite_set.frame_at("walk", 0) == "walk1" and sprite_set.frame_at("walk", 6) == "stand" and sprite_set.frame_at("walk", 24) == "walk1", "walk cycle steps every 6 updates and loops")
+	check(sprite_set.frame_at("attack", 99) == "attack3" and sprite_set.length("attack") == 6, "attack lasts 6 updates and holds its last frame")
+	var highest_tile := 0
+	for frame_name: String in map.frames:
+		for tile: Dictionary in map.frames[frame_name]:
+			highest_tile = maxi(highest_tile, int(tile.index) + 1)
+	check(highest_tile < ripper.tile_count(), "every tile number is inside the ROM's graphics")
+
+	print("Scenes")
+	for path: String in ["res://Scenes/Boot.tscn", "res://Scenes/UI/RomSelect.tscn",
+			"res://Scenes/Tools/ChrViewer.tscn", "res://Scenes/Player/Turtle.tscn", "res://Scenes/Levels/TestRoom.tscn"]:
+		var scene: PackedScene = load(path)
+		check(scene != null and scene.can_instantiate(), "loads " + path)
+	var room: Node = load("res://Scenes/Levels/TestRoom.tscn").instantiate()
+	add_child(room)
+	var turtle: Turtle = room.get_node("Turtle")
+	turtle.position = Vector2(40, 150)
+	for i in 90:
+		await get_tree().physics_frame
+	check(turtle.is_on_floor() and absf(turtle.position.y - 208.0) < 1.0, "turtle falls and lands on the floor")
+	check(InputMap.has_action("jump") and InputMap.has_action("attack"), "key bindings are registered")
+
+	print("Movement copied from the original")
+	room.get_node("DummyEnemy").set_physics_process(false)
+	room.get_node("DummyEnemy").position.x = 480.0
+	turtle.position = Vector2(60, 208)
+	for i in 10:
+		await get_tree().physics_frame
+	var x0 := turtle.position.x
+	Input.action_press("move_right")
+	for i in 60:
+		await get_tree().physics_frame
+	Input.action_release("move_right")
+	check(absf((turtle.position.x - x0) - 67.5) <= 2.25, "walks 67.5 pixels in a second (got %.2f)" % (turtle.position.x - x0))
+	for hold: Array in [[4, 33.0, "low"], [12, 57.5, "medium"], [40, 97.0, "high"]]:
+		turtle.position = Vector2(256, 208)
+		for i in 10:
+			await get_tree().physics_frame
+		var top := turtle.position.y
+		Input.action_press("jump")
+		for i in 140:
+			if i == hold[0]:
+				Input.action_release("jump")
+			await get_tree().physics_frame
+			top = minf(top, turtle.position.y)
+		check(absf((208.0 - top) - hold[1]) <= 1.5 and turtle.is_on_floor(),
+			"%s jump rises %.1f pixels (got %.2f)" % [hold[2], hold[1], 208.0 - top])
+	room.get_node("DummyEnemy").position.x = 240.0
+	room.get_node("DummyEnemy").set_physics_process(true)
+	turtle.revive()
+	turtle.position = Vector2(60, 208)
+
+	print("Combat")
+	var enemy: DummyEnemy = room.get_node("DummyEnemy")
+	enemy.speed = 0.0
+	# Stand just left of the enemy, facing right, and swing once.
+	turtle.position = Vector2(enemy.position.x - 22.0, 208.0)
+	for i in 5:
+		await get_tree().physics_frame
+	check(turtle.health == turtle.max_health, "standing next to the enemy does not hurt")
+	Input.action_press("attack")
+	for i in 3:
+		await get_tree().physics_frame
+	Input.action_release("attack")
+	for i in 20:
+		await get_tree().physics_frame
+	check(enemy.health == enemy.max_health - 1, "one swing takes one point off the enemy")
+	# Crouch
+	Input.action_press("move_down")
+	for i in 3:
+		await get_tree().physics_frame
+	check(turtle.state == Turtle.State.CROUCH, "holding down crouches")
+	Input.action_release("move_down")
+	for i in 3:
+		await get_tree().physics_frame
+	# Walk into the enemy.
+	turtle.position = Vector2(enemy.position.x - 4.0, 208.0)
+	for i in 6:
+		await get_tree().physics_frame
+	check(turtle.health == turtle.max_health - 1, "touching the enemy costs one health")
+	check(turtle.position.x < enemy.position.x - 4.0, "the hit knocks the turtle away")
+	for i in 30:
+		await get_tree().physics_frame
+	check(turtle.health == turtle.max_health - 1, "no second hit while blinking")
+	turtle.invulnerable_timer = 0.0
+	turtle.take_damage(99)
+	check(turtle.state == Turtle.State.DEAD and turtle.health == 0, "health cannot go below zero")
+	turtle.revive()
+	check(turtle.health == turtle.max_health and turtle.state == Turtle.State.NORMAL, "revive restores full health")
+
+	print("Rooms and ladders")
+	room.free()
+	var sewer: Node = load("res://Scenes/Levels/Area1Sewer.tscn").instantiate()
+	add_child(sewer)
+	sewer.show_enemies = false   # the movement and door tests want empty rooms
+	# Use the hand-drawn stand-in so these tests behave the same with or without a ROM.
+	var data := RoomData.from_text(sewer.STAND_IN)
+	data.start = Vector2(40, 96)
+	sewer.show_room(data)
+	check(data.cols == 32 and data.rows == 24, "stand-in room is 32 x 24 tiles")
+	check(data.solid_at(100, 180) and not data.solid_at(100, 150), "floor is solid, air is not")
+	check(data.ladder_center_at(148, 120) == 152.0 and is_nan(data.ladder_center_at(100, 120)), "finds the ladder's centre line")
+	var solid_cells := 0
+	for r in data.rows:
+		for c in data.cols:
+			solid_cells += 1 if data.is_solid_cell(c, r) else 0
+	var rect_area := 0
+	for rect in data.solid_rects():
+		rect_area += rect.get_area()
+	check(rect_area == solid_cells * 64 and data.solid_rects().size() < 12, "solid blocks merge into %d rectangles covering every solid tile" % data.solid_rects().size())
+	check(data.ladder_tops().has(Rect2i(144, 96, 16, 8)), "ladder through the ledge gets a climb-through top")
+	check(data.find_spawn() == Vector2(24, 96), "finds a place to stand")
+	var leo: Turtle = sewer.get_node("Turtle")
+	for i in 20:
+		await get_tree().physics_frame
+	check(leo.is_on_floor() and absf(leo.position.y - 96.0) < 0.5, "turtle starts standing on the upper ledge")
+	leo.position.x = 150.0
+	for i in 6:
+		await get_tree().physics_frame
+	check(leo.is_on_floor() and absf(leo.position.y - 96.0) < 0.5, "he can stand on the ladder top")
+	Input.action_press("move_down")
+	for i in 6:
+		await get_tree().physics_frame
+	check(leo.state == Turtle.State.CLIMB and leo.position.x == 152.0, "Down grabs the ladder and centres him on it")
+	for i in 90:
+		await get_tree().physics_frame
+	Input.action_release("move_down")
+	for i in 6:
+		await get_tree().physics_frame
+	check(leo.state != Turtle.State.CLIMB and absf(leo.position.y - 176.0) < 0.5 and leo.is_on_floor(), "climbing down ends on the floor")
+	Input.action_press("move_up")
+	for i in 90:
+		await get_tree().physics_frame
+	Input.action_release("move_up")
+	for i in 6:
+		await get_tree().physics_frame
+	check(leo.state != Turtle.State.CLIMB and absf(leo.position.y - 96.0) < 0.5 and leo.is_on_floor(), "climbing up ends back on the ledge")
+	sewer.set_flying(true)
+	Input.action_press("move_up")
+	for i in 10:
+		await get_tree().physics_frame
+	Input.action_release("move_up")
+	check(absf(leo.position.y - 56.0) < 0.5, "fly mode moves him freely")
+	sewer.set_flying(false)
+
+	print("Floor kinds")
+	check(data.is_solid_cell(10, 22) and RoomData.KIND_DEADLY == 15, "ordinary floor is solid")
+	leo.position = Vector2(100, 176)
+	for i in 10:
+		await get_tree().physics_frame
+	var floor_cell := 22 * data.cols + 12        # the cell under his feet
+	data.kinds[floor_cell] = RoomData.KIND_MOVING_FLOOR
+	var carried_from := leo.position.x
+	for i in 4:
+		await get_tree().physics_frame
+	check(data.is_solid_cell(12, 22) and absf(leo.position.x - carried_from - 2.5) < 0.01, "a moving floor is solid and carries him 1.25 pixels an update")
+	data.kinds[floor_cell] = RoomData.KIND_SOLID
+	leo.position.x = 100.0
+	leo.health = 128
+	data.kinds[floor_cell] = RoomData.KIND_DEADLY
+	for i in 4:
+		await get_tree().physics_frame
+	check(leo.health == 96, "a deadly floor takes 16 energy every update, with no safe time (%d)" % leo.health)
+	data.kinds[floor_cell] = RoomData.KIND_SOLID
+	leo.health = 128
+	leo.invulnerable_timer = 0.0
+	data.kinds[20 * data.cols + 12] = RoomData.KIND_HURTS   # a cell his body is in
+	for i in 4:
+		await get_tree().physics_frame
+	check(not data.is_solid_cell(12, 20) and leo.health == 112 and leo.invulnerable_timer > 0.0, "a hurting tile is not solid and takes 16 once, then he blinks")
+	data.kinds[20 * data.cols + 12] = RoomData.KIND_EMPTY
+	leo.revive()
+	leo.position = Vector2(40, 96)
+	for i in 30:
+		await get_tree().physics_frame
+
+	print("Doors and the overworld")
+	# A made-up door table in an otherwise empty ROM: two lists, the first
+	# with no end marker (one list in the real ROM is like that).
+	var door_prg := PackedByteArray()
+	door_prg.resize(8 * 16384)
+	var put := func(address: int, bytes: Array) -> void:
+		for i in bytes.size():
+			door_prg[7 * 0x4000 + (address & 0x3FFF) + i] = bytes[i]
+	for i in 7:
+		put.call(RomLevels.T_DOORS + i * 2, [0x60, 0xE8])
+	put.call(0xE860, [0x64, 0xE8, 0x6F, 0xE8])
+	put.call(0xE864, [1, 0x28, 0x18, 0, 2, 0x80, 0x78, 0x00, 0x10, 0x00, 0xB0])
+	put.call(0xE86F, [0, 0x30, 0x90, 1, 5, 0x2C, 0x8C, 0x01, 0x00, 0x00, 0xC0, 0xFF])
+	var door_reader := RomLevels.new(door_prg)
+	var door_room := RoomData.new()
+	door_room.screens_wide = 2
+	door_room.doors = door_reader._door_list(0xE860, 0, door_room)
+	check(door_room.doors.size() == 1, "a door list with no end marker stops where the next list starts")
+	var out_door: Door = door_room.doors[0]
+	check(out_door.position == Vector2(296, 24) and not out_door.to_room and out_door.to_area == 2 and out_door.arrive == Vector2(144, 296), "reads a door's place and where it leads")
+	var in_doors := door_reader._door_list(0xE860, 1, door_room)
+	check(in_doors.size() == 1 and in_doors[0].to_room and in_doors[0].to_area == 5 and in_doors[0].arrive == Vector2(300, 332), "reads a door into a room, camera position included")
+	check(door_reader._door_list(0xE860, 2, door_room).is_empty(), "a room past the end of the table has no doors")
+	check(door_room.door_at(Vector2(316, 40)) == out_door, "a door answers within 32 pixels of its spot")
+	check(door_room.door_at(Vector2(329, 24)) == null and door_room.door_at(Vector2(250, 24)) == null, "but not from further away, or from the next screen")
+	var town := RoomData.from_text([
+		"################",
+		"#..............#",
+		"#..............#",
+		"#..............#",
+		"#..............#",
+		"################",
+	], "Test overworld")
+	town.top_down = true
+	town.screen_size = Vector2i(256, 256)
+	town.kinds[3 * town.cols + 3] = RoomData.KIND_DOOR
+	var manhole := Door.new()
+	manhole.position = Vector2(28, 28)
+	manhole.to_room = true
+	town.doors = [manhole]
+	var walker := OverworldTurtle.new()
+	add_child(walker)
+	walker.set_physics_process(false)
+	walker.room = town
+	var reached: Array[Door] = []
+	walker.door_reached.connect(func(d: Door) -> void: reached.append(d))
+	walker.position = Vector2(12, 12)
+	walker.step(Vector2i.LEFT)
+	check(walker.position == Vector2(12, 12), "overworld turtle is stopped by a wall")
+	walker.step(Vector2i.UP)
+	walker.step(Vector2i.UP)
+	check(walker.position == Vector2(12, 10), "he moves 2 pixels a step until the wall")
+	walker.position = Vector2(44, 26)
+	for i in 3:
+		walker.step(Vector2i.LEFT)
+	check(walker.position == Vector2(38, 26) and reached.is_empty(), "he walks up to the manhole")
+	walker.step(Vector2i.LEFT)
+	check(reached == [manhole] and walker.position == Vector2(38, 26), "stepping onto the manhole uses it")
+	walker.free()
+	check(town.door_cell_near(Vector2(36, 28)) and not town.door_cell_near(Vector2(48, 28)), "a doorway counts as in front of him within 8 pixels")
+
+	print("Enemy places")
+	# A made-up placement table: one room of two screens, two enemy line-ups.
+	var foe_prg := PackedByteArray()
+	foe_prg.resize(8 * 16384)
+	var put6 := func(address: int, bytes: Array) -> void:
+		for i in bytes.size():
+			foe_prg[6 * 0x4000 + (address & 0x3FFF) + i] = bytes[i]
+	put6.call(0x9010, [0x20, 0x90, 0x30, 0x90])                       # one list per screen
+	put6.call(0x9020, [0x40, 0xB4, 0x80, 0xE0, 0x64, 0x89, 0xFF])     # screen 0: slots 0 and 1
+	put6.call(0x9030, [0x10, 0x20, 0x92, 0xFF])                       # screen 1: slot 2
+	put6.call(RomLevels.T_ENEMY_KINDS, [0x00, 0x92, 0x08, 0x92])      # line-ups 0 and 1
+	put6.call(0x9200, [0x8D, 0x81, 0x05])
+	put6.call(0x9208, [0x86, 0x86, 0x4B])
+	put6.call(RomLevels.T_KIND_INFO_HIGH + 0x0D * 2, [4, 1])
+	put6.call(RomLevels.T_KIND_INFO_HIGH + 0x01 * 2, [9, 2])
+	put6.call(RomLevels.T_KIND_INFO_LOW + 0x05 * 2, [30, 7])
+	put6.call(RomLevels.T_WEAPON_DAMAGE, [7, 10, 9, 9])
+	var foe_reader := RomLevels.new(foe_prg)
+	var foe_room := RoomData.new()
+	foe_room.screens_wide = 2
+	foe_room.cols = 64
+	foe_room.rows = 24
+	var spots := foe_reader._enemy_spots(0x9010, foe_room, PackedInt32Array([0, 1, 1, 99]))
+	check(spots.size() == 3, "reads the enemy places of both screens")
+	check(spots[0].position == Vector2(64, 180) and spots[0].kind == 0x8D and spots[0].hit_points == 4 and spots[0].first_animation == 1, "first place: position, kind and hit points")
+	check(spots[1].slot == 1 and spots[1].kind == 0x81 and spots[1].hit_points == 9, "the slot picks the kind from the room's line-up")
+	check(spots[2].position == Vector2(272, 32) and spots[2].kind == 0x05 and spots[2].hit_points == 30, "second screen is 256 pixels along; low kind numbers use the other table")
+	check(Array(spots[0].kinds) == [0x8D, 0x86, 0x86, -1], "keeps the kind for each of the 4 line-ups (-1 where the number is out of range)")
+	check(foe_reader.weapon_damage(0) == Vector2i(7, 10) and foe_reader.weapon_damage(1) == Vector2i(9, 9), "reads weapon damage per turtle")
+	var foe: DummyEnemy = load("res://Scenes/Enemies/DummyEnemy.tscn").instantiate()
+	add_child(foe)
+	foe.show_as_spot(spots[0])
+	foe.weapon_damage = 3
+	check(foe.position == Vector2(64, 180) and foe.health == 4 and foe.speed == 0.0, "a stand-in enemy takes the place and hit points")
+	var pit := RoomData.from_text([
+		"#..............#",
+		"#..............#",
+		"#..............#",
+		"######....######",
+		"#..............#",
+		"################",
+	], "Crawler test")
+	var crawler := Crawler.new()
+	var crawler_spot := EnemySpot.new()
+	crawler_spot.position = Vector2(24, 28)
+	crawler_spot.hit_points = 4
+	crawler_spot.touch_damage = 7
+	crawler.setup(crawler_spot, pit, null)
+	add_child(crawler)
+	crawler.set_physics_process(false)
+	crawler.direction = -1
+	crawler.tick()
+	crawler.tick()
+	check(crawler.direction == 1 and crawler.position.y == 28.0, "a crawler turns round at a wall")
+	for i in 40:
+		crawler.tick()
+	check(crawler.position.y == 44.0 and not crawler.falling, "it walks off a ledge, falls and lands 4 pixels into the floor below")
+	crawler.take_hit(7)
+	check(crawler.is_queued_for_deletion(), "one sword hit finishes a 4-point crawler")
+	var yard := RoomData.from_text([
+		"#..............................#",
+		"#..............................#",
+		"#..............................#",
+		"#..............................#",
+		"#..............................#",
+		"#..............................#",
+		"#..............................#",
+		"################################",
+	], "Soldier test")
+	var victim := Node2D.new()
+	add_child(victim)
+	victim.position = Vector2(200, 56)       # the turtle's feet, on the floor
+	var soldier_spot := EnemySpot.new()
+	soldier_spot.position = Vector2(60, 16)  # in the air, 140 pixels away
+	soldier_spot.hit_points = 12
+	soldier_spot.touch_damage = 17
+	var soldier := Soldier.new()
+	soldier.setup(soldier_spot, yard, null, victim)
+	add_child(soldier)
+	soldier.set_physics_process(false)
+	soldier.tick()
+	check(soldier.state == Soldier.State.AIR and soldier.position.y == 18.0, "a soldier in the air falls, 2 pixels on the first update")
+	var hopped := false
+	var highest := 1000.0
+	for i in 60:
+		soldier.tick()
+		if soldier.hopping:
+			hopped = true
+			highest = minf(highest, soldier.position.y)
+	check(hopped and soldier.state == Soldier.State.REST and soldier.position.y == 59.0, "landing far from the turtle it hops towards him and lands 3 pixels into the floor")
+	check(absf(highest - 25.0) < 0.5 and absf(soldier.position.x - 95.0) < 0.01, "the hop rises 34 pixels and carries it 35 across, as recorded (%.1f, %.2f)" % [59.0 - highest, soldier.position.x - 60.0])
+	for i in 400:
+		soldier.tick()
+	check(absf(victim.position.x - soldier.position.x) <= 23.0 and absf(victim.position.x - soldier.position.x) > 21.0 and soldier.direction == 1, "after its rest it walks up and stops 23 pixels from him")
+	var saw_kick := false
+	var saw_punch := false
+	for i in 80:
+		soldier.tick()
+		saw_kick = saw_kick or soldier.state == Soldier.State.KICK
+		saw_punch = saw_punch or soldier.state == Soldier.State.PUNCH
+	check(saw_kick and saw_punch, "in reach it kicks and punches")
+	soldier.take_hit(7)
+	check(soldier.health == 5 and not soldier.is_queued_for_deletion(), "it takes two sword hits")
+	soldier.free()
+	var leaper_spot := EnemySpot.new()
+	leaper_spot.position = Vector2(60, 56)   # on top of the floor, 140 pixels from the turtle
+	leaper_spot.hit_points = 24
+	leaper_spot.touch_damage = 16
+	var leaper := Leaper.new()
+	leaper.setup(leaper_spot, yard, null, victim)
+	add_child(leaper)
+	leaper.set_physics_process(false)
+	check(leaper.position.y == 59.0, "a leaper settles 3 pixels into the floor it is placed on")
+	var leapt_from := 0.0
+	var leap_top := 1000.0
+	var leap_ticks := 0
+	for i in 140:
+		var was_in_air: bool = leaper.in_air
+		leaper.tick()
+		if leaper.in_air and not was_in_air:
+			leapt_from = victim.position.x - (leaper.position.x - 1.75)
+		if leaper.in_air:
+			leap_top = minf(leap_top, leaper.position.y)
+			leap_ticks += 1
+	check(leapt_from <= 37.0 and leapt_from > 35.0, "it walks 1.75 pixels an update and leaps from 37 pixels away (%.2f)" % leapt_from)
+	check(absf((59.0 - leap_top) - 25.5) < 0.6 and leap_ticks == 33 and not leaper.in_air and leaper.position.y == 59.0, "the leap rises 26 pixels and lasts 34 updates, as recorded (%.1f, %d)" % [59.0 - leap_top, leap_ticks + 1])
+	var rested_at := leaper.position.x
+	for i in 30:
+		leaper.tick()
+	check(leaper.position.x == rested_at and not leaper.in_air, "next to the turtle it stays put until he moves away")
+	leaper.free()
+	var hopper_spot := EnemySpot.new()
+	hopper_spot.kind = 0x9D
+	hopper_spot.position = Vector2(120, 56)
+	var hopper := Leaper.new()
+	hopper.setup(hopper_spot, yard, null, victim)
+	add_child(hopper)
+	hopper.set_physics_process(false)
+	var hop_ends: Array[float] = []
+	for i in 160:
+		var was_up: bool = hopper.in_air
+		hopper.tick()
+		if was_up and not hopper.in_air:
+			hop_ends.append(hopper.position.x)
+	check(hop_ends.size() == 3 and hop_ends[0] == 184.0 and hop_ends[1] == 120.0 and hop_ends[2] == 184.0, "kind 9D hops 64 pixels towards the turtle, rests, and hops 64 back, as recorded (%s)" % str(hop_ends))
+	hopper.free()
+	var walker_spot := EnemySpot.new()
+	walker_spot.kind = 0x49
+	walker_spot.position = Vector2(60, 56)
+	var plain := Soldier.new()
+	plain.setup(walker_spot, yard, null, victim)
+	add_child(plain)
+	plain.set_physics_process(false)
+	var plain_attacked := false
+	for i in 220:
+		plain.tick()
+		plain_attacked = plain_attacked or plain.state == Soldier.State.KICK or plain.state == Soldier.State.PUNCH or plain.state == Soldier.State.AIR
+	check(absf(victim.position.x - plain.position.x) <= 16.0 and absf(victim.position.x - plain.position.x) > 15.0 and not plain_attacked, "kind 49 walks 1 pixel an update up to 16 pixels from him and stands, with no hop or attack")
+	plain.free()
+	var charger_spot := EnemySpot.new()
+	charger_spot.position = Vector2(60, 56)
+	victim.position.x = 150.0                 # leaves room for the charge to finish
+	var charger := Charger.new()
+	charger.setup(charger_spot, yard, null, victim)
+	add_child(charger)
+	charger.set_physics_process(false)
+	var charge_from := 0.0
+	var charge_to := 0.0
+	for i in 200:
+		var was_charging: bool = charger.state == Charger.State.CHARGE
+		charger.tick()
+		if charger.state == Charger.State.CHARGE and not was_charging and charge_from == 0.0:
+			charge_from = charger.position.x
+		if was_charging and charger.state != Charger.State.CHARGE and charge_to == 0.0:
+			charge_to = charger.position.x
+	check(victim.position.x - charge_from <= 31.0 and victim.position.x - charge_from > 29.0, "kind A0 walks to 31 pixels from him before it charges (%.2f)" % (victim.position.x - charge_from))
+	check(charge_to - charge_from == 81.0 and charge_to > victim.position.x, "the charge covers 81 pixels and carries it past him")
+	charger.free()
+	victim.position.x = 200.0
+	var lift_spot := EnemySpot.new()
+	lift_spot.kind = 0x88
+	lift_spot.position = Vector2(100, 48)
+	var lift := PathEnemy.new()
+	lift.setup(lift_spot, null)
+	add_child(lift)
+	lift.set_physics_process(false)
+	var lift_ys: Array[float] = []
+	for count in [48, 2 + 32, 5 + 3, 6 + 7, 3 + 42, 2 + 32]:
+		for i in count:
+			lift.tick()
+		lift_ys.append(lift.position.y)
+	check(lift_ys == [144.0, 80.0, 74.0, 60.0, 144.0, 80.0], "kind 88 lowers to 144, climbs to 80, 74 and 60, and lowers again, as recorded (%s)" % str(lift_ys))
+	lift.free()
+	var jumper_spot := EnemySpot.new()
+	jumper_spot.kind = 0x9E
+	jumper_spot.position = Vector2(100, 56)
+	var jumper := Leaper.new()
+	jumper.setup(jumper_spot, yard, null, victim)
+	add_child(jumper)
+	jumper.set_physics_process(false)
+	var jump_top := 1000.0
+	var jump_ticks := 0
+	var waited := 0
+	for i in 160:
+		jumper.tick()
+		if jumper.in_air:
+			jump_top = minf(jump_top, jumper.position.y)
+			jump_ticks += 1
+		elif jump_ticks == 0:
+			waited += 1
+	check(waited == 74 and jumper.position == Vector2(100, 59) and absf((59.0 - jump_top) - 82.0) < 1.5 and absi(jump_ticks - 66) <= 2, "kind 9E waits 75 updates, then jumps straight up 82 pixels for about 66 updates (%.1f, %d)" % [59.0 - jump_top, jump_ticks])
+	jumper.free()
+	print("Shots, puffs and the soldier's jump")
+	var count_shots := func(of_kind: int) -> int:
+		var found := 0
+		for child in get_children():
+			if child is Shot and child.kind == of_kind and not child.is_queued_for_deletion():
+				found += 1
+		return found
+	var clear_shots := func() -> void:
+		for child in get_children():
+			if child is Shot or child is Puff:
+				child.free()
+	var thrower := Node2D.new()
+	add_child(thrower)
+	thrower.position = Vector2(100, 56)
+	var star := Shot.fire(thrower, 0x99, 1, yard, null)
+	star.set_physics_process(false)
+	for i in 10:
+		star.tick()
+	check(star.position == Vector2(133, 20) and star.speed == 768, "a thrown star starts 3 across and 36 up from the soldier and flies level at 3 pixels an update")
+	var flame := Shot.fire(thrower, 0x4C, -1, yard, null)
+	flame.set_physics_process(false)
+	for i in 38:
+		flame.tick()
+	var flame_x := flame.position.x
+	var flame_alive := not flame.is_queued_for_deletion()
+	flame.tick()
+	check(flame_x == 96.0 - 15 * 3.25 and flame_alive and flame.is_queued_for_deletion(), "kind 4C flies 15 updates, hangs there, and is gone after 39")
+	clear_shots.call()
+	var gunner_spot := EnemySpot.new()
+	gunner_spot.kind = 0x94
+	gunner_spot.position = Vector2(60, 56)
+	var gunner := Crawler.new()
+	gunner.setup(gunner_spot, yard, null)
+	add_child(gunner)
+	gunner.set_physics_process(false)
+	for i in 16:
+		gunner.tick()
+	var before_pause: int = count_shots.call(0x95)
+	for i in 6:
+		gunner.tick()
+	check(before_pause == 0 and count_shots.call(0x95) == 4, "kind 94 fires 4 shots, one an update, when it stops")
+	gunner.take_hit(99)
+	var puffs := 0
+	for child in get_children():
+		puffs += 1 if child is Puff and child.position == gunner.position else 0
+	check(puffs == 1 and gunner.is_queued_for_deletion(), "a beaten enemy leaves a puff where it stood")
+	clear_shots.call()
+	victim.position = Vector2(200, 56)
+	var trooper_spot := EnemySpot.new()
+	trooper_spot.position = Vector2(60, 16)
+	trooper_spot.hit_points = 12
+	var trooper := Soldier.new()
+	trooper.setup(trooper_spot, yard, null, victim)
+	add_child(trooper)
+	trooper.set_physics_process(false)
+	var stars_seen := {}
+	var first_star_tick := -1
+	var landed_tick := -1
+	for i in 190:
+		trooper.tick()
+		if landed_tick < 0 and trooper.state == Soldier.State.REST and trooper.stars_left > 0:
+			landed_tick = i
+		for child in get_children():
+			if child is Shot and child.kind == 0x99:
+				if stars_seen.is_empty():
+					first_star_tick = i
+				stars_seen[child.get_instance_id()] = true
+	check(stars_seen.size() == 8 and first_star_tick - landed_tick == 25, "after its hop a soldier waits 25 updates and throws 8 stars (%d, %d)" % [stars_seen.size(), first_star_tick - landed_tick])
+	trooper.free()
+	clear_shots.call()
+	var tower := RoomData.from_text([
+		"#..............................#",
+		"#..............................#",
+		"#..............................#",
+		"#..............................#",
+		"#..............................#",
+		"#..............................#",
+		"#..............................#",
+		"#..............................#",
+		"#..............................#",
+		"#..............................#",
+		"#...............################",
+		"#..............................#",
+		"#..............................#",
+		"#..............................#",
+		"#..............................#",
+		"#..............................#",
+		"#..............................#",
+		"#..............................#",
+		"#..............................#",
+		"#..............................#",
+		"#..............................#",
+		"#..............................#",
+		"#..............................#",
+		"################################",
+	], "Jump test")
+	victim.position = Vector2(160, 80)      # on the ledge, 104 pixels above the floor
+	var climber_spot := EnemySpot.new()
+	climber_spot.position = Vector2(90, 184)
+	var climber := Soldier.new()
+	climber.setup(climber_spot, tower, null, victim)
+	add_child(climber)
+	climber.set_physics_process(false)
+	var jump_peak := 1000.0
+	var jumped := false
+	for i in 140:
+		climber.tick()
+		if climber.jumping:
+			jumped = true
+			jump_peak = minf(jump_peak, climber.position.y)
+	check(jumped and absf((187.0 - jump_peak) - 128.3) < 0.2, "a soldier under a ledge the turtle is on makes its spinning jump, 128 pixels up (%.1f)" % (187.0 - jump_peak))
+	check(climber.position.y == 83.0 and climber.position.x > 128.0 and not climber.jumping, "and lands on the ledge")
+	climber.free()
+	thrower.free()
+	clear_shots.call()
+	victim.position = Vector2(200, 56)
+	var pacer_spot := EnemySpot.new()
+	pacer_spot.kind = 0x4B
+	pacer_spot.position = Vector2(60, 56)
+	var pacer := Crawler.new()
+	pacer.setup(pacer_spot, yard, null)
+	add_child(pacer)
+	pacer.set_physics_process(false)
+	for i in 31:
+		pacer.tick()
+	var paused_at := pacer.position.x
+	for i in 9:
+		pacer.tick()
+	var still_paused := pacer.position.x == paused_at
+	pacer.tick()
+	check(pacer.position.y == 59.0 and absf(paused_at - (60.0 + 31 * 296 / 256.0)) < 0.001 and still_paused and pacer.position.x > paused_at, "kind 4B walks for 31 updates, stands for 9, then walks on")
+	pacer.free()
+	victim.free()
+	foe.take_hit(foe.weapon_damage)
+	check(foe.health == 1 and not foe.is_queued_for_deletion(), "a hit takes the weapon's damage off")
+	foe.take_hit(foe.weapon_damage)
+	check(foe.is_queued_for_deletion(), "and it is gone when its hit points run out")
+
+	print("Levels read from the ROM")
+	var levels := RomLevels.open_installed()
+	if levels == null:
+		print("  skip  no verified ROM is installed, so the ROM level reader is not exercised")
+	else:
+		var counts: Array[int] = []
+		var total := 0
+		for wd in RomLevels.WORLDS:
+			counts.append(levels.area_count(wd))
+			total += counts[wd]
+		check(counts == [6, 2, 7, 18, 9, 4], "finds 46 areas in 6 worlds (%s)" % str(counts))
+		var first := levels.room(0, 0)
+		check(first.cols == 128 and first.rows == 24, "first sewer is 4 screens wide (1024 x 192 pixels)")
+		check(first.chr_page == 21 and first.palettes[1] == [15, 6, 38, 54], "first sewer uses graphics page 21 and the brick colours")
+		check(first.is_solid_cell(10, 22) and first.is_ladder_cell(4, 5) and first.is_ladder_cell(24, 16) and not first.is_solid_cell(14, 12), "first sewer's floor, ladders and gap are where the original has them")
+		check(first.is_solid_cell(60, 16), "the pillar at x=480 is there")
+		var all_ok := true
+		for wd in RomLevels.WORLDS:
+			for ar in counts[wd]:
+				var any_room := levels.room(wd, ar)
+				all_ok = all_ok and any_room.cols > 0 and any_room.rows > 0 and any_room.tiles.size() == any_room.cols * any_room.rows
+		check(all_ok, "every area decodes without error")
+		sewer.load_area(0, 0)
+		for i in 20:
+			await get_tree().physics_frame
+		leo.position = Vector2(440, 176)
+		Input.action_press("move_right")
+		for i in 60:
+			await get_tree().physics_frame
+		Input.action_release("move_right")
+		check(leo.position.x < 480.0 and leo.position.x > 465.0, "the pillar blocks him where it blocks him in the original (x=%.1f)" % leo.position.x)
+		sewer.step_area(1)
+		check(sewer.world == 0 and sewer.area == 1 and sewer.room.cols == 96, "F4 moves to the next area")
+
+		print("Doors read from the ROM")
+		var first_map := levels.overworld(0)
+		check(first_map.top_down and first_map.cols == 64 and first_map.rows == 64 and first_map.chr_page == 18, "first overworld is 2 x 2 screens of 256 x 256")
+		check(first_map.start == Vector2(160, 296), "the game begins at (160, 296), beside the first manhole")
+		check(levels.overworld(5) == null, "the sixth world has no overworld")
+		var door_total := 0
+		var doors_ok := true
+		for wd in RomLevels.WORLDS:
+			var maps: Array[RoomData] = []
+			if levels.has_overworld(wd):
+				maps.append(levels.overworld(wd))
+			for ar in counts[wd]:
+				maps.append(levels.room(wd, ar))
+			for one_map in maps:
+				door_total += one_map.doors.size()
+				for door in one_map.doors:
+					var inside := Rect2(Vector2.ZERO, one_map.size_pixels()).has_point(door.position)
+					# Into a room that exists, or out of a room to this world's map.
+					var leads := door.to_area < counts[wd] if door.to_room else (door.to_area == wd and not one_map.top_down)
+					doors_ok = doors_ok and inside and leads
+		check(door_total == 135, "finds 135 doors: 60 on the overworlds, 75 in rooms (%d)" % door_total)
+		check(doors_ok, "every door sits inside its map and leads somewhere that exists")
+		check(first_map.doors.size() == 9 and first_map.doors[4].position == Vector2(135, 296) and first_map.doors[4].to_area == 0 and first_map.doors[4].arrive == Vector2(40, 24), "the first manhole leads to the top of the first sewer's ladder")
+		var sewer_doors := levels.room(0, 0).doors
+		check(sewer_doors.size() == 2 and sewer_doors[0].arrive == Vector2(144, 296) and sewer_doors[1].arrive == Vector2(208, 440), "the first sewer's two ladders come out at two different manholes")
+		check(levels.room(3, 16).doors.size() == 2 and levels.room(3, 17).doors.is_empty() and levels.room(1, 1).doors.is_empty(), "the unterminated list and the door-less rooms read correctly")
+
+		sewer.load_overworld(0)
+		var small: OverworldTurtle = sewer.walker
+		check(sewer.room.top_down and small.position == Vector2(160, 296) and not leo.visible, "the map opens with the small turtle at the start")
+		check(small.sprites != null and small.sprites.animations.has("right") and small.sprites.animations.has("up") and small.sprites.animations.has("down") and small._picture.texture != null, "he is drawn from Leonardo's overworld sprites")
+		small.step(Vector2i.RIGHT)
+		var facing_right_x := small._picture.position.x
+		small.step(Vector2i.LEFT)
+		check(small._picture.flip_h and small._picture.position.x == -facing_right_x - small._picture.texture.get_width(), "walking left mirrors the right-facing picture")
+		small.position = Vector2(160, 296)
+		Input.action_press("move_left")
+		for i in 14:
+			await get_tree().physics_frame
+		Input.action_release("move_left")
+		check(not sewer.room.top_down and sewer.area == 0 and leo.state == Turtle.State.CLIMB and leo.position == Vector2(40, 44), "walking left onto the manhole puts him on the sewer ladder, as in the original")
+		await get_tree().physics_frame
+		Input.action_press("move_up")
+		for i in 12:
+			await get_tree().physics_frame
+			if sewer.room.top_down:
+				break
+		Input.action_release("move_up")
+		check(sewer.room.top_down and small.position == Vector2(144, 296), "climbing out of the top returns him to the map at (144, 296)")
+		sewer.load_area(0, 4)
+		leo.position = Vector2(60, 160)
+		for i in 6:
+			await get_tree().physics_frame
+		Input.action_press("move_up")
+		for i in 4:
+			await get_tree().physics_frame
+		check(not sewer.room.top_down, "Up does nothing away from a doorway")
+		Input.action_release("move_up")
+		leo.position = Vector2(40, 160)
+		for i in 6:
+			await get_tree().physics_frame
+		Input.action_press("move_up")
+		for i in 4:
+			await get_tree().physics_frame
+			if sewer.room.top_down:
+				break
+		Input.action_release("move_up")
+		check(sewer.room.top_down and small.position == Vector2(424, 296), "Up at the building's doorway leads out to the map at (424, 296)")
+		print("Enemies read from the ROM")
+		var room_spots := 0
+		var map_spots := 0
+		var spots_ok := true
+		for wd in RomLevels.WORLDS:
+			if levels.has_overworld(wd):
+				var world_map := levels.overworld(wd)
+				map_spots += world_map.enemy_spots.size()
+				for spot in world_map.enemy_spots:
+					spots_ok = spots_ok and spot.kind >= 0 and Rect2(Vector2.ZERO, world_map.size_pixels()).has_point(spot.position)
+			for ar in counts[wd]:
+				var one_room := levels.room(wd, ar)
+				room_spots += one_room.enemy_spots.size()
+				for spot in one_room.enemy_spots:
+					spots_ok = spots_ok and spot.kind >= 0 and Rect2(Vector2.ZERO, one_room.size_pixels()).has_point(spot.position)
+		check(room_spots == 760 and map_spots == 80, "finds 760 enemy places in rooms and 80 on the overworlds (%d, %d)" % [room_spots, map_spots])
+		check(spots_ok, "every enemy place is inside its map and has a kind")
+		var sewer_spots := levels.room(0, 0).enemy_spots
+		check(sewer_spots.size() == 21 and sewer_spots[0].position == Vector2(64, 180) and sewer_spots[0].kind == 0x8D and sewer_spots[0].hit_points == 4, "first sewer: 21 places, the first a kind 8D with 4 hit points at (64, 180)")
+		check(sewer_spots[5].position == Vector2(289, 64) and sewer_spots[5].kind == 0x81, "its second kind, 81, hangs at (289, 64)")
+		check(levels.weapon_damage(0) == Vector2i(7, 10) and levels.weapon_damage(3) == Vector2i(15, 16), "Leonardo's sword takes 7 (10 when he is weak), Donatello's staff 15")
+		sewer.enemies_follow_camera = false   # these checks want the whole room filled
+		sewer.show_enemies = true
+		sewer.load_area(0, 0)
+		var first_foe: Crawler = sewer.enemies.get_child(0)
+		check(sewer.enemies.get_child_count() == 21 and first_foe.health == 4 and first_foe.weapon_damage == 7 and first_foe.touch_damage == 7, "the first sewer shows 21 enemies with real hit points; the first is a crawler")
+		var flyer: Crawler = sewer.enemies.get_child(5)
+		check(sewer_spots[5].touch_damage == 9 and flyer.kind == 0x81 and flyer.flies and flyer.touch_damage == 9, "kind 81 is a flyer, with its own touch damage of 9")
+		flyer.set_physics_process(false)
+		var flyer_y := flyer.position.y
+		var flyer_x := flyer.position.x
+		flyer.direction = 1
+		flyer.tick()
+		check(flyer.position == Vector2(flyer_x + 2.5, flyer_y), "it flies 2.5 pixels an update and keeps its height")
+		var kinds_drawn := 0
+		var kinds_missing: Array[String] = []
+		var kinds_used := {}
+		for wd in RomLevels.WORLDS:
+			var all_maps: Array[RoomData] = []
+			if levels.has_overworld(wd):
+				all_maps.append(levels.overworld(wd))
+			for ar in counts[wd]:
+				all_maps.append(levels.room(wd, ar))
+			for any_map in all_maps:
+				for spot in any_map.enemy_spots:
+					kinds_used[spot.kind] = true
+		for used_kind: int in kinds_used:
+			var pictures := SpriteSet.cached("Kind%02X" % used_kind)
+			if pictures != null and pictures.bounds("walk").has_area():
+				kinds_drawn += 1
+			else:
+				kinds_missing.append("%02X" % used_kind)
+		kinds_missing.sort()
+		check(kinds_used.size() == 29 and kinds_drawn == 24, "24 of the 29 enemy kinds in use are drawn from their own sprites (blocks: %s)" % ", ".join(kinds_missing))
+		sewer.load_area(0, 2)
+		var troop := 0
+		for foe_node in sewer.enemies.get_children():
+			if foe_node is Soldier and foe_node.health == 12 and foe_node.touch_damage == 17 and foe_node.sprites != null:
+				troop += 1
+		var placed_soldiers := 0
+		for spot in sewer.room.enemy_spots:
+			placed_soldiers += 1 if spot.kind == 0x98 else 0
+		check(troop == 6 and placed_soldiers == 6, "the third sewer room has its 6 soldiers, with 12 hit points and 17 touch damage (%d)" % troop)
+		sewer.load_area(4, 2)
+		var still_one: DummyEnemy = null
+		for foe_node in sewer.enemies.get_children():
+			if foe_node is DummyEnemy and still_one == null:
+				still_one = foe_node
+		check(still_one != null and still_one.sprites != null and still_one.get_node("Art").visible == false, "a kind that does not move yet still shows its own picture")
+		sewer.load_area(0, 0)
+		check(leo.max_health == 128 and sewer.health_bar.max_health == 8 and sewer.health_bar.health == 8, "the turtle has 128 energy, shown as 8 blocks")
+		# The crawler against what was measured in the original.
+		sewer.set_show_enemies(false)
+		var bug := Crawler.new()
+		bug.setup(sewer_spots[0], sewer.room, null)
+		sewer.enemies.add_child(bug)
+		bug.set_physics_process(false)
+		check(bug.direction == 1, "placed on the left half of a screen, it starts off to the right")
+		bug.position = Vector2(139.625, 180)
+		for i in 77:
+			bug.tick()
+		check(bug.position == Vector2(245.5, 180) and bug.direction == 1, "it walks 1.375 pixels an update along the floor")
+		bug.position = Vector2(40, 180)
+		bug.direction = -1
+		var turn_x := 0.0
+		for i in 12:
+			bug.tick()
+			if bug.direction == 1 and turn_x == 0.0:
+				turn_x = bug.position.x
+		check(turn_x >= 30.0 and turn_x < 32.0, "it turns at the left wall where the original turns (x=%.2f; the original showed 30 and 31)" % turn_x)
+		bug.position = Vector2(186, 100)
+		bug.direction = -1
+		var fall_from := Vector2.ZERO
+		var fall_ticks := 0
+		for i in 80:
+			var was_falling: bool = bug.falling
+			bug.tick()
+			if bug.falling and not was_falling:
+				fall_from = bug.position
+			if bug.falling:
+				fall_ticks += 1
+			if fall_from != Vector2.ZERO and not bug.falling:
+				break
+		check(absf(fall_from.x - 131.0) < 1.0 and fall_from.y == 102.0, "it walks off the ledge and starts to fall at x=131, as in the original (x=%.2f)" % fall_from.x)
+		check(bug.position.y == 180.0 and bug.direction == -1 and absi(fall_ticks - 26) <= 1, "it lands on the floor at y=180 after about 26 updates and keeps its direction (%d)" % fall_ticks)
+		bug.free()
+		sewer.set_show_enemies(false)
+		check(sewer.enemies.get_child_count() == 0, "F8 clears them away")
+
+		print("Enemies follow the camera")
+		sewer.enemies_follow_camera = true
+		sewer.show_enemies = true
+		sewer.set_flying(true)   # so nothing hurts him while the camera is moved about
+		sewer.load_area(0, 0)
+		leo.position = Vector2(40, 96)
+		await get_tree().physics_frame
+		await get_tree().physics_frame
+		check(sewer.enemies.get_child_count() == 4, "the first sewer starts with only the 4 enemies on screen (%d)" % sewer.enemies.get_child_count())
+		var far_spot: EnemySpot = sewer.room.enemy_spots[4]     # at (288, 180)
+		var made_at := -1.0
+		while leo.position.x < 300.0:
+			leo.position.x += 4.0
+			await get_tree().physics_frame
+			if made_at < 0.0 and sewer._spot_enemies.has(far_spot):
+				made_at = sewer._view_corner().x
+		check(made_at >= 40.0 and made_at <= 44.0, "the enemy at x=288 is made when the camera reaches 40, as in the original (%d)" % made_at)
+		var behind := 0
+		for foe_node in sewer.enemies.get_children():
+			if not foe_node.is_queued_for_deletion() and foe_node.position.x < sewer._view_corner().x:
+				behind += 1
+		check(behind == 0, "enemies that leave the screen are removed")
+		var first_one: Node = sewer._spot_enemies[far_spot]
+		first_one.free()
+		while leo.position.x > 60.0:
+			leo.position.x -= 4.0
+			await get_tree().physics_frame
+		while leo.position.x < 300.0:
+			leo.position.x += 4.0
+			await get_tree().physics_frame
+		check(is_instance_valid(sewer._spot_enemies.get(far_spot)), "going away and coming back makes that enemy again")
+		sewer.set_flying(false)
+		check(Shot.damage_of.get(0x99) == 9 and Shot.damage_of.get(0x9F) == 30 and Shot.damage_of.get(0x4C) == 5, "shots take their damage from the ROM (a star 9, kind 9F 30)")
+		var shot_maps := 0
+		for map_kind in [0x4A, 0x4C, 0x95, 0x9F, 0x99, 0x15]:
+			var shot_pictures := SpriteSet.cached("Kind%02X" % map_kind)
+			shot_maps += 1 if shot_pictures != null and shot_pictures.bounds("walk").has_area() else 0
+		check(shot_maps == 6, "the five kinds of shot and the puff are drawn from their own sprites")
+		sewer.set_show_enemies(false)
+
+		sewer.world = 4
+		sewer.area = 3
+		sewer.technodrome_cave = 3
+		sewer.enter_door(levels.room(4, 3).doors[1])
+		check(sewer.area == 6, "in world 5 the chosen cave's inner door leads to the Technodrome room")
+		sewer.world = 4
+		sewer.area = 2
+		sewer.enter_door(levels.room(4, 2).doors[1])
+		check(sewer.area == 5, "and the other caves' inner doors lead to their own back rooms")
+	sewer.free()
+
+	print("ROM screen")
+	var rom_path := "user://_test_fake.nes"
+	var f := FileAccess.open(rom_path, FileAccess.WRITE)
+	f.store_buffer(rom)
+	f.close()
+	var had_rom := FileAccess.file_exists(Game.ROM_PATH)
+	var screen: Control = load("res://Scenes/UI/RomSelect.tscn").instantiate()
+	add_child(screen)
+	if had_rom:
+		print("  skip  a real ROM is installed, so the copy step is not exercised")
+	else:
+		screen.handle_rom(ProjectSettings.globalize_path(rom_path))
+		check(screen.ready_to_continue, "accepting a ROM waits for Enter")
+		check(screen.status.text.contains("Fingerprint (SHA-1)"), "the fingerprint stays on screen")
+		check(FileAccess.file_exists(Game.ROM_ASSETS_PATH.path_join("chr_bank_31.png")), "32 tile sheets are written")
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(Game.ROM_PATH))
+		for i in 32:
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(Game.ROM_ASSETS_PATH.path_join("chr_bank_%02d.png" % i)))
+		DirAccess.remove_absolute(ProjectSettings.globalize_path("user://rom_check.txt"))
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(rom_path))
+	screen.free()
+
+	print("FAILED: %d" % failures if failures > 0 else "ALL TESTS PASSED")
+	get_tree().quit(1 if failures > 0 else 0)

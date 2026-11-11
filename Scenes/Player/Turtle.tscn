@@ -1,0 +1,55 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Player/Turtle.gd" id="1"]
+
+[sub_resource type="RectangleShape2D" id="body_shape"]
+size = Vector2(12, 40)
+
+[sub_resource type="RectangleShape2D" id="weapon_shape"]
+size = Vector2(28, 28)
+
+[node name="Turtle" type="CharacterBody2D"]
+script = ExtResource("1")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -20)
+shape = SubResource("body_shape")
+
+[node name="Art" type="Node2D" parent="."]
+
+[node name="Body" type="ColorRect" parent="Art"]
+offset_left = -7.0
+offset_top = -44.0
+offset_right = 7.0
+color = Color(0.25, 0.64, 0.3, 1)
+
+[node name="Bandana" type="ColorRect" parent="Art"]
+offset_left = -7.0
+offset_top = -40.0
+offset_right = 7.0
+offset_bottom = -35.0
+color = Color(0.2, 0.45, 1, 1)
+
+[node name="Weapon" type="ColorRect" parent="Art"]
+offset_left = 7.0
+offset_top = -30.0
+offset_right = 35.0
+offset_bottom = -27.0
+color = Color(0.95, 0.95, 0.95, 1)
+
+[node name="RomSprite" type="Sprite2D" parent="Art"]
+visible = false
+centered = false
+
+[node name="WeaponHitbox" type="Area2D" parent="."]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="WeaponHitbox"]
+position = Vector2(21, -26)
+shape = SubResource("weapon_shape")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(0, -24)
+limit_left = 0
+limit_top = 0
+limit_right = 512
+limit_bottom = 240

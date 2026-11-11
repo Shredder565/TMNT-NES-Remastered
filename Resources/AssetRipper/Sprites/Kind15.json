@@ -1,0 +1,159 @@
+{
+ "about": "Which ROM tiles make up the puff an enemy leaves when it is beaten (object kind 15), taken from the game's sprite table. Tile numbers and positions only; no graphics. Positions are in pixels from the puff's own position value.",
+ "tile_height": 16,
+ "palettes": {
+  "1": [
+   15,
+   2,
+   22,
+   49
+  ]
+ },
+ "animations": {
+  "walk": {
+   "frames": [
+    "f68",
+    "f69",
+    "f70"
+   ],
+   "ticks": 2,
+   "loop": true
+  }
+ },
+ "frames": {
+  "f68": [
+   {
+    "x": -12,
+    "y": -16,
+    "index": 122,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -12,
+    "y": 0,
+    "index": 126,
+    "palette": 1,
+    "flip_h": true,
+    "flip_v": true
+   },
+   {
+    "x": -4,
+    "y": -16,
+    "index": 124,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": 0,
+    "index": 124,
+    "palette": 1,
+    "flip_h": true,
+    "flip_v": true
+   },
+   {
+    "x": 4,
+    "y": -16,
+    "index": 126,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 4,
+    "y": 0,
+    "index": 122,
+    "palette": 1,
+    "flip_h": true,
+    "flip_v": true
+   }
+  ],
+  "f69": [
+   {
+    "x": -16,
+    "y": -8,
+    "index": 128,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -24,
+    "index": 130,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": 8,
+    "index": 132,
+    "palette": 1,
+    "flip_h": true,
+    "flip_v": true
+   },
+   {
+    "x": 0,
+    "y": -24,
+    "index": 132,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": 8,
+    "index": 130,
+    "palette": 1,
+    "flip_h": true,
+    "flip_v": true
+   }
+  ],
+  "f70": [
+   {
+    "x": -16,
+    "y": -8,
+    "index": 134,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -24,
+    "index": 136,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": 8,
+    "index": 138,
+    "palette": 1,
+    "flip_h": true,
+    "flip_v": true
+   },
+   {
+    "x": 0,
+    "y": -24,
+    "index": 138,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": 8,
+    "index": 136,
+    "palette": 1,
+    "flip_h": true,
+    "flip_v": true
+   }
+  ]
+ }
+}

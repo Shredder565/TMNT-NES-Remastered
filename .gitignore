@@ -1,0 +1,14 @@
+# Godot's local cache
+.godot/
+*.translation
+export_presets.cfg
+# Never commit ROMs or anything ripped from one
+*.nes
+*.fds
+*.unf
+*.zip
+rom_assets/
+# Local tools installed by setup_tmnt_project.bat
+Tools/
+# Each PC's own note of where its Godot is
+godot_path.txt

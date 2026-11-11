@@ -1,0 +1,149 @@
+{
+ "about": "Which ROM tiles make up enemy kind A0, taken from the game's sprite table while it was on screen. Tile numbers and positions only; no graphics. Positions are in pixels from its own position value, facing right.",
+ "tile_height": 16,
+ "palettes": {
+  "2": [
+   15,
+   13,
+   18,
+   43
+  ]
+ },
+ "animations": {
+  "walk": {
+   "frames": [
+    "f128"
+   ],
+   "ticks": 1,
+   "loop": true
+  },
+  "stand": {
+   "frames": [
+    "f128"
+   ],
+   "ticks": 1,
+   "loop": true
+  },
+  "ready": {
+   "frames": [
+    "f131"
+   ],
+   "ticks": 1,
+   "loop": true
+  },
+  "charge": {
+   "frames": [
+    "f132",
+    "f133"
+   ],
+   "ticks": 2,
+   "loop": true
+  }
+ },
+ "frames": {
+  "f128": [
+   {
+    "x": -8,
+    "y": -31,
+    "index": 1698,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -15,
+    "index": 1702,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -47,
+    "index": 1696,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -31,
+    "index": 1700,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -15,
+    "index": 1704,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f131": [
+   {
+    "x": -8,
+    "y": -24,
+    "index": 1718,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -24,
+    "index": 1720,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 8,
+    "y": -24,
+    "index": 1722,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f132": [
+   {
+    "x": -8,
+    "y": -16,
+    "index": 1726,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -16,
+    "index": 1728,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f133": [
+   {
+    "x": -8,
+    "y": -16,
+    "index": 1730,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -16,
+    "index": 1732,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ]
+ }
+}

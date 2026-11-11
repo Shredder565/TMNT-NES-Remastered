@@ -1,0 +1,232 @@
+{
+ "about": "Which ROM tiles make up enemy kind 49, taken from the game's sprite table while it was on screen. Tile numbers and positions only; no graphics. Positions are in pixels from its own position value, facing right.",
+ "tile_height": 16,
+ "palettes": {
+  "1": [
+   15,
+   2,
+   22,
+   49
+  ],
+  "2": [
+   15,
+   13,
+   18,
+   43
+  ],
+  "3": [
+   15,
+   15,
+   20,
+   44
+  ]
+ },
+ "animations": {
+  "walk": {
+   "frames": [
+    "f147",
+    "f148"
+   ],
+   "ticks": 6,
+   "loop": true
+  },
+  "stand": {
+   "frames": [
+    "f144",
+    "f145",
+    "f146"
+   ],
+   "ticks": 8,
+   "loop": true
+  },
+  "throw": {
+   "frames": [
+    "f149"
+   ],
+   "ticks": 1,
+   "loop": true
+  }
+ },
+ "frames": {
+  "f144": [
+   {
+    "x": -8,
+    "y": -16,
+    "index": 452,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -16,
+    "index": 454,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 13,
+    "y": -15,
+    "index": 274,
+    "palette": 3,
+    "flip_h": true,
+    "flip_v": false
+   }
+  ],
+  "f145": [
+   {
+    "x": -8,
+    "y": -32,
+    "index": 456,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -16,
+    "index": 458,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -32,
+    "index": 456,
+    "palette": 1,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -16,
+    "index": 458,
+    "palette": 1,
+    "flip_h": true,
+    "flip_v": false
+   }
+  ],
+  "f146": [
+   {
+    "x": -8,
+    "y": -31,
+    "index": 460,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -15,
+    "index": 462,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -31,
+    "index": 460,
+    "palette": 1,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -15,
+    "index": 462,
+    "palette": 1,
+    "flip_h": true,
+    "flip_v": false
+   }
+  ],
+  "f147": [
+   {
+    "x": -8,
+    "y": -15,
+    "index": 468,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -6,
+    "y": -31,
+    "index": 464,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -15,
+    "index": 470,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 2,
+    "y": -31,
+    "index": 466,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f148": [
+   {
+    "x": -8,
+    "y": -32,
+    "index": 464,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -16,
+    "index": 472,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -32,
+    "index": 466,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f149": [
+   {
+    "x": -8,
+    "y": -15,
+    "index": 480,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -31,
+    "index": 474,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -15,
+    "index": 482,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ]
+ }
+}

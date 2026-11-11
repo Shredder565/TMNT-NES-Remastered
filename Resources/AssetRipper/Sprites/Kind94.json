@@ -1,0 +1,87 @@
+{
+ "about": "Which ROM tiles make up enemy kind 94, taken from the game's sprite table while it was on screen. Tile numbers and positions only; no graphics. Positions are in pixels from its own position value, facing right.",
+ "tile_height": 16,
+ "palettes": {
+  "2": [
+   15,
+   13,
+   18,
+   43
+  ]
+ },
+ "animations": {
+  "walk": {
+   "frames": [
+    "f151",
+    "f152",
+    "f153"
+   ],
+   "ticks": 2,
+   "loop": true
+  }
+ },
+ "frames": {
+  "f151": [
+   {
+    "x": -8,
+    "y": -31,
+    "index": 1260,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -15,
+    "index": 1264,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -31,
+    "index": 1262,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -15,
+    "index": 1266,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f152": [
+   {
+    "x": -4,
+    "y": -16,
+    "index": 1268,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f153": [
+   {
+    "x": -8,
+    "y": -15,
+    "index": 1270,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -15,
+    "index": 1272,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ]
+ }
+}

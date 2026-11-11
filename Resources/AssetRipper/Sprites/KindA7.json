@@ -1,0 +1,76 @@
+{
+ "about": "Which ROM tiles make up enemy kind A7, taken from the game's sprite table while it was on screen. Tile numbers and positions only; no graphics. Positions are in pixels from its own position value, facing right.",
+ "tile_height": 16,
+ "palettes": {
+  "1": [
+   15,
+   2,
+   22,
+   49
+  ]
+ },
+ "animations": {
+  "walk": {
+   "frames": [
+    "f146",
+    "f145"
+   ],
+   "ticks": 5,
+   "loop": true
+  }
+ },
+ "frames": {
+  "f145": [
+   {
+    "x": -12,
+    "y": -16,
+    "index": 1468,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": -16,
+    "index": 1470,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 4,
+    "y": -16,
+    "index": 1472,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f146": [
+   {
+    "x": -12,
+    "y": -18,
+    "index": 1474,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": -18,
+    "index": 1476,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 4,
+    "y": -18,
+    "index": 1478,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ]
+ }
+}

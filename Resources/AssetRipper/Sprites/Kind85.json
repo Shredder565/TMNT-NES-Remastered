@@ -1,0 +1,76 @@
+{
+ "about": "Which ROM tiles make up enemy kind 85, taken from the game's sprite table while it was on screen. Tile numbers and positions only; no graphics. Positions are in pixels from its own position value, facing right.",
+ "tile_height": 16,
+ "palettes": {
+  "1": [
+   15,
+   2,
+   22,
+   49
+  ]
+ },
+ "animations": {
+  "walk": {
+   "frames": [
+    "f141",
+    "f140"
+   ],
+   "ticks": 5,
+   "loop": true
+  }
+ },
+ "frames": {
+  "f140": [
+   {
+    "x": -12,
+    "y": -16,
+    "index": 734,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": -16,
+    "index": 736,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 4,
+    "y": -16,
+    "index": 738,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f141": [
+   {
+    "x": -12,
+    "y": -8,
+    "index": 740,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": -8,
+    "index": 742,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 4,
+    "y": -8,
+    "index": 744,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ]
+ }
+}

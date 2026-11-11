@@ -1,0 +1,151 @@
+{
+ "about": "Which ROM tiles make up enemy kind 4B, taken from the game's sprite table while it was on screen. Tile numbers and positions only; no graphics. Positions are in pixels from its own position value, facing right.",
+ "tile_height": 16,
+ "palettes": {
+  "2": [
+   15,
+   7,
+   27,
+   55
+  ]
+ },
+ "animations": {
+  "walk": {
+   "frames": [
+    "f130",
+    "f128",
+    "f129"
+   ],
+   "ticks": 8,
+   "loop": true
+  }
+ },
+ "frames": {
+  "f128": [
+   {
+    "x": -8,
+    "y": -48,
+    "index": 672,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -32,
+    "index": 676,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -16,
+    "index": 680,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -48,
+    "index": 674,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -32,
+    "index": 678,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f129": [
+   {
+    "x": -10,
+    "y": -16,
+    "index": 682,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -48,
+    "index": 672,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -32,
+    "index": 676,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -2,
+    "y": -16,
+    "index": 684,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -48,
+    "index": 674,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -32,
+    "index": 678,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f130": [
+   {
+    "x": -8,
+    "y": -16,
+    "index": 682,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -6,
+    "y": -32,
+    "index": 686,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -16,
+    "index": 684,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 2,
+    "y": -32,
+    "index": 688,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ]
+ }
+}

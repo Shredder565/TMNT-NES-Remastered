@@ -1,0 +1,71 @@
+{
+ "about": "Which ROM tiles make up object kind 4C, something an enemy throws or fires, taken from the game's sprite table. Tile numbers and positions only; no graphics. Positions are in pixels from its own position value, moving right.",
+ "tile_height": 16,
+ "palettes": {
+  "2": [
+   15,
+   7,
+   27,
+   55
+  ]
+ },
+ "animations": {
+  "walk": {
+   "frames": [
+    "f132",
+    "f133",
+    "f134"
+   ],
+   "ticks": 9,
+   "loop": true
+  }
+ },
+ "frames": {
+  "f132": [
+   {
+    "x": -4,
+    "y": -11,
+    "index": 696,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f133": [
+   {
+    "x": -8,
+    "y": -16,
+    "index": 698,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -16,
+    "index": 700,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f134": [
+   {
+    "x": -8,
+    "y": -24,
+    "index": 698,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -16,
+    "index": 702,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ]
+ }
+}

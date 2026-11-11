@@ -1,0 +1,37 @@
+; Engine configuration file.
+; Edit through Project > Project Settings in the Godot editor where possible.
+
+config_version=5
+
+[application]
+
+config/name="TMNT Remake"
+config/description="A from-scratch remake. Ships no game graphics: the player supplies a ROM."
+run/main_scene="res://Scenes/Boot.tscn"
+config/features=PackedStringArray("4.6", "GL Compatibility")
+config/icon="res://icon.svg"
+
+[autoload]
+
+Game="*res://Scripts/Singletons/Game.gd"
+
+[display]
+
+window/size/viewport_width=256
+window/size/viewport_height=240
+window/size/window_width_override=1024
+window/size/window_height_override=960
+window/subwindows/embed_subwindows=false
+window/stretch/mode="viewport"
+window/stretch/scale_mode="integer"
+
+[physics]
+
+common/physics_ticks_per_second=60
+
+[rendering]
+
+textures/canvas_textures/default_texture_filter=0
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+2d/snap/snap_2d_transforms_to_pixel=true

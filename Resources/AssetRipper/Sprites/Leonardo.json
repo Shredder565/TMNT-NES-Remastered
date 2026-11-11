@@ -1,0 +1,770 @@
+{
+ "about": "Which ROM tiles make up each of Leonardo's frames. Tile numbers and positions only; no graphics. Positions are in pixels from the point between his feet, facing right.",
+ "tile_height": 16,
+ "palettes": {
+  "0": [
+   15,
+   9,
+   18,
+   42
+  ],
+  "1": [
+   15,
+   2,
+   22,
+   49
+  ]
+ },
+ "animations": {
+  "stand": {
+   "frames": [
+    "stand"
+   ],
+   "ticks": 1,
+   "loop": true
+  },
+  "walk": {
+   "frames": [
+    "walk1",
+    "stand",
+    "walk2",
+    "stand"
+   ],
+   "ticks": 6,
+   "loop": true
+  },
+  "crouch": {
+   "frames": [
+    "crouch"
+   ],
+   "ticks": 1,
+   "loop": true
+  },
+  "jump": {
+   "frames": [
+    "jump"
+   ],
+   "ticks": 1,
+   "loop": true
+  },
+  "climb": {
+   "frames": [
+    "climb1",
+    "climb2"
+   ],
+   "ticks": 4,
+   "loop": true
+  },
+  "attack": {
+   "frames": [
+    "attack1",
+    "attack2",
+    "attack3"
+   ],
+   "ticks": 2,
+   "loop": false
+  },
+  "attack_up": {
+   "frames": [
+    "attack_up1",
+    "attack_up2",
+    "attack_up3",
+    "attack_up4"
+   ],
+   "ticks": 2,
+   "loop": false
+  },
+  "attack_crouch": {
+   "frames": [
+    "attack_crouch1",
+    "attack_crouch2",
+    "attack_crouch3",
+    "attack_crouch4"
+   ],
+   "ticks": 2,
+   "loop": false
+  }
+ },
+ "frames": {
+  "climb1": [
+   {
+    "x": -8,
+    "y": -32,
+    "index": 60
+   },
+   {
+    "x": -8,
+    "y": -16,
+    "index": 64
+   },
+   {
+    "x": 0,
+    "y": -32,
+    "index": 62
+   },
+   {
+    "x": 0,
+    "y": -16,
+    "index": 66
+   }
+  ],
+  "climb2": [
+   {
+    "x": -8,
+    "y": -32,
+    "index": 60
+   },
+   {
+    "x": -8,
+    "y": -16,
+    "index": 64
+   },
+   {
+    "x": 0,
+    "y": -48,
+    "index": 58
+   },
+   {
+    "x": 0,
+    "y": -32,
+    "index": 62
+   },
+   {
+    "x": 0,
+    "y": -16,
+    "index": 66
+   }
+  ],
+  "stand": [
+   {
+    "x": -8,
+    "y": -48,
+    "index": 2
+   },
+   {
+    "x": -8,
+    "y": -32,
+    "index": 14
+   },
+   {
+    "x": -6,
+    "y": -16,
+    "index": 18
+   },
+   {
+    "x": 0,
+    "y": -48,
+    "index": 4
+   },
+   {
+    "x": 0,
+    "y": -32,
+    "index": 16
+   }
+  ],
+  "crouch": [
+   {
+    "x": -8,
+    "y": -40,
+    "index": 2
+   },
+   {
+    "x": -8,
+    "y": -24,
+    "index": 6
+   },
+   {
+    "x": -8,
+    "y": -8,
+    "index": 42
+   },
+   {
+    "x": 0,
+    "y": -40,
+    "index": 4
+   },
+   {
+    "x": 0,
+    "y": -24,
+    "index": 8
+   },
+   {
+    "x": 0,
+    "y": -8,
+    "index": 44
+   }
+  ],
+  "walk1": [
+   {
+    "x": -10,
+    "y": -15,
+    "index": 10
+   },
+   {
+    "x": -8,
+    "y": -47,
+    "index": 2
+   },
+   {
+    "x": -8,
+    "y": -31,
+    "index": 6
+   },
+   {
+    "x": -2,
+    "y": -15,
+    "index": 12
+   },
+   {
+    "x": 0,
+    "y": -47,
+    "index": 4
+   },
+   {
+    "x": 0,
+    "y": -31,
+    "index": 8
+   }
+  ],
+  "walk2": [
+   {
+    "x": -10,
+    "y": -15,
+    "index": 26
+   },
+   {
+    "x": -8,
+    "y": -47,
+    "index": 2
+   },
+   {
+    "x": -8,
+    "y": -31,
+    "index": 22
+   },
+   {
+    "x": -2,
+    "y": -15,
+    "index": 28
+   },
+   {
+    "x": 0,
+    "y": -47,
+    "index": 4
+   },
+   {
+    "x": 0,
+    "y": -31,
+    "index": 24
+   }
+  ],
+  "attack1": [
+   {
+    "x": -14,
+    "y": -55,
+    "index": 154,
+    "palette": 1
+   },
+   {
+    "x": -8,
+    "y": -48,
+    "index": 2
+   },
+   {
+    "x": -8,
+    "y": -32,
+    "index": 6
+   },
+   {
+    "x": -6,
+    "y": -55,
+    "index": 156,
+    "palette": 1
+   },
+   {
+    "x": -6,
+    "y": -16,
+    "index": 18
+   },
+   {
+    "x": 0,
+    "y": -48,
+    "index": 30
+   },
+   {
+    "x": 0,
+    "y": -32,
+    "index": 32
+   }
+  ],
+  "attack2": [
+   {
+    "x": -8,
+    "y": -15,
+    "index": 10
+   },
+   {
+    "x": -5,
+    "y": -47,
+    "index": 2
+   },
+   {
+    "x": -5,
+    "y": -31,
+    "index": 6
+   },
+   {
+    "x": 0,
+    "y": -15,
+    "index": 12
+   },
+   {
+    "x": 3,
+    "y": -47,
+    "index": 4
+   },
+   {
+    "x": 3,
+    "y": -31,
+    "index": 34
+   },
+   {
+    "x": 11,
+    "y": -31,
+    "index": 36
+   },
+   {
+    "x": 19,
+    "y": -40,
+    "index": 150,
+    "palette": 1
+   },
+   {
+    "x": 27,
+    "y": -40,
+    "index": 152,
+    "palette": 1
+   }
+  ],
+  "attack3": [
+   {
+    "x": -8,
+    "y": -15,
+    "index": 10
+   },
+   {
+    "x": -6,
+    "y": -47,
+    "index": 2
+   },
+   {
+    "x": -6,
+    "y": -31,
+    "index": 6
+   },
+   {
+    "x": 0,
+    "y": -15,
+    "index": 12
+   },
+   {
+    "x": 2,
+    "y": -47,
+    "index": 4
+   },
+   {
+    "x": 2,
+    "y": -31,
+    "index": 20
+   },
+   {
+    "x": 10,
+    "y": -31,
+    "index": 38
+   },
+   {
+    "x": 15,
+    "y": -15,
+    "index": 156,
+    "flip_h": true,
+    "flip_v": true,
+    "palette": 1
+   },
+   {
+    "x": 23,
+    "y": -15,
+    "index": 154,
+    "flip_h": true,
+    "flip_v": true,
+    "palette": 1
+   }
+  ],
+  "attack_up1": [
+   {
+    "x": -8,
+    "y": -15,
+    "index": 26
+   },
+   {
+    "x": -6,
+    "y": -47,
+    "index": 2
+   },
+   {
+    "x": -6,
+    "y": -31,
+    "index": 22
+   },
+   {
+    "x": 0,
+    "y": -15,
+    "index": 28
+   },
+   {
+    "x": 2,
+    "y": -47,
+    "index": 86
+   },
+   {
+    "x": 2,
+    "y": -31,
+    "index": 24
+   },
+   {
+    "x": 3,
+    "y": -37,
+    "index": 150,
+    "palette": 1
+   },
+   {
+    "x": 11,
+    "y": -37,
+    "index": 152,
+    "palette": 1
+   }
+  ],
+  "attack_up2": [
+   {
+    "x": -8,
+    "y": -15,
+    "index": 10
+   },
+   {
+    "x": -6,
+    "y": -47,
+    "index": 2
+   },
+   {
+    "x": -6,
+    "y": -31,
+    "index": 6
+   },
+   {
+    "x": 0,
+    "y": -15,
+    "index": 12
+   },
+   {
+    "x": 2,
+    "y": -47,
+    "index": 86
+   },
+   {
+    "x": 2,
+    "y": -31,
+    "index": 20
+   },
+   {
+    "x": 10,
+    "y": -31,
+    "index": 38
+   },
+   {
+    "x": 14,
+    "y": -34,
+    "index": 96,
+    "palette": 1
+   },
+   {
+    "x": 22,
+    "y": -34,
+    "index": 98,
+    "palette": 1
+   }
+  ],
+  "attack_up3": [
+   {
+    "x": -8,
+    "y": -15,
+    "index": 10
+   },
+   {
+    "x": -6,
+    "y": -47,
+    "index": 2
+   },
+   {
+    "x": -6,
+    "y": -31,
+    "index": 6
+   },
+   {
+    "x": 0,
+    "y": -15,
+    "index": 12
+   },
+   {
+    "x": 2,
+    "y": -47,
+    "index": 86
+   },
+   {
+    "x": 2,
+    "y": -31,
+    "index": 34
+   },
+   {
+    "x": 10,
+    "y": -31,
+    "index": 36
+   },
+   {
+    "x": 11,
+    "y": -60,
+    "index": 148,
+    "flip_v": true,
+    "palette": 1
+   },
+   {
+    "x": 11,
+    "y": -44,
+    "index": 146,
+    "flip_v": true,
+    "palette": 1
+   }
+  ],
+  "attack_up4": [
+   {
+    "x": -8,
+    "y": -48,
+    "index": 2
+   },
+   {
+    "x": -8,
+    "y": -32,
+    "index": 6
+   },
+   {
+    "x": -6,
+    "y": -16,
+    "index": 18
+   },
+   {
+    "x": -1,
+    "y": -56,
+    "index": 146,
+    "flip_v": true,
+    "palette": 1
+   },
+   {
+    "x": 0,
+    "y": -48,
+    "index": 30
+   },
+   {
+    "x": 0,
+    "y": -32,
+    "index": 32
+   }
+  ],
+  "attack_crouch1": [
+   {
+    "x": -8,
+    "y": -40,
+    "index": 2
+   },
+   {
+    "x": -8,
+    "y": -24,
+    "index": 6
+   },
+   {
+    "x": -8,
+    "y": -8,
+    "index": 42
+   },
+   {
+    "x": 0,
+    "y": -40,
+    "index": 30
+   },
+   {
+    "x": 0,
+    "y": -24,
+    "index": 32
+   },
+   {
+    "x": 0,
+    "y": -8,
+    "index": 44
+   }
+  ],
+  "attack_crouch2": [
+   {
+    "x": -8,
+    "y": -8,
+    "index": 42
+   },
+   {
+    "x": -6,
+    "y": -40,
+    "index": 2
+   },
+   {
+    "x": -6,
+    "y": -24,
+    "index": 6
+   },
+   {
+    "x": 0,
+    "y": -8,
+    "index": 44
+   },
+   {
+    "x": 2,
+    "y": -40,
+    "index": 4
+   },
+   {
+    "x": 2,
+    "y": -24,
+    "index": 34
+   },
+   {
+    "x": 10,
+    "y": -24,
+    "index": 36
+   },
+   {
+    "x": 17,
+    "y": -17,
+    "index": 158,
+    "palette": 1
+   }
+  ],
+  "attack_crouch3": [
+   {
+    "x": -8,
+    "y": -8,
+    "index": 42
+   },
+   {
+    "x": -6,
+    "y": -40,
+    "index": 2
+   },
+   {
+    "x": -6,
+    "y": -24,
+    "index": 6
+   },
+   {
+    "x": 0,
+    "y": -8,
+    "index": 44
+   },
+   {
+    "x": 2,
+    "y": -40,
+    "index": 4
+   },
+   {
+    "x": 2,
+    "y": -24,
+    "index": 20
+   },
+   {
+    "x": 9,
+    "y": -8,
+    "index": 146,
+    "palette": 1
+   },
+   {
+    "x": 9,
+    "y": 8,
+    "index": 148,
+    "palette": 1
+   },
+   {
+    "x": 10,
+    "y": -24,
+    "index": 38
+   }
+  ],
+  "attack_crouch4": [
+   {
+    "x": -8,
+    "y": -8,
+    "index": 42
+   },
+   {
+    "x": -6,
+    "y": -24,
+    "index": 40
+   },
+   {
+    "x": 0,
+    "y": -8,
+    "index": 44
+   },
+   {
+    "x": 2,
+    "y": -24,
+    "index": 46
+   },
+   {
+    "x": 2,
+    "y": -8,
+    "index": 88
+   },
+   {
+    "x": 3,
+    "y": 0,
+    "index": 146,
+    "palette": 1
+   }
+  ],
+  "jump": [
+   {
+    "x": -8,
+    "y": -48,
+    "index": 2
+   },
+   {
+    "x": -8,
+    "y": -32,
+    "index": 14
+   },
+   {
+    "x": -8,
+    "y": -16,
+    "index": 48
+   },
+   {
+    "x": -2,
+    "y": -16,
+    "index": 44
+   },
+   {
+    "x": 0,
+    "y": -48,
+    "index": 4
+   },
+   {
+    "x": 0,
+    "y": -32,
+    "index": 16
+   }
+  ]
+ }
+}

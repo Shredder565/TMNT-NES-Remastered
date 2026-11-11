@@ -1,0 +1,41 @@
+{
+ "about": "Which ROM tiles make up object kind 9F, something an enemy throws or fires, taken from the game's sprite table. Tile numbers and positions only; no graphics. Positions are in pixels from its own position value, moving right.",
+ "tile_height": 16,
+ "palettes": {
+  "3": [
+   15,
+   15,
+   20,
+   44
+  ]
+ },
+ "animations": {
+  "walk": {
+   "frames": [
+    "f140"
+   ],
+   "ticks": 12,
+   "loop": true
+  }
+ },
+ "frames": {
+  "f140": [
+   {
+    "x": -8,
+    "y": -16,
+    "index": 1762,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -16,
+    "index": 1762,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": true
+   }
+  ]
+ }
+}

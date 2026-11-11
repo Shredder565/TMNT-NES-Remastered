@@ -1,0 +1,44 @@
+{
+ "about": "Which ROM tiles make up object kind 99, something an enemy throws or fires, taken from the game's sprite table. Tile numbers and positions only; no graphics. Positions are in pixels from its own position value, moving right.",
+ "tile_height": 16,
+ "palettes": {
+  "2": [
+   15,
+   13,
+   18,
+   43
+  ]
+ },
+ "animations": {
+  "walk": {
+   "frames": [
+    "f146",
+    "f147"
+   ],
+   "ticks": 6,
+   "loop": true
+  }
+ },
+ "frames": {
+  "f146": [
+   {
+    "x": -4,
+    "y": -8,
+    "index": 232,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f147": [
+   {
+    "x": -4,
+    "y": -8,
+    "index": 234,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ]
+ }
+}

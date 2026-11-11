@@ -1,0 +1,33 @@
+{
+ "about": "Which ROM tiles make up object kind 4A, something an enemy throws or fires, taken from the game's sprite table. Tile numbers and positions only; no graphics. Positions are in pixels from its own position value, moving right.",
+ "tile_height": 16,
+ "palettes": {
+  "1": [
+   15,
+   2,
+   22,
+   49
+  ]
+ },
+ "animations": {
+  "walk": {
+   "frames": [
+    "f150"
+   ],
+   "ticks": 12,
+   "loop": true
+  }
+ },
+ "frames": {
+  "f150": [
+   {
+    "x": -4,
+    "y": -16,
+    "index": 484,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ]
+ }
+}

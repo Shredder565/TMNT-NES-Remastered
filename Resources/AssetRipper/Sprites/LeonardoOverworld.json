@@ -1,0 +1,172 @@
+{
+ "about": "Which ROM tiles make up Leonardo on the overworld map. Tile numbers and positions only; no graphics. Positions are in pixels from his position value (his middle). 'right' is mirrored for walking left.",
+ "tile_height": 16,
+ "palettes": {
+  "0": [
+   15,
+   9,
+   22,
+   42
+  ]
+ },
+ "animations": {
+  "right": {
+   "frames": [
+    "f148",
+    "f149"
+   ],
+   "ticks": 8,
+   "loop": true
+  },
+  "up": {
+   "frames": [
+    "f151",
+    "f152"
+   ],
+   "ticks": 8,
+   "loop": true
+  },
+  "down": {
+   "frames": [
+    "f145",
+    "f146"
+   ],
+   "ticks": 8,
+   "loop": true
+  }
+ },
+ "frames": {
+  "f145": [
+   {
+    "x": -8,
+    "y": -8,
+    "index": 4104,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": -24,
+    "index": 4098,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -8,
+    "index": 4104,
+    "palette": 0,
+    "flip_h": true,
+    "flip_v": false
+   }
+  ],
+  "f146": [
+   {
+    "x": -8,
+    "y": -7,
+    "index": 4100,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": -23,
+    "index": 4098,
+    "palette": 0,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -7,
+    "index": 4102,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f148": [
+   {
+    "x": -8,
+    "y": -8,
+    "index": 4110,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -8,
+    "index": 4112,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f149": [
+   {
+    "x": -8,
+    "y": -7,
+    "index": 4114,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -7,
+    "index": 4116,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f151": [
+   {
+    "x": -8,
+    "y": -9,
+    "index": 4122,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": 7,
+    "index": 4124,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -9,
+    "index": 4122,
+    "palette": 0,
+    "flip_h": true,
+    "flip_v": false
+   }
+  ],
+  "f152": [
+   {
+    "x": -8,
+    "y": -8,
+    "index": 4118,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -8,
+    "index": 4120,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ]
+ }
+}

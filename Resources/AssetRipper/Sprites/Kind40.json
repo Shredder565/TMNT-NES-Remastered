@@ -1,0 +1,79 @@
+{
+ "about": "Which ROM tiles make up enemy kind 40, taken from the game's sprite table while it was on screen. Tile numbers and positions only; no graphics. Positions are in pixels from its own position value, facing right.",
+ "tile_height": 16,
+ "palettes": {
+  "2": [
+   15,
+   13,
+   18,
+   35
+  ]
+ },
+ "animations": {
+  "walk": {
+   "frames": [
+    "f202",
+    "f199",
+    "f200"
+   ],
+   "ticks": 5,
+   "loop": true
+  }
+ },
+ "frames": {
+  "f199": [
+   {
+    "x": -8,
+    "y": -16,
+    "index": 4316,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -7,
+    "y": -16,
+    "index": 4318,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   }
+  ],
+  "f200": [
+   {
+    "x": -8,
+    "y": -16,
+    "index": 4318,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": -7,
+    "y": -16,
+    "index": 4316,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f202": [
+   {
+    "x": -8,
+    "y": -16,
+    "index": 4324,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -16,
+    "index": 4326,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ]
+ }
+}

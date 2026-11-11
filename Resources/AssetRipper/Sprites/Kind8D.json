@@ -1,0 +1,19 @@
+{
+  "about": "Which ROM tiles make up enemy kind 8D, the first sewer's crawler. Tile numbers and positions only; no graphics. Positions are in pixels from its own position value (middle across, bottom edge), facing right.",
+  "tile_height": 16,
+  "palettes": { "1": [15, 2, 22, 49] },
+  "animations": {
+    "walk": { "frames": ["walk1", "walk2"], "ticks": 3, "loop": true }
+  },
+  "frames": {
+    "walk1": [
+      { "x": -12, "y": -16, "index": 240, "palette": 1 },
+      { "x": -4, "y": -16, "index": 242, "palette": 1 },
+      { "x": 4, "y": -16, "index": 244, "palette": 1 }
+    ],
+    "walk2": [
+      { "x": -8, "y": -16, "index": 236, "palette": 1 },
+      { "x": 0, "y": -16, "index": 238, "palette": 1 }
+    ]
+  }
+}
