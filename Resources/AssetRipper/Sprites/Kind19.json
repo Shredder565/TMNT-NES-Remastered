@@ -1,0 +1,33 @@
+{
+ "about": "Which ROM tiles make up object kind 19, the boss's bullet, taken from the game's sprite table while it was on screen. Tile numbers and positions only; no graphics. Positions are in pixels from its own position value, facing right.",
+ "tile_height": 16,
+ "palettes": {
+  "2": [
+   15,
+   7,
+   27,
+   55
+  ]
+ },
+ "animations": {
+  "walk": {
+   "frames": [
+    "f140"
+   ],
+   "ticks": 12,
+   "loop": true
+  }
+ },
+ "frames": {
+  "f140": [
+   {
+    "x": -4,
+    "y": -8,
+    "index": 2268,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   }
+  ]
+ }
+}

@@ -28,7 +28,7 @@ overworld: 29 kinds.
 | 88 | rooms | 17 | 9 | 15 | yes | lowers and climbs on a fixed path (`enemy_49_88_A0.md`) |
 | 8D | rooms | 36 | 4 | 7 | yes | walks at 352 (1.38 px per update) |
 | 8F | rooms | 22 | 10 | 17 | yes | flies at 640 (2.5 px per update) |
-| 91 | rooms | 3 | 32 | 18 | yes | stands still |
+| 91 | rooms | 3 | 32 | 18 | yes | walks at 448 for 31 updates, stands for 33 (`world1.md`) |
 | 92 | rooms | 75 | 24 | 16 | yes | walks up and leaps (`enemy_92.md`) |
 | 94 | rooms | 25 | 24 | 18 | yes | walks at 352 for 16 updates, stands for 16 (`enemy_49_88_A0.md`) |
 | 96 | rooms | 135 | 9 | 9 | yes | flies at 640 (2.5 px per update) |

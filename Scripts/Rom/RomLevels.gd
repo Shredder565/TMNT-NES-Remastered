@@ -294,6 +294,10 @@ func _kind_in_slot(lineup: int, slot: int) -> int:
 		return -1
 	return _byte(6, _word(6, T_ENEMY_KINDS + lineup * 2) + slot)
 
+## An object kind's starting hit points.
+func hit_points(kind: int) -> int:
+	return _byte(6, (T_KIND_INFO_HIGH + (kind & 0x7F) * 2) if kind >= 0x80 else (T_KIND_INFO_LOW + kind * 2))
+
 ## The energy the turtle loses on touching an object of this kind.
 func touch_damage(kind: int) -> int:
 	return _byte(6, T_TOUCH_DAMAGE + kind)

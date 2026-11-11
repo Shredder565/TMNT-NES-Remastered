@@ -238,6 +238,17 @@ func _ready() -> void:
 	check(not data.is_solid_cell(12, 20) and leo.health == 112 and leo.invulnerable_timer > 0.0, "a hurting tile is not solid and takes 16 once, then he blinks")
 	data.kinds[20 * data.cols + 12] = RoomData.KIND_EMPTY
 	leo.revive()
+	leo.health = 40
+	var slice := Item.new()
+	slice.setup(Item.SLICE, Vector2(0, 0), null)
+	add_child(slice)
+	slice.pick_up(leo)
+	check(leo.health == 72 and slice.is_queued_for_deletion(), "a slice of pizza gives 32 energy and is gone")
+	var pie := Item.new()
+	pie.setup(Item.WHOLE_PIZZA, Vector2(0, 0), null)
+	add_child(pie)
+	pie.pick_up(leo)
+	check(leo.health == 128, "a whole pizza fills his energy")
 	leo.position = Vector2(40, 96)
 	for i in 30:
 		await get_tree().physics_frame
@@ -628,6 +639,42 @@ func _ready() -> void:
 	check(jumped and absf((187.0 - jump_peak) - 128.3) < 0.2, "a soldier under a ledge the turtle is on makes its spinning jump, 128 pixels up (%.1f)" % (187.0 - jump_peak))
 	check(climber.position.y == 83.0 and climber.position.x > 128.0 and not climber.jumping, "and lands on the ledge")
 	climber.free()
+	victim.position = Vector2(120, 56)
+	var rhino := Rocksteady.new()
+	rhino.setup(Vector2(214, 16), yard, null, victim)
+	add_child(rhino)
+	rhino.set_physics_process(false)
+	var shot_from := 0.0
+	var shoot_ticks := 0
+	var rhino_top := 1000.0
+	var rhino_from := 0.0
+	var rhino_to := 0.0
+	for i in 150:
+		var was: int = rhino.state
+		rhino.tick()
+		if rhino.state == Rocksteady.State.SHOOT:
+			shoot_ticks += 1
+			if was != Rocksteady.State.SHOOT and shot_from == 0.0:
+				shot_from = rhino.position.x - victim.position.x
+		if rhino.state == Rocksteady.State.JUMP and was == Rocksteady.State.CLOSE_IN:
+			rhino_from = rhino.position.x
+		if rhino.state == Rocksteady.State.JUMP and rhino.jumps_done == 1:
+			rhino_top = minf(rhino_top, rhino.position.y)
+		if rhino.state == Rocksteady.State.REST and was == Rocksteady.State.JUMP and rhino_to == 0.0:
+			rhino_to = rhino.position.x
+	check(rhino.position.y == 60.0 or rhino.state == Rocksteady.State.JUMP, "the boss drops in and rides 4 pixels into the floor")
+	check(shot_from <= 34.0 and shot_from > 32.0 and shoot_ticks == 48 and count_shots.call(0x19) >= 0, "it walks 2 pixels an update to 34 pixels from him and stands 48 updates to shoot (%.1f, %d)" % [shot_from, shoot_ticks])
+	check(absf((60.0 - rhino_top) - 82.1) < 0.5 and absf(absf(rhino_to - rhino_from) - 92.0) <= 6.0 and rhino_to < victim.position.x, "its jump rises 82 pixels, covers about 92, and carries it over him (%.1f, %.1f)" % [60.0 - rhino_top, absf(rhino_to - rhino_from)])
+	var beaten := [false]
+	rhino.defeated.connect(func() -> void: beaten[0] = true)
+	rhino.take_hit(95)
+	var alive_at_one: bool = not beaten[0]
+	rhino.take_hit(7)
+	check(alive_at_one and beaten[0] and rhino.is_queued_for_deletion(), "it takes 96 points of hits, then reports its defeat")
+	var bullet := Shot.fire(thrower, 0x19, -1, yard, null)
+	bullet.set_physics_process(false)
+	bullet.tick()
+	check(bullet.position == Vector2(100 - 5 - 5, 36), "its bullet starts 5 across and 20 up and flies 5 pixels an update")
 	thrower.free()
 	clear_shots.call()
 	victim.position = Vector2(200, 56)
@@ -902,6 +949,36 @@ func _ready() -> void:
 			var shot_pictures := SpriteSet.cached("Kind%02X" % map_kind)
 			shot_maps += 1 if shot_pictures != null and shot_pictures.bounds("walk").has_area() else 0
 		check(shot_maps == 6, "the five kinds of shot and the puff are drawn from their own sprites")
+		sewer.set_show_enemies(false)
+
+		print("World 1: items, the boss, and finishing")
+		sewer.enemies_follow_camera = true
+		sewer.show_enemies = true
+		sewer.load_area(0, 4)
+		check(sewer.items.get_child_count() == 2 and sewer.items.get_child(0).kind == Item.WHOLE_PIZZA and sewer.items.get_child(0).position == Vector2(32, 48), "the building room has its whole pizza and its slice")
+		var chainsaws := 0
+		for spot in sewer.room.enemy_spots:
+			chainsaws += 1 if spot.kind == 0x91 and Crawler.KINDS.has(spot.kind) else 0
+		check(chainsaws == 3, "its 3 chainsaw carriers (kind 91) now move")
+		sewer.load_area(0, 5)
+		sewer.set_flying(true)
+		leo.position = Vector2(300, 160)
+		for i in 4:
+			await get_tree().physics_frame
+		check(sewer.boss == null, "the last room's boss is not there until he reaches its corner")
+		sewer.set_flying(false)
+		leo.position = Vector2(60, 160)
+		for i in 4:
+			leo.invulnerable_timer = 1.0
+			await get_tree().physics_frame
+		check(sewer.boss != null and sewer.boss.health == 96 and sewer.boss.touch_damage == 23 and sewer.boss.sprites != null, "then it appears, with 96 hit points and 23 touch damage from the ROM")
+		check(Shot.damage_of.get(0x19) == 9, "its bullet does 9")
+		sewer.clear_message_seconds = 0.05
+		sewer.boss.take_hit(999)
+		for i in 30:
+			leo.invulnerable_timer = 1.0
+			await get_tree().physics_frame
+		check(sewer.world == 1 and sewer.room.top_down, "beating it ends world 1 and opens world 2's overworld")
 		sewer.set_show_enemies(false)
 
 		sewer.world = 4

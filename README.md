@@ -73,11 +73,20 @@ number, are the 5 kinds not recorded yet. See `Research/enemy_kinds.md`.
 | `Scripts/Enemies/PathEnemy.gd` | Enemy kind 88, which rides up and down |
 | `Scripts/Enemies/Shot.gd` | The things enemies throw and fire |
 | `Scripts/Enemies/Puff.gd` | The puff a beaten enemy leaves |
+| `Scripts/Enemies/Rocksteady.gd` | The boss of world 1 |
+| `Scripts/Levels/Item.gd` | Pizzas and other things to pick up |
 | `Scripts/Player/OverworldTurtle.gd` | The small turtle that walks the overworld map |
 | `Scripts/Levels/RoomScene.gd` | Shows a room or a map and takes the turtle through doors |
 | `Resources/AssetRipper/Sprites/` | Sprite maps (which tiles make which sprite) |
 | `Research/` | Notes on how the original works, and the emulator scripts used |
 | `Tests/` | Self-tests that use a fake ROM built in memory |
+
+## World 1
+
+World 1 can be played from its overworld to its end: the six rooms, their
+enemies, three pizzas and one other item, and the boss in the last room.
+Beating the boss opens world 2's overworld. What is still missing from it
+is listed at the end of `Research/world1.md`.
 
 ## Sprite map format
 

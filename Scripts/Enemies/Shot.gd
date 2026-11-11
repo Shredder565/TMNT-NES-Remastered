@@ -16,6 +16,7 @@ const KINDS := {
 	0x95: { "speed": 640, "offset": Vector2(2, -17) },             # fired by kind 94
 	0x9F: { "speed": 832, "offset": Vector2(4, -12) },             # fired by kind 9E
 	0x99: { "speed": 768, "offset": Vector2(3, -36) },             # thrown by kind 98
+	0x19: { "speed": 1280, "offset": Vector2(5, -20) },            # the bullet of the world 1 boss, kind 71
 }
 const TICK_FRAMES := 2
 const GIVE_UP_DISTANCE := 200.0   ## guess: gone once this far from the turtle (off the screen)

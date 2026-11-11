@@ -34,6 +34,8 @@ const KINDS := {
 	0x4B: { "speed": 296, "flies": false, "look": 15.0, "walk": 31, "pause": 9, "sink": 3.0, "shot": 0x4C, "shots": 1 },
 	# 94 walks for 16 updates and stands for 16, riding 4 pixels into the floor.
 	0x94: { "speed": 352, "flies": false, "look": 15.0, "walk": 16, "pause": 16, "sink": 4.0, "shot": 0x95, "shots": 4 },
+	# 91 (it carries a chainsaw) walks for 31 updates and stands for 33.
+	0x91: { "speed": 448, "flies": false, "look": 15.0, "walk": 31, "pause": 33 },
 }
 
 const TICK_FRAMES := 2

@@ -54,6 +54,19 @@ const ENEMY_SCENE := preload("res://Scenes/Enemies/DummyEnemy.tscn")
 const VIEW_SIZE := Vector2i(256, 192)  ## what the camera shows of a room, above the HUD strip
 const SPAWN_MARGIN := 8.0            ## an enemy is made when its place is this far inside the screen's edge
 const REMOVE_MARGIN := 4.0           ## and removed when it is this close to leaving
+## World 1's items and boss, as seen in the original (Research/world1.md).
+## The ROM tables these come from have not been found, so they are listed
+## here by hand: [kind, where] for each item of a room, keyed by (world, area).
+const ITEMS := {
+	Vector2i(0, 0): [[0x03, Vector2(928, 32)]],
+	Vector2i(0, 2): [[0x0B, Vector2(560, 64)]],
+	Vector2i(0, 3): [[0x03, Vector2(640, 40)]],
+	Vector2i(0, 4): [[0x01, Vector2(32, 48)], [0x03, Vector2(304, 64)]],
+}
+## The boss of a room: it appears at `at` once the turtle is inside `when`.
+const BOSSES := {
+	Vector2i(0, 5): { "at": Vector2(208, 68), "when": Rect2(0, 0, 136, 192) },
+}
 const TURTLE_ENERGY := 128           ## the original's full energy; the bar shows it as 8 blocks
 const ENERGY_BLOCKS := 8
 
@@ -72,6 +85,12 @@ var enemies_follow_camera := true    ## false: every enemy of a room is there fr
 var _spot_enemies := {}              ## enemy place -> the enemy it last made
 var _camera_corner := Vector2.ZERO
 var _floor_frame := 0
+var items: Node2D                    ## holds the items of the room on show
+var boss: Rocksteady                 ## the room's boss while it is alive
+var _boss_done := {}                 ## (world, area) -> true once that room's boss has appeared
+var _clearing := false               ## true while the "world clear" message is up
+var _boss_key := Vector2i(-1, -1)    ## the room the living boss belongs to
+var clear_message_seconds := 3.0     ## how long "WORLD n CLEAR" stays up
 ## World 5 hides the Technodrome behind the inner door of one of three caves
 ## (areas 2, 3 and 4), chosen afresh each game.
 var technodrome_cave := 2
@@ -96,6 +115,9 @@ func _ready() -> void:
 	enemies = Node2D.new()
 	enemies.name = "Enemies"
 	add_child(enemies)
+	items = Node2D.new()
+	items.name = "Items"
+	add_child(items)
 	walker = OverworldTurtle.new()
 	walker.bandana_color = turtle.bandana_color
 	walker.door_reached.connect(enter_door)
@@ -161,6 +183,7 @@ func show_room(new_room: RoomData) -> void:
 	camera.make_current()
 	camera.reset_smoothing()
 	_place_enemies()
+	_place_items()
 	_wait_for_up_release = true
 	var door_hint := "walk into a door" if room.top_down else "Up at a door"
 	hud.text = "%s   %s\n%s  F3/F4 area  F7 map  F6 fly  F8 foes  b%d" % [turtle.turtle_name, room.name, door_hint, Game.BUILD]
@@ -181,6 +204,55 @@ func _place_enemies() -> void:
 	for spot in room.enemy_spots:
 		if room.top_down or not enemies_follow_camera or view.has_point(spot.position):
 			_make_enemy(spot)
+
+## Puts the room's items out. They are there from the start and stay until
+## picked up; leaving the room and coming back brings them back.
+func _place_items() -> void:
+	for child in items.get_children():
+		items.remove_child(child)
+		child.queue_free()
+	if boss != null and is_instance_valid(boss) and not boss.is_queued_for_deletion():
+		_boss_done.erase(_boss_key)   # he left with the boss still standing: it will be back
+	boss = null
+	if levels == null or room == null or room.top_down or not room.name.begins_with("World"):
+		return
+	for entry: Array in ITEMS.get(Vector2i(world, area), []):
+		var item := Item.new()
+		item.setup(entry[0], entry[1], SpriteSet.cached("Kind%02X" % entry[0]))
+		items.add_child(item)
+
+## Brings the room's boss in once the turtle reaches its part of the room.
+func _check_boss() -> void:
+	var key := Vector2i(world, area)
+	if levels == null or not show_enemies or not BOSSES.has(key) or _boss_done.has(key) or not room.name.begins_with("World"):
+		return
+	var when: Rect2 = BOSSES[key].when
+	if not when.has_point(turtle.position):
+		return
+	_boss_done[key] = true
+	_boss_key = key
+	boss = Rocksteady.new()
+	boss.setup(BOSSES[key].at, room, SpriteSet.cached("Kind71"), turtle)
+	boss.health = levels.hit_points(Rocksteady.KIND)
+	boss.touch_damage = levels.touch_damage(Rocksteady.KIND)
+	var damage := levels.weapon_damage(0)
+	boss.weapon_damage = damage.x
+	boss.weapon_damage_low = damage.y
+	boss.defeated.connect(_on_boss_defeated)
+	items.add_child(boss)   # kept apart from the enemies so the camera rule never removes it
+
+## Beating the boss ends the world: the original then starts the next
+## world on its overworld. (What it shows in between is not done.)
+func _on_boss_defeated() -> void:
+	if _clearing:
+		return
+	_clearing = true
+	var cleared := world
+	hud.text = "WORLD %d CLEAR" % (cleared + 1)
+	await get_tree().create_timer(clear_message_seconds).timeout
+	_clearing = false
+	if levels != null and levels.has_overworld(cleared + 1):
+		load_overworld(cleared + 1)
 
 ## Makes the enemy for one of the ROM's enemy places.
 func _make_enemy(spot: EnemySpot) -> void:
@@ -375,6 +447,7 @@ func _physics_process(_delta: float) -> void:
 		enter_door(door)
 		return
 	_apply_floor_kinds()
+	_check_boss()
 	if show_enemies and enemies_follow_camera:
 		_follow_camera()
 

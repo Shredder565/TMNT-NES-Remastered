@@ -297,6 +297,13 @@ func drain(amount: int) -> void:
 		art.modulate = Color(0.5, 0.5, 0.5)
 		died.emit()
 
+## Energy gained from a pizza. It cannot go above full.
+func heal(amount: int) -> void:
+	if state == State.DEAD:
+		return
+	health = mini(health + amount, max_health)
+	health_changed.emit(health, max_health)
+
 func revive() -> void:
 	health = max_health
 	state = State.NORMAL

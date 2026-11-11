@@ -38,6 +38,8 @@ func _physics_process(delta: float) -> void:
 		_frames += 1
 		_show_picture()
 	# Hurt any turtle we are touching. The turtle ignores this while blinking.
+	if not monitoring:
+		return   # on the overworld, where the small turtle cannot be hurt yet
 	for body in get_overlapping_bodies():
 		if body is Turtle:
 			body.take_damage(touch_damage, global_position.x)

@@ -81,7 +81,7 @@ the floor.
 | Kind | Why |
 | --- | --- |
 | 82 | Made one short hop and its object disappeared; in another room it did nothing |
-| 91 | Did not appear when its room was loaded this way |
+| 91 | Since done: see `world1.md` |
 | 97 | Drifts in straight lines and arcs and has a second part (kind A5) |
 | AB | Moves 32 pixels at a time along one axis, sometimes in arcs; no rule found |
 | 40, AC | Overworld kinds; the overworld turtle cannot fight yet |
