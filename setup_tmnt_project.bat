@@ -101,7 +101,7 @@ rem ---- 3. Godot ------------------------------------------------------
 set "GODOT_DIR=%PROJECT%\Tools\Godot"
 if exist "%GODOT_DIR%\%GODOT_EXE%" goto :have_godot
 
-echo [3/3] Downloading Godot 4.6.1 (about 70 MB)...
+echo [3/3] Downloading Godot 4.6.1 (about 80 MB)...
 if not exist "%GODOT_DIR%" mkdir "%GODOT_DIR%"
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $ProgressPreference='SilentlyContinue'; [Net.ServicePointManager]::SecurityProtocol='Tls12'; Invoke-WebRequest -Uri '%GODOT_URL%' -OutFile '%GODOT_DIR%\godot.zip'; Expand-Archive -Path '%GODOT_DIR%\godot.zip' -DestinationPath '%GODOT_DIR%' -Force; Remove-Item '%GODOT_DIR%\godot.zip'"
 if errorlevel 1 goto :godot_failed
