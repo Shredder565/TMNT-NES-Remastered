@@ -6,15 +6,23 @@ graphics from that file on their machine.
 
 ## Setting up on another PC
 
-1. Get this folder onto the PC (clone the repository, or pull if it is
-   already there).
-2. If Godot 4.6 is not at `C:\Users\Neil\MarioProject\Godot\`, make a file
-   called `godot_path.txt` in this folder holding the full path of that
-   PC's Godot `.exe`, on one line. The file is not synced.
-3. Run `play.bat` once and give the game your ROM on the ROM screen. The
+Run `setup_tmnt_project.bat` on the new PC. It can be run from anywhere,
+for example straight from a download. It installs Git if the PC has none,
+gets this project into `%USERPROFILE%\TMNT-NES-Remastered` (or updates it),
+downloads Godot 4.6.1 into the project's `Tools` folder, and writes
+`godot_path.txt` so the other `.bat` files can find Godot. Run it again
+later to get the latest version.
+
+Then, in the project folder:
+
+1. Run `play.bat` once and give the game your ROM on the ROM screen. The
    ROM and everything made from it stay in that PC's Godot user folder and
    are never synced, so this is needed once per PC.
-4. Run `run_tests.bat`. It should end with RESULT: PASS.
+2. Run `run_tests.bat`. It should end with RESULT: PASS.
+
+`godot_path.txt` holds the full path of that PC's Godot `.exe` on one line.
+It is not synced. Without it the `.bat` files look in
+`C:\Users\Neil\MarioProject\Godot\`.
 
 ## Run it
 
