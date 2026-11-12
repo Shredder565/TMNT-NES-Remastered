@@ -92,8 +92,10 @@ which is the same thing as the turtle being left of X 128.
 
 ## Still missing from world 1
 
-The overworld's enemies (kinds 40, 9A, 9B) do not move and cannot be
-fought; kind AA; the turtle being captured and the others taking over;
+On the overworld the turtle cannot attack and is not hurt by the enemies
+there, and kinds 9C, 42 and AC still stand (`overworld.md`); the other
+three turtles still carry Leonardo's sword and pictures
+(`start_screen.md`); the turtle being captured and the others taking over;
 what the original shows when the world is won (April's rescue); score;
 sound; the special weapons and the other items in
 `items_and_hits.md`; and everything listed as approximate on the enemies'

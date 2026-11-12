@@ -38,14 +38,16 @@ on and off, F6 toggles flying through walls, F2 opens the practice room.
 
 A controller works as soon as it is plugged in, with no setup (Xbox layout;
 PlayStation and Switch pads map onto it): d-pad or left stick to move, climb
-and crouch, A to jump, X or B to attack, Start to pause.
+and crouch, A to jump, X or B to attack. Start (Enter on the keyboard) opens the original's
+information screen, built from your ROM: Up and Down choose a turtle, Start
+goes back to play.
 
 With a ROM the game opens on the first overworld map, as the original does.
 Walk onto a manhole or into a doorway to go in. Inside, climb a ladder out of
 the top of the screen, or press Up in front of a doorway, to come back out.
 
 Enemies stand where the original puts them, with its hit points and its
-damage on touch. 24 of the 29 kinds are drawn from their own sprites, and 18
+damage on touch. 26 of the 29 kinds are drawn from their own sprites, and 18
 of those move: walkers and fliers that keep a steady speed, the foot-soldier
 kind that hops, walks up and attacks, and kinds that leap, hop, charge or
 ride up and down. Their speeds and timings are measured. For the kinds that
