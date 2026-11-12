@@ -135,6 +135,7 @@ func _ready() -> void:
 	boss_bar.position.y += 10.0
 	boss_bar.hide()
 	health_bar.get_parent().add_child(boss_bar)
+	OriginalEnemy.levels = levels
 	if levels != null:
 		for shot_kind: int in Shot.KINDS:
 			Shot.damage_of[shot_kind] = levels.touch_damage(shot_kind)
@@ -453,8 +454,13 @@ func _make_enemy(spot: EnemySpot) -> void:
 		enemy = mover
 	elif Soldier.KINDS.has(spot.kind):
 		var soldier := Soldier.new()
+		soldier.view_corner = _view_corner
 		soldier.setup(spot, room, pictures, turtle)
 		enemy = soldier
+	elif LegacyWalker.KINDS.has(spot.kind):
+		var walker_enemy := LegacyWalker.new()
+		walker_enemy.setup(spot, room, pictures, turtle)
+		enemy = walker_enemy
 	else:
 		enemy = _make_stand_in(spot)
 	enemy.set("weapon_damage", damage.x)
@@ -669,6 +675,7 @@ func _place_camera() -> void:
 	turtle.sync_screen()
 	var camera: Camera2D = turtle.get_node("Camera2D")
 	camera.position.x = floorf(turtle.scroll_x) + VIEW_SIZE.x / 2.0 - turtle.position.x
+	OriginalEnemy.screen_moved_to(floori(turtle.scroll_x))
 
 func set_flying(on: bool) -> void:
 	flying = on
