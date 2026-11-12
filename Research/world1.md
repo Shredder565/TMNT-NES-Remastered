@@ -92,8 +92,7 @@ which is the same thing as the turtle being left of X 128.
 
 ## Still missing from world 1
 
-On the overworld the turtle cannot attack and is not hurt by the enemies
-there, and kinds 9C, 42 and AC still stand (`overworld.md`); the other
+On the overworld kinds 9C, 42 and AC still stand (`overworld.md`); the other
 three turtles still carry Leonardo's sword and pictures
 (`start_screen.md`); the turtle being captured and the others taking over;
 what the original shows when the world is won (April's rescue); score;
