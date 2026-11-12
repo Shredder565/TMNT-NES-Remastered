@@ -103,6 +103,10 @@ number, are the 5 kinds not recorded yet. See `Research/enemy_kinds.md`.
 
 ## World 1
 
+With a ROM installed the game opens on the original's notice and title
+screen, built from the ROM's own layout (`Research/title_screen.md`); Start
+begins play.
+
 World 1 can be played from its overworld to its end: the six rooms, their
 enemies, three pizzas and one other item, the first boss at the end of the
 second sewer and the last boss in the last room. The bosses come in where
