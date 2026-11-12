@@ -65,6 +65,15 @@ func _adopt_kind(e: OriginalEnemy, s: Dictionary) -> void:
 	elif e is Boomerang:
 		e.grace = s.t6
 		e.thrower = slots.get(str(s.t64))
+	elif e is Diver:
+		e.bob_timer = s.t6
+		e.bob_step = s.t64 & 0x7F
+		e.bob_rising = s.t64 >= 0x80
+		e.bob_way = -1 if s.t58 >= 0x80 else 1
+		e.aimed = s.t5 != 0
+		e.aim_direction = s.t5 & 0x0F
+		e.aim_left = (s.t5 >> 4) & 2 != 0
+		e.aim_down = (s.t5 >> 4) & 1 != 0
 	elif e is LedgeWalker:
 		e.falling = s.mode == 0x8E
 	elif e is CeilingCrawler:

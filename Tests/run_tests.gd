@@ -1247,6 +1247,27 @@ func _ready() -> void:
 		o_shot.free()
 	o_gunner.free()
 	OriginalEnemy.chance_byte = -1
+	# Kind AA: bobs, then takes aim once and flies off.
+	o_prey.position = Vector2(220, 176)
+	var o_diver := Diver.new()
+	o_diver.setup(o_spot_for.call(0xAA, Vector2(100, 60)), o_court, null, o_prey)
+	add_child(o_diver)
+	o_diver.set_physics_process(false)
+	var o_bob_low := 0.0
+	var o_bob_high := 1000.0
+	for i in 80:
+		o_diver.tick()
+		o_bob_low = maxf(o_bob_low, o_diver.position.y)
+		o_bob_high = minf(o_bob_high, o_diver.position.y)
+	check(not o_diver.aimed and o_diver.position.x == 100.0 and absf(o_bob_low - o_bob_high - 14.62) < 0.01, "kind AA bobs up and down on the spot, 14.6 pixels in all, while the turtle is 64 pixels or more away (%.2f)" % (o_bob_low - o_bob_high))
+	o_prey.position.x = 150.0
+	o_diver.tick()
+	check(o_diver.aimed and not o_diver.aim_left and o_diver.aim_down and o_diver.aim_direction == 5 and o_diver.speed_x == 222, "with him under 64 pixels away it takes aim, once, in one of 32 directions (%d)" % o_diver.aim_direction)
+	o_prey.position.x = 60.0
+	o_diver.tick()
+	check(o_diver.speed_x == 222 and o_diver.aim_direction == 5, "and keeps that course wherever he goes")
+	check(Diver._angle_step(1, 1) == 4 and Diver._angle_step(3, 1) == 1 and Diver._angle_step(0, 5) == 7 and Diver._angle_step(5, 0) == 0, "directions run from 0, level, to 7, straight down")
+	o_diver.free()
 	# The frames enemies are updated on, and the sixteen map columns to hand.
 	OriginalEnemy.frame_counter = 0x11
 	var o_idle: Soldier = o_make_soldier.call(Vector2(100, 179))
