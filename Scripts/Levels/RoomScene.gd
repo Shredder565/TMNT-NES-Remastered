@@ -161,6 +161,7 @@ var door_wipe := true                ## false: doors change sides at once (tests
 var _wipe_frame := -1                ## frames into a door's change of sides, -1 when none is on show
 var _wipe_rows := 0
 var _wipe_cover: ColorRect
+var frame_clock := 0                 ## counts frames on the overworld as the original's frame counter does (one byte)
 var _overworld_frame := 0            ## frames on the overworld
 var _overworld_turn := 0             ## which of every two frames is the enemies' (the one after the turtle's)
 
@@ -462,6 +463,7 @@ func _boxes_meet(enemy_box: Rect2, enemy_at: Vector2, other: Rect2, other_at: Ve
 
 func _on_walker_moved() -> void:
 	_overworld_frame += 1
+	frame_clock = (frame_clock + 1) & 255
 	if room == null or not room.top_down:
 		return
 	var corner := _overworld_corner()
@@ -493,12 +495,14 @@ func _follow_overworld(corner: Vector2) -> void:
 				var made: Variant = _spot_enemies.get(spot)
 				if made is OverworldEnemy:
 					made.screen_corner = corner
+					made.frame_clock = frame_clock
 					made.position -= corner - old
 					made.tick()
 					_just_made[made] = true
 	for thing in enemies.get_children():
 		if thing is OverworldEnemy and not thing.is_queued_for_deletion():
 			thing.screen_corner = corner
+			thing.frame_clock = frame_clock
 			if not _just_made.has(thing):
 				thing.tick()
 		var across: float = thing.position.x - corner.x

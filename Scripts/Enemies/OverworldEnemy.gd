@@ -10,7 +10,9 @@ extends Node2D
 ## Touching one hurts the turtle and his weapon hurts them; the map scene
 ## (RoomScene) tests the boxes, since it knows both sides.
 
-const KINDS := [0x9A, 0x9B, 0x40]
+const KINDS := [0x9A, 0x9B, 0x9C, 0x40]
+const CHASER_CLOCK_BIT := 8        ## kind 9C only decides while this bit of the frame counter is set
+const CHASER_NEAR := 8             ## closer than this on one axis, it does not drive along it
 const TICK_FRAMES := 2
 ## The rollers' speeds, and the faster ones they use while the turtle drives the van.
 const ROLLER_ACROSS := 0x0220
@@ -43,6 +45,7 @@ var kind := 0x9A
 var room: RoomData
 var target: Node2D                 ## the overworld turtle
 var driving_van := false           ## the rollers speed up while he drives
+var frame_clock := 0               ## the game's frame counter, kept up to date by the map scene (kind 9C goes by it)
 var self_driven := true            ## false: something else calls tick() on the right frames
 var screen_corner := Vector2.ZERO  ## the corner of the original's screen, kept up to date by the map scene
 var speed := Vector2i.ZERO         ## 1/256 pixel per update
@@ -97,6 +100,8 @@ func tick() -> void:
 			_roller(true)
 		0x9B:
 			_roller(false)
+		0x9C:
+			_chaser()
 		_:
 			_soldier()
 	_move()
@@ -186,6 +191,36 @@ func _roll(way: String) -> bool:
 			speed = Vector2i(0, up)
 			_animate("down")
 	return true
+
+## Kind 9C, the roller that comes after the turtle (code 5:$87F8). It
+## only decides during 8 frames of every 16 (bit 3 of the frame counter);
+## in between it keeps going as it was. Deciding, it turns to face him
+## when he is 8 or more away across. Then, if he is that far away: facing
+## right it tries right and then, whatever came of that, left; facing left
+## it tries left. If left is free it goes left. Otherwise, if he is 8 or
+## more away up or down: up when he is higher, and down when he is lower
+## or up is blocked. Otherwise it stands. (Trying left straight after
+## right means it only ends up going right when left is blocked; that is
+## what the code does.)
+func _chaser() -> void:
+	if target == null or (frame_clock & CHASER_CLOCK_BIT) == 0:
+		return
+	var across := absi(int(target.position.x) - int(position.x))
+	var down := absi(int(target.position.y) - int(position.y))
+	var above := int(target.position.y) < int(position.y)
+	if across >= FACE_FROM:
+		facing_left = int(target.position.x) < int(position.x)
+	if across >= CHASER_NEAR:
+		if not facing_left:
+			_roll("right")
+		if _roll("left"):
+			return
+	if down >= CHASER_NEAR:
+		if above and _roll("up"):
+			return
+		if _roll("down"):
+			return
+	speed = Vector2i.ZERO
 
 ## The soldier walks at the turtle: across first while he is 10 or more
 ## pixels away that way, otherwise (or when a wall stops that) up or down

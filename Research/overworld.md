@@ -235,6 +235,59 @@ the same and the attack stops.
 | Soldier beside him: a miss, then a hit | 664 | the soldier alive and its hit points the same on every frame |
 | Roller drives past while he swings | 450 | the roller's hit points the same on every frame; the same 51 frames of blinking after it touched him |
 
+## Kind 9C, and what kinds 42 and AC are (added 12 November 2026, fourth pass)
+
+None of the three is placed in world 1. Kind 9C is on world 3's
+overworld (four places), kind 42 on world 4's (fifteen) and kind AC on
+world 5's (eleven) (code: placement table 6:$AC8F).
+
+**Kind 9C** (code 5:$87F8; measured) is a roller that comes after the
+turtle, with the rollers' pictures, speeds and tests. It only decides
+during 8 frames of every 16 (bit 3 of the frame counter, $1E); in
+between it keeps the speed it has. Deciding: it turns to face him when
+he is 8 or more pixels away across. If he is that far away, then facing
+right it tries right and, whatever came of that, left; facing left it
+tries left; if left is free it goes left. Failing that, if he is 8 or
+more away up or down it tries up when he is higher, and down when he is
+lower or up is blocked. Otherwise it stands. Trying left straight after
+right means it goes right only when left is blocked: that is what the
+code does, and the recording agrees (with the turtle above it and a
+wall in the way it drove up and down on the spot for seconds).
+
+Replay against the original (world 3, 800 frames, the turtle walking
+right, up, down and left near it): the turtle and the screen corner the
+same on every frame, and kind 9C's place and facing the same on all 770
+frames it was there (within the 2 pixels by which the original's own
+numbers jump while the screen scrolls). Hit points 48, touch damage 128,
+as the other rollers.
+
+In the recordings an enemy's speed reads 0 for one update when its box
+first meets the turtle's. Leaving that out matches every frame; putting
+it in does not, so it is not copied.
+
+**Kind 42** (code 5:$89CC; one recording in world 4) is not a ground
+enemy. It comes in flying, 3 pixels an update up and across toward the
+turtle, and at the same moment an object of kind 43 appears at its place
+on the ground. About 50 frames later the kind 43 turns into kind 52 (a
+burst, animation $AE; code 5:$8A0F does this when 43's own animation
+ends) and is gone 44 frames after that; the flyer leaves the screen.
+So it looks like an aircraft dropping a bomb at the spot where it came
+in. Hit points 0, touch damage 0 for kind 42 itself; what the bomb or
+burst does to the turtle was not measured.
+
+**Kind AC** (code 5:$A59F, not recorded) allows only two of itself at a
+time (a count at $03EB), is put at the top of the screen in a column 32
+pixels wide worked out from where the screen is, moves down at 2.5
+pixels an update, and then becomes another kind (through 5:$8644). With
+world 5's message about a search light on ground level, it is probably
+that light.
+
+The remake now runs kind 9C (`Scripts/Enemies/OverworldEnemy.gd`).
+Kinds 42 and AC still stand where they are placed: each is several
+objects working together (flyer, bomb, burst; light and what it turns
+into) and needs its own recordings in worlds 4 and 5, which the remake
+cannot be played through to yet.
+
 ## Going through a door (added 12 November 2026, third pass; measured)
 
 Recorded frame by frame: walking onto the first manhole, standing in the

@@ -1,0 +1,334 @@
+{
+ "about": "Which ROM tiles make up enemy kind 9C (the roller that comes after the turtle; it shares kind 9A's pictures), taken from the game's sprite table while it was on screen. Tile numbers and positions only; no graphics. Positions are in pixels from its own position value, facing right. 'updates' is how many game updates each picture of an animation stays (measured).",
+ "tile_height": 16,
+ "palettes": {
+  "2": [
+   15,
+   13,
+   18,
+   35
+  ],
+  "3": [
+   15,
+   15,
+   22,
+   55
+  ]
+ },
+ "animations": {
+  "up": {
+   "frames": [
+    "f135",
+    "f136"
+   ],
+   "updates": [
+    7,
+    9
+   ],
+   "ticks": 8,
+   "loop": true
+  },
+  "down": {
+   "frames": [
+    "f137",
+    "f138"
+   ],
+   "updates": [
+    7,
+    9
+   ],
+   "ticks": 8,
+   "loop": true
+  },
+  "across": {
+   "frames": [
+    "f139",
+    "f140"
+   ],
+   "updates": [
+    7,
+    9
+   ],
+   "ticks": 8,
+   "loop": true
+  },
+  "walk": {
+   "frames": [
+    "f139",
+    "f140"
+   ],
+   "ticks": 8,
+   "loop": true
+  }
+ },
+ "frames": {
+  "f135": [
+   {
+    "x": 0,
+    "y": -32,
+    "index": 4200,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 4,
+    "y": -16,
+    "index": 4194,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -32,
+    "index": 4198,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": -16,
+    "index": 4192,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -12,
+    "y": -16,
+    "index": 4194,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f136": [
+   {
+    "x": 0,
+    "y": -32,
+    "index": 4204,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 4,
+    "y": -16,
+    "index": 4196,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -32,
+    "index": 4202,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": -16,
+    "index": 4192,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": -12,
+    "y": -16,
+    "index": 4196,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   }
+  ],
+  "f137": [
+   {
+    "x": -4,
+    "y": -29,
+    "index": 4206,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -13,
+    "index": 4214,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -12,
+    "y": -29,
+    "index": 4208,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -13,
+    "index": 4212,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 4,
+    "y": -29,
+    "index": 4208,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   }
+  ],
+  "f138": [
+   {
+    "x": -4,
+    "y": -29,
+    "index": 4206,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -13,
+    "index": 4218,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -12,
+    "y": -29,
+    "index": 4210,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -13,
+    "index": 4216,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 4,
+    "y": -29,
+    "index": 4210,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f139": [
+   {
+    "x": -12,
+    "y": -8,
+    "index": 4224,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 4,
+    "y": -24,
+    "index": 4228,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": -24,
+    "index": 4222,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 4,
+    "y": -8,
+    "index": 4240,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -12,
+    "y": -24,
+    "index": 4220,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": -8,
+    "index": 4226,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f140": [
+   {
+    "x": -12,
+    "y": -8,
+    "index": 4234,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 4,
+    "y": -24,
+    "index": 4238,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": -24,
+    "index": 4232,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 4,
+    "y": -8,
+    "index": 4240,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -12,
+    "y": -24,
+    "index": 4230,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": -8,
+    "index": 4236,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ]
+ }
+}

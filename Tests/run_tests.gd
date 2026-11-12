@@ -1529,7 +1529,7 @@ func _ready() -> void:
 			else:
 				kinds_missing.append("%02X" % used_kind)
 		kinds_missing.sort()
-		check(kinds_used.size() == 29 and kinds_drawn == 26, "26 of the 29 enemy kinds in use are drawn from their own sprites (blocks: %s)" % ", ".join(kinds_missing))
+		check(kinds_used.size() == 29 and kinds_drawn == 27, "27 of the 29 enemy kinds in use are drawn from their own sprites (blocks: %s)" % ", ".join(kinds_missing))
 		sewer.load_area(0, 2)
 		var troop := 0
 		for foe_node in sewer.enemies.get_children():
@@ -2128,6 +2128,33 @@ func _test_overworld_animation() -> void:
 	check(roller_a.speed == Vector2i(0, OverworldEnemy.ROLLER_UP), "at the original's speeds: 544 across, 576 up and down")
 	roller_a.free()
 
+	# Kind 9C (world 3) comes after the turtle, deciding only on half the frames.
+	var hunter_spot := EnemySpot.new()
+	hunter_spot.kind = 0x9C
+	hunter_spot.position = Vector2(270, 480)
+	var third_map := levels.overworld(2)
+	var hunter := OverworldEnemy.new()
+	add_child(hunter)
+	hunter.self_driven = false
+	small.position = Vector2(150, 480)
+	hunter.setup(hunter_spot, third_map, SpriteSet.cached("Kind9C"), small)
+	hunter.screen_corner = Vector2(24, 360)
+	hunter.frame_clock = 0
+	hunter.tick()
+	check(hunter.speed == Vector2i.ZERO and hunter.facing_left, "kind 9C faces the turtle but does not decide while bit 3 of the frame counter is clear")
+	hunter.frame_clock = 8
+	hunter.tick()
+	check(hunter.speed == Vector2i(-OverworldEnemy.ROLLER_ACROSS, 0) and hunter.position.x < 270.0, "with the bit set it drives at him")
+	hunter.frame_clock = 0
+	var before_x := hunter.position.x
+	hunter.tick()
+	check(hunter.position.x < before_x, "and keeps going on the frames it does not decide")
+	hunter.frame_clock = 8
+	for i in 80:
+		hunter.tick()
+	check(hunter.speed == Vector2i.ZERO and absf(hunter.position.x - small.position.x) < 8.0, "it stands once he is less than 8 pixels away (%s)" % str(hunter.position))
+	hunter.free()
+
 	# Kind 40 walks at the turtle and stops within 10 pixels.
 	var guard := EnemySpot.new()
 	guard.kind = 0x40
@@ -2471,6 +2498,36 @@ func _test_losing_a_turtle() -> void:
 		sewer.game_over.tick()
 	sewer.game_over.choose()
 	check(sewer.turtle_energy == [128, 128, 128, 128] and sewer.current_turtle == 0 and leo.health == 128 and leo.state == Turtle.State.NORMAL and not get_tree().paused, "CONTINUE gives all four back with full energy, Leonardo first")
+	# Played through with the game's own loop and the real buttons.
+	leo.drain(1000)
+	for i in sewer.CAPTURE_SCREEN_FRAMES + 3:
+		await get_tree().physics_frame
+	check(screen.is_open() and screen.caught == 0 and get_tree().paused, "played: %d frames after the blow the Start screen is up on its own" % sewer.CAPTURE_SCREEN_FRAMES)
+	for i in StartScreen.BUILD_FRAMES + 2:
+		await get_tree().physics_frame
+	Input.action_press("move_down")
+	for i in 2:
+		await get_tree().physics_frame
+	Input.action_release("move_down")
+	Input.action_press("pause")
+	for i in 2:
+		await get_tree().physics_frame
+	Input.action_release("pause")
+	for i in StartScreen.LEAVE_FRAMES_OVERWORLD + StartScreen.HOLD_FRAMES + 4:
+		await get_tree().physics_frame
+	check(not screen.is_open() and not get_tree().paused and sewer.current_turtle == 2 and leo.state == Turtle.State.NORMAL and sewer.turtle_energy == [0, 128, 128, 128], "played: Down and Start carry on with Michelangelo")
+	sewer.turtle_energy = [0, 0, 128, 0]
+	leo.drain(1000)
+	for i in sewer.CAPTURE_SCREEN_FRAMES + GameOverScreen.WORDS_FRAMES + 6:
+		await get_tree().physics_frame
+	check(sewer.game_over.phase == GameOverScreen.Phase.CHOICE and sewer.continues_left == 1, "played: the last turtle lost brings GAME OVER and then the choice")
+	Input.action_press("pause")
+	for i in 2:
+		await get_tree().physics_frame
+	Input.action_release("pause")
+	for i in 4:
+		await get_tree().physics_frame
+	check(not sewer.game_over.is_open() and not get_tree().paused and sewer.turtle_energy == [128, 128, 128, 128] and sewer.current_turtle == 0, "played: Start on CONTINUE gives the four back")
 	if levels == null or screen.data == null:
 		print("  skip  no verified ROM is installed, so the ROM's 'got caught' message is not exercised")
 		sewer.free()
