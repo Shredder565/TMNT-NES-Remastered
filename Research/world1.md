@@ -94,7 +94,7 @@ which is the same thing as the turtle being left of X 128.
 
 On the overworld kinds 9C, 42 and AC still stand (`overworld.md`); the other
 three turtles still carry Leonardo's sword and pictures
-(`start_screen.md`); the turtle being captured and the others taking over;
+(`start_screen.md`); rescuing a captured turtle (`losing_a_turtle.md`);
 what the original shows when the world is won (April's rescue); score;
 sound; the special weapons and the other items in
 `items_and_hits.md`; and everything listed as approximate on the enemies'
