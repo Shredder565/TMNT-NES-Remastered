@@ -1289,9 +1289,9 @@ func _ready() -> void:
 		o_test_turtle.position = Vector2(100.7, 110.4)
 		check(o_test_turtle.touch_box() == [100, 90, 5, 16], "the turtle's box is measured from his middle, 20 above his feet, in whole pixels")
 		o_test_turtle.state = Turtle.State.CROUCH
-		o_test_turtle._crouch_ticks = 1
+		o_test_turtle._crouched_before = false
 		var o_first_crouch: Array[int] = o_test_turtle.touch_box()
-		o_test_turtle._crouch_ticks = 2
+		o_test_turtle._crouched_before = true
 		check(o_first_crouch == [100, 90, 5, 11] and o_test_turtle.touch_box() == [100, 98, 5, 11], "crouching it is smaller at once and 8 lower from the update after")
 		o_test_turtle.state = Turtle.State.NORMAL
 		o_test_turtle.max_health = 128
@@ -1598,7 +1598,9 @@ func _ready() -> void:
 			else:
 				kinds_missing.append("%02X" % used_kind)
 		kinds_missing.sort()
-		check(kinds_used.size() == 29 and kinds_drawn == 27, "27 of the 29 enemy kinds in use are drawn from their own sprites (blocks: %s)" % ", ".join(kinds_missing))
+		# (enemies2) Rooms come up with the line-up named beside their graphics
+		# page, so line-up 3's kinds (83, A3, A6, 30) are in use as well.
+		check(kinds_used.size() == 33 and kinds_drawn == 27, "27 of the 33 enemy kinds rooms come up with are drawn from their own sprites (%d of %d; blocks: %s)" % [kinds_drawn, kinds_used.size(), ", ".join(kinds_missing)])
 		sewer.load_area(0, 2)
 		var troop := 0
 		for foe_node in sewer.enemies.get_children():
@@ -1729,6 +1731,18 @@ func _ready() -> void:
 			await get_tree().physics_frame
 		leo.position = Vector2(637, 170)
 		for i in 3:
+			leo.invulnerable_timer = 1.0
+			await get_tree().physics_frame
+		# (enemies2) The screen stops at once; the boss comes with the eighth
+		# update that finds the screen clear (bank 6, $9CE7).
+		check(sewer.fighting and sewer.hold_stage == 1 and sewer.boss == null, "the screen reaching 508 from the left stops it; the boss is not there yet")
+		for thing in sewer.enemies.get_children():
+			thing.free()
+		for i in 9:
+			leo.invulnerable_timer = 1.0
+			await get_tree().physics_frame
+		check(sewer.boss == null, "nor after 6 updates with the screen clear")
+		for i in 8:
 			leo.invulnerable_timer = 1.0
 			await get_tree().physics_frame
 		check(sewer.boss is Bebop and sewer.boss.health == 72 and sewer.boss.touch_damage == 19 and sewer.boss.sprites != null, "the screen reaching 508 from the left brings kind 70 in, with 72 hit points and 19 touch damage from the ROM")
@@ -1865,10 +1879,10 @@ func _ready() -> void:
 		check(leo.position.x >= 528.0, "and the turtle is kept on that screen")
 		for thing in sewer.enemies.get_children():
 			thing.free()
-		for i in 60:
+		for i in 124:
 			leo.invulnerable_timer = 1.0
 			await get_tree().physics_frame
-		check(sewer.fighting, "the screen stays held for 64 frames after it is beaten")
+		check(sewer.fighting, "the screen stays held for 64 updates after it is beaten")   # (enemies2) updates, not frames: measured again
 		for i in 8:
 			leo.invulnerable_timer = 1.0
 			await get_tree().physics_frame
@@ -1882,6 +1896,11 @@ func _ready() -> void:
 		sewer.set_flying(false)
 		leo.position = Vector2(60, 160)
 		for i in 4:
+			leo.invulnerable_timer = 1.0
+			await get_tree().physics_frame
+		for thing in sewer.enemies.get_children():
+			thing.free()
+		for i in 20:
 			leo.invulnerable_timer = 1.0
 			await get_tree().physics_frame
 		check(sewer.boss != null and sewer.boss.health == 96 and sewer.boss.touch_damage == 23 and sewer.boss.sprites != null, "then it appears, with 96 hit points and 23 touch damage from the ROM")
@@ -1912,6 +1931,7 @@ func _ready() -> void:
 	await _test_four_turtles()
 	await _test_doors_as_shown()
 	await _test_losing_a_turtle()
+	await _test_enemies2()
 	await _test_title_screen()
 
 	print("ROM screen")
@@ -2692,3 +2712,107 @@ func _test_losing_a_turtle() -> void:
 	check(caught_screen.tile_at(3, 17) == 0x10 + 12 and caught_screen.tile_at(3, 19) == 0x10 + 6, "Michelangelo's long name takes the first line and GOT CAUGHT starts the second")
 	caught_screen.free()
 	sewer.free()
+
+
+# ======================= enemies2: sections of the second enemies agent =======================
+func _test_enemies2() -> void:
+	print("Held fights, points and the line-up level, by the original's code")
+	var levels := RomLevels.open_installed()
+	if levels == null:
+		print("  skip  no verified ROM is installed, so the encounter and line-up tables are not exercised")
+		return
+	check(levels.points_for(0x80) == 100 and levels.points_for(0x89) == 200 and levels.points_for(0x9B) == 800 and levels.points_for(0xAD) == 1000 and levels.points_for(0xB0) == 4000, "a place's slot byte says what its enemy is worth: 100, 200, 800, 1000; the first boss 4000")
+	var third := levels.room(0, 2)
+	check(third.entry_lineup == 0 and third.lineups == PackedInt32Array([0, 1, 2, 2]) and levels.room(0, 3).entry_lineup == 1, "world 1's third room comes up with line-up 0 and has line-ups 0, 1, 2, 2 for the four levels")
+	var far_room := levels.room(3, 0)
+	var far_kinds := {}
+	for spot in far_room.enemy_spots:
+		far_kinds[spot.kind] = true
+	check(far_room.entry_lineup == 3 and far_room.lineups[0] == 4 and far_kinds.has(0xA3) and not far_kinds.has(0x94), "a room comes up with the line-up named beside its graphics page, not with its level-0 one (world 4's first room: line-up 3)")
+	var last_room := levels.room(0, 5)
+	check(last_room.coarse and last_room.kind_at(43, 37) == RoomData.KIND_EMPTY and last_room.kind_at_pixel(344, 300) == RoomData.KIND_MOVING_FLOOR and last_room.solid_at(351, 303) and not last_room.solid_at(352, 303), "the map is felt in 16-pixel cells, each being what its top-left tile is (the last room's moving floor reaches 8 pixels lower than it is drawn)")
+
+	var sewer = load("res://Scenes/Levels/Area1Sewer.tscn").instantiate()
+	sewer.start_on_overworld = false
+	add_child(sewer)
+	var leo: Turtle = sewer.turtle
+	await get_tree().physics_frame
+	sewer.door_wipe = false
+	sewer.load_area(0, 3)
+	check(sewer.lineup == 1 and sewer.room_points == 0 and sewer.room_clock == 0, "entering a room starts its points and its clock afresh, on its own line-up")
+	sewer.room_points = 1900
+	sewer._check_lineup()
+	check(sewer.lineup_level == 0 and not sewer._lineup_pending, "under 2000 points made in the room the level is left alone")
+	sewer.room_points = 2000
+	sewer.room_clock = 20
+	sewer._check_lineup()
+	check(sewer.lineup_level == 0 and sewer._lineup_pending, "2000 points with the clock at 20: two steps up, less the two the original takes off again: level 0, and a change is due")
+	sewer._lineup_pending = false
+	sewer.room_clock = 7
+	sewer._check_lineup()
+	check(sewer.lineup_level == 2 and sewer._lineup_pending and sewer.lineup == 1, "2000 points before the clock reaches 8: level 2; the line-up does not change yet")
+	sewer._check_lineup()
+	check(sewer.lineup == 1 and sewer.enemies.get_child_count() > 0, "nor while anything is on the screen")
+	for thing in sewer.enemies.get_children():
+		thing.free()
+	sewer._check_lineup()
+	var slot_zero: EnemySpot = null
+	for spot in sewer.room.enemy_spots:
+		if spot.slot == 0:
+			slot_zero = spot
+	check(sewer.lineup == 2 and not sewer._lineup_pending and slot_zero != null and slot_zero.kind == 0x86 and sewer._in_lineup(slot_zero).kind == 0x84 and sewer._in_lineup(slot_zero).hit_points == levels.hit_points(0x84), "with the screen clear the room turns to its line-up for the level: slot 0 is kind 84 now, not 86")
+	sewer.load_area(0, 0)
+	check(sewer.lineup == 0 and sewer.lineup_level == 2 and sewer.room_points == 0, "the next room comes up with its own line-up again; the level itself stays")
+	sewer.lineup_level = 0
+
+	# Points.
+	sewer.enemies_follow_camera = true
+	sewer.show_enemies = true
+	sewer.load_area(0, 0)
+	var soldier_spot: EnemySpot = null
+	for spot in sewer.room.enemy_spots:
+		if spot.kind == 0x98:
+			soldier_spot = spot
+	sewer._make_enemy_at(soldier_spot, false)
+	var worth: OriginalEnemy = sewer._made
+	var score_before: int = sewer.score
+	worth.take_hit(999)
+	check(soldier_spot.points == 800 and sewer.score == score_before + 800 and sewer.room_points == 800, "beating a soldier of the first sewer is worth 800, to the score and to the room's own count")
+
+	# The held fight, update by update.
+	for thing in sewer.enemies.get_children():
+		thing.free()
+	leo.position = Vector2(637, 170)
+	for i in 3:
+		leo.invulnerable_timer = 1.0
+		await get_tree().physics_frame
+	for thing in sewer.enemies.get_children():
+		thing.free()
+	check(sewer.hold_stage == 1 and sewer.fight_corner.x == 509.0, "the screen stops for the first sewer's fight 3 to 5 pixels short of its third screen")
+	var waited := 0
+	while sewer.hold_stage == 1 and waited < 40:
+		leo.invulnerable_timer = 1.0
+		await get_tree().physics_frame
+		waited += 1
+	var extra: OriginalEnemy = sewer._made
+	check(sewer.hold_stage == 2 and extra is Soldier and extra.ticks == 1 and extra.held_on_screen and extra.whole_x() >= 509 + 24 and extra.whole_x() <= 509 + 26 and extra.points == 800, "the eighth update that finds the screen clear brings in a soldier, 24 across the screen, and it has its first update in the same round (%d frames)" % waited)
+	extra.busy = false
+	extra.sub_x = (509 + 2) * 256
+	extra.speed_x = 0
+	extra.tick()
+	var left_held: int = extra.whole_x() - 509
+	extra.sub_x = (509 + 250) * 256
+	extra.speed_x = 0
+	extra.tick()
+	check(left_held == 6 and extra.whole_x() - 509 == 246 and not extra.gone, "it is kept between 6 and 246 across the held screen")
+	sewer.free()
+	Input.action_release("move_up")
+
+	# The turtle's lowered box runs one update behind his crouch, both ways.
+	var low_turtle: Turtle = load("res://Scenes/Player/Turtle.tscn").instantiate()
+	add_child(low_turtle)
+	low_turtle.set_physics_process(false)
+	low_turtle.position = Vector2(100.0, 110.0)
+	low_turtle._crouched_before = true
+	check(low_turtle.touch_box() == [100, 98, 5, 16], "on the update he gets up (or jumps) out of a crouch his box is full size again but still 8 lower")
+	low_turtle.free()

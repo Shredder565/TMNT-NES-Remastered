@@ -37,6 +37,57 @@ The entries with a code are the bosses: six in the whole game. World 1:
 Both match what the emulator showed. The remake reads this table
 (`RomLevels._encounters`) instead of listing bosses by hand.
 
+## The routine, step by step (read from code 6:$9C1D, 13 November 2026)
+
+This replaces the measured account in the next section where the two
+differ. The routine is called once an update, on the enemies' frame,
+before any object moves (6:$8103, from the main loop's 7:$CF10). RAM $5E
+picks what it does:
+
+- **$5E = 0 or 1.** The room's entries are gone through in order; those
+  already fought (a bit each in $AE, or in $7C for a boss) are passed
+  over. The first whose row and column the camera is on is taken. If $5E
+  was 0 it becomes 1 and a count ($9B) is set to 8: the screen is held
+  from now on. Then, on this and every later update: if any object slot
+  from 5 to 15 holds a kind of $10 or more (an enemy, something thrown,
+  a puff; items do not count: 7:$EEE9) nothing more happens. Otherwise
+  $B0 is set to 1 and the count goes down by one. When it reaches 0 the
+  entry's enemy is made: so it is the eighth update that finds the
+  screen clear. Measured: the last soldier left the screen at frame 429,
+  the extra one was there at frame 445.
+- **A held fight's enemy** (6:$81F4, then $82DB). The room first turns to
+  its line-up for the line-up level as it stands (`enemy_placement.md`),
+  and the kind is the entry's slot in that line-up. It is put in the
+  first free slot from 5 at the entry's X and Y taken as places on the
+  screen, without the wall test, facing left if X is 128 or more. $5E
+  becomes 2. Being made before the object loop of the same frame, it has
+  its first update at once: a soldier made within 24 pixels of the
+  turtle is already punching on the frame it appears.
+- **A boss** (6:$9D05, $82C9): the code picks its line-up (table at
+  6:$9E5F) and colours; it is made the same way but at the entry's X
+  less the camera's low byte; $5E becomes 3. Code F5 (world 5) makes six
+  objects from a list at 6:$9D84 instead.
+- **$5E = 2** (6:$9DA8). Nothing while anything is on the screen. Then a
+  sound, and a count of 64 updates (measured again: 127 frames from the
+  enemy being taken away to $5E being 0; the earlier "64 frames" was
+  wrong). Then the entry's bit is set in $AE and $5E and $B0 are cleared.
+- **$5E = 3** (6:$9DD1). Nothing while anything is on the screen (the
+  boss, or its puff). Then a sound and 32 updates; for the first boss
+  (code F0) another sound and 64 updates more. Then $5E and $B0 are
+  cleared and, if the turtle still has energy, the boss's bit is set in
+  $7C and RAM $B5 is given a number from the table at 6:$9E58 (2, 3, 9,
+  8, 12, 14, 15 by code), which the main loop acts on (7:$CC2A).
+- **While $B0 is 1** an object in slots 5 to 7 is held between 6 and 246
+  across the screen before the off-screen test (5:$808D): the extra
+  enemy and a boss cannot leave the held screen.
+- No enemy is made from the room's places while $5E is not 0 (6:$8106).
+- $AE, $B0, the room's clock and the room's points are cleared when a
+  map is entered (7:$E7FB).
+
+The remake's copy is `RoomScene._check_boss`, `_start_hold`, `_bring_in`
+and `OriginalEnemy.held_on_screen`. Still measured, not read: how the
+turtle is kept on the held screen (20 to 236).
+
 ## Held fights: the entries without a code (read from code, then measured)
 
 Update 21 called these "not understood". They are fights the screen

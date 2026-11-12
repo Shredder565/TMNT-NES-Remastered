@@ -6,7 +6,8 @@ extends RefCounted
 var position := Vector2.ZERO   ## the object's own position value, in room pixels
 var slot := 0                  ## which of the room's enemy kinds stands here (0 to 5)
 var kinds := PackedInt32Array()  ## the kind number for each of the room's 4 enemy line-ups
-var kind := -1                 ## the kind in the first line-up (the one a new game uses)
+var kind := -1                 ## the kind in the line-up the room comes up with
+var points := 0                ## what beating it is worth (the slot byte picks it from a table)
 var hit_points := 1            ## that kind's starting hit points
 var first_animation := 0       ## the animation number that kind starts with
 var touch_damage := 0          ## energy the turtle loses on touching that kind (he has 128)
@@ -19,6 +20,7 @@ func moved_to(where: Vector2) -> EnemySpot:
 	copy.slot = slot
 	copy.kinds = kinds
 	copy.kind = kind
+	copy.points = points
 	copy.hit_points = hit_points
 	copy.first_animation = first_animation
 	copy.touch_damage = touch_damage

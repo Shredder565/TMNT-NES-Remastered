@@ -186,3 +186,56 @@ energy for every frame. Still open there:
 - the fourth room's mixed run: at frame 576 the remake makes a kind 91
   the original does not;
 - one frame in a jumping run where the ball box comes a frame late.
+
+## Second follow-up (13 November 2026)
+
+The open items above were gone through. Both batches again:
+
+| Batch | Turtle | Energy | His box | Enemies |
+| --- | --- | --- | --- | --- |
+| First (7390 frames) | 7390 | 7390 | 7390 | 7389 |
+| Second (7590 frames) | 7559 | 7590 | 7558 | 7589 |
+
+(The second batch is 100 frames longer than before: the remake's turtle
+no longer dies early in the last room's mixed run.) What each was:
+
+- **The first sewer's held fight.** The extra enemy is made by the
+  encounter routine before the object loop of the same frame, so it has
+  its first update on the frame it appears; the remake gave it none. A
+  soldier that comes in within 24 pixels of the turtle is therefore
+  punching from its first frame. The hold is now run from the original's
+  routine (`encounters.md`). The run agrees on all 859 frames.
+- **The fourth room's mixed run** (a kind 91 at frame 576 that the
+  original did not make): the same thing, the hold's timing. All 759
+  frames agree for the enemies now.
+- **The last room's mixed run.**
+  - Frame 262 is a dropped frame: the emulator's picture of memory was
+    taken before the weapon's hit was worked out, and the hit is there a
+    frame later. Nothing differs in the game. It is the one frame left.
+  - The real difference came at frame 324: the original's turtle bumped
+    his head and stopped where the remake's flew on. The original feels
+    the map in cells of 16 x 16 pixels (7:$C7C7: one nibble a cell), and
+    a cell is what its top-left tile is. The moving floor there is drawn
+    8 pixels thick, but its cells are 16. The remake's turtle looked at
+    8-pixel tiles (the enemies already used cells). `RoomData.coarse`
+    now makes every point lookup in a ROM room go by cells.
+  - The box 8 lower at frame 302: the original's "lowered" flag runs one
+    update behind his crouch both ways. Measured apart for standing up,
+    walking off and jumping: on the update he leaves the crouch his box
+    is full size again but still 8 lower. The same on the first update
+    of a downward swing begun in the air: small box, not yet lowered.
+  - The moving floor carries him 1.25 pixels once an update, with his
+    own step, and first on the second update after he lands (4:$A4BF
+    adds it to the speed his routine sets; measured). The remake moved
+    him half that every frame.
+  - If a swing is going on at the moment of a held jump's second push,
+    he does not curl up, and keeps his full box for the rest of the jump
+    (measured in three runs). The remake curled him when the swing ended.
+
+Still different:
+
+- the fifth room's run that starts 32 pixels high (31 frames);
+- one frame in a jumping run: the turtle is hit on the enemies' frame
+  and the remake's box changes at once, the original's with his next
+  update. No test is made in between, so nothing in play depends on it;
+- the dropped frame above.
