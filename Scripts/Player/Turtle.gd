@@ -95,6 +95,7 @@ var _hurt_ticks := 0
 var _weapon_picture := Sprite2D.new()  ## the weapon, drawn where the original has it on each step of a swing
 var _weapon_box_new: Array[int] = []    ## the weapon's box after his latest update, and
 var _weapon_box_old: Array[int] = []    ## after the one before (see weapon_box_for_enemies)
+var _crouch_ticks := 0                 ## updates he has been crouching
 var _spinning := false                 ## in the high part of a held jump: his box is the small one
 var power_ticks := 0                   ## updates of the power item left (kind 0B), 0 when not in use
 
@@ -221,6 +222,7 @@ func _tick() -> void:
 			state = State.NORMAL
 			speed.x = 0
 	_weapon_box_new = _weapon_box()
+	_crouch_ticks = _crouch_ticks + 1 if state == State.CROUCH else 0
 	_jump_pressed = false
 	_attack_pressed = false
 	_update_art()
@@ -717,7 +719,8 @@ func _body_box_name() -> String:
 ## (8 lower when he crouches), half the width and half the height.
 func touch_box() -> Array[int]:
 	var half: Vector2i = body_boxes.get(_body_box_name(), DEFAULT_BODY_BOXES[_body_box_name()])
-	var lower := 8 if state == State.CROUCH else 0
+	# The box shrinks on the update he crouches; it drops the update after (measured).
+	var lower := 8 if state == State.CROUCH and _crouch_ticks >= 2 else 0
 	return [floori(position.x), floori(position.y) - int(CENTRE_ABOVE_FEET) + lower, half.x, half.y]
 
 func _set_attacking(on: bool) -> void:

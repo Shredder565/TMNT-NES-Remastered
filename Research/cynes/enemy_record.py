@@ -202,6 +202,27 @@ SETS['live']=lambda: {
  'a4_right': record(4,136,144,tap(B,40,4,base=R),800,safe=False),
  'a5_left': record(5,392,368,tap(B,36,4,base=L),800,safe=False),
 }
+def mix(start=70):
+    def s(f):
+        if f<start: return 0
+        g=(f-start)%160
+        if g<50: return R|(B if g%25<4 else 0)
+        if g<70: return D|(B if 54<=g<58 else 0)
+        if g<110: return L|(A if g<90 else 0)|(B if 80<=g<84 else 0)
+        return U|(B if g%25<4 else 0)
+    return s
+SETS['live2']=lambda: {
+ 'a0_left': record(0,900,176,tap(B,32,4,base=L),900,safe=False),
+ 'a0_mix': record(0,300,176,mix(),900,safe=False),
+ 'a1_right': record(1,60,176,tap(B,36,4,base=R),600,safe=False),
+ 'a2_mix': record(2,392,176,mix(),900,safe=False),
+ 'a2_right_jump': record(2,150,176,tap(A,60,28,base=R),800,safe=False),
+ 'a3_left': record(3,632,176,tap(B,30,4,base=L),800,safe=False),
+ 'a3_mix': record(3,400,176,mix(),800,safe=False),
+ 'a4_left': record(4,392,160,tap(A,80,30,base=L),700,safe=False),
+ 'a5_top': record(5,136,160,tap(B,40,4,base=R),800,safe=False),
+ 'a5_mix': record(5,392,368,mix(),800,safe=False),
+}
 if __name__=='__main__':
     name=sys.argv[1]
     data=SETS[name]()

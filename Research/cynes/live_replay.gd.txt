@@ -97,8 +97,6 @@ func _run(sewer, name: String, run: Dictionary, levels: RomLevels, verbose: bool
 		if leo.state == Turtle.State.DEAD or int(row.e) == 0:
 			break
 		counts[0] += 1
-		if verbose and f < start + 5:
-			print('   dbg f', f, ' turtle frame ', leo._frame, ' physics ', Engine.get_physics_frames(), ' health ', leo.health, ' inv ', leo.invulnerable_timer, ' first enemy ', sewer.enemies.get_child(0).position if sewer.enemies.get_child_count() > 0 else null)
 		# The turtle.
 		var cam := int(row.cam)
 		var camy := int(row.camy)

@@ -93,3 +93,46 @@ Found by chasing the first difference each time.
   nothing else about them was compared.
 - Not tried: the second room and its boss, held fights, doors, ladders,
   crouching and upward swings, the other three turtles, death.
+
+## A second, rougher batch
+
+Ten more runs with more going on: walking left and swinging through the
+first sewer; the second room up to its boss; a mix of walking, crouching
+swings, jumps to the left with a swing, and upward swings; jumping
+through the fourth room. 7590 frames.
+
+Three more things were put right from these: something thrown while the
+screen scrolls starts one scroll step out from the thrower (like an
+enemy made at the screen's edge); the turtle's box shrinks on the update
+he crouches but drops 8 only from the update after; and (above) a swing
+goes on through a hit.
+
+Five of the ten runs then agree on every frame, or all but a handful.
+What is still different in the others, each found as the first
+difference of a run and not put right:
+
+- **Swings carried into the air or started just before a fall.** In the
+  mixed runs the original's turtle was able to start a forward swing a
+  few frames after an upward one as he walked off a ledge, where the
+  remake's upward swing was still running; and a crouching swing with
+  jump pressed goes on in the air in the original, box lowered and all.
+  The swing's rules in the air need a look by whoever owns the turtle.
+- **Up held on the ground** in the first sewer: the original's turtle
+  goes to states 0B and 0C and stays put; the remake's moved upward. Not
+  looked into.
+- **The last room's screen does not follow a jump up.** The original's
+  camera stayed on the lower floor throughout; the remake's moves up with
+  him, and the enemies near the floor are then removed as off the
+  screen. How the original scrolls up and down was not read.
+- **The first sewer's held fight.** For 8 frames as the screen stops at
+  508 a soldier punches in the original and walks in the remake: its
+  distance to the turtle is a pixel out while the screen is being held.
+- In the fifth room one run starts with the remake's turtle 32 pixels
+  higher than the original's (the remake's way of standing him at a
+  place lifts him out of a floor there); he drops, and after 31 frames
+  the two agree for the rest of the run.
+
+After a first difference the two runs are no longer the same game, so
+the counts for these runs say little: over the whole batch the turtle
+agrees on 5991 frames, his energy on 6676, his box on 6223, and the
+enemies on 6166 of 7590.

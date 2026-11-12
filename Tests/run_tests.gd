@@ -1287,7 +1287,10 @@ func _ready() -> void:
 		o_test_turtle.position = Vector2(100.7, 110.4)
 		check(o_test_turtle.touch_box() == [100, 90, 5, 16], "the turtle's box is measured from his middle, 20 above his feet, in whole pixels")
 		o_test_turtle.state = Turtle.State.CROUCH
-		check(o_test_turtle.touch_box() == [100, 98, 5, 11], "crouching it is smaller and 8 lower")
+		o_test_turtle._crouch_ticks = 1
+		var o_first_crouch: Array[int] = o_test_turtle.touch_box()
+		o_test_turtle._crouch_ticks = 2
+		check(o_first_crouch == [100, 90, 5, 11] and o_test_turtle.touch_box() == [100, 98, 5, 11], "crouching it is smaller at once and 8 lower from the update after")
 		o_test_turtle.state = Turtle.State.NORMAL
 		o_test_turtle.max_health = 128
 		o_test_turtle.health = 128

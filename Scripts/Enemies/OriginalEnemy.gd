@@ -541,7 +541,11 @@ func throw_object(thrown: OriginalEnemy, thrown_kind: int, across: int, down: in
 		return null
 	thrown.is_thrown = true
 	thrown.view_corner = view_corner
-	thrown.setup_at(thrown_kind, Vector2(whole_x() + (-across if facing_left else across), whole_y() + down), room, SpriteSet.cached("Kind%02X" % thrown_kind), target)
+	# Like every object it is moved back by the screen's scroll at the start
+	# of its first update, though it was made where the thrower already
+	# stands after its own: so it starts one scroll step out (measured).
+	var slip := scroll_step if view_corner.is_valid() and frame_counter < 0 else 0
+	thrown.setup_at(thrown_kind, Vector2(whole_x() + (-across if facing_left else across) - slip, whole_y() + down), room, SpriteSet.cached("Kind%02X" % thrown_kind), target)
 	thrown.facing_left = facing_left
 	thrown.weapon_damage = weapon_damage
 	thrown.weapon_damage_low = weapon_damage_low
