@@ -87,3 +87,21 @@ mine, not the original's rule: for a turtle on a floor more than 40 pixels
 above it and within 120 pixels across, or when a wall stands between them
 on the same floor. Guesses: walls stop its sideways movement in the air,
 and a ceiling stops its rise.
+
+## Since this page was written (12 November 2026)
+
+- **Six places.** Read from code (7:$EED3): placed enemies go in object
+  slots 5 to 10, so there are never more than six at once, and a place
+  whose turn comes while all six are taken makes nothing. A beaten
+  enemy's puff holds its slot until it is gone. The remake's room scene
+  now does the same (`RoomScene.placed_enemies`). Things enemies throw
+  have four slots of their own, 11 to 14.
+- **Leaving the screen.** Read from code (5:$8077): an object is removed
+  once it is less than 4 pixels from the left or right of the screen, or
+  from its top, or 192 or more down. The kinds written from the
+  original's code (`enemy_routines.md`) do this themselves.
+- **The star, kind 99**, kind 4A, kind 95 and kind 93 are no longer run
+  by `Shot.gd`: see `enemy_98.md`, `enemy_49_91.md`, `enemy_92_94.md`.
+  The guesses above that shots pass through walls and that the sword
+  does not stop them were half right: 4A and 95 do pass through walls,
+  the star does not, and the turtle's weapon can destroy all of them.

@@ -71,12 +71,22 @@ number, are the 5 kinds not recorded yet. See `Research/enemy_kinds.md`.
 | `Scripts/Rom/RomLevels.gd` | Reads every room, every overworld map and the doors between them from the ROM |
 | `Scripts/Rom/Door.gd` | One door: where it is and where it leads |
 | `Scripts/Rom/EnemySpot.gd` | One place where the original puts an enemy |
-| `Scripts/Enemies/Crawler.gd` | The enemy kinds that walk or fly at a steady speed |
-| `Scripts/Enemies/Soldier.gd` | Enemy kinds 98 (the foot-soldier-looking one) and 49, which walk up to the turtle |
-| `Scripts/Enemies/Leaper.gd` | Enemy kinds 92, 9D and 9E, which leap, hop and jump |
+| `Scripts/Enemies/OriginalEnemy.gd` | What every enemy written from the original's own code shares (`Research/enemy_routines.md`) |
+| `Scripts/Enemies/Soldier.gd`, `Star.gd` | Enemy kind 98, the foot soldier, and its star (99), by the original's rules |
+| `Scripts/Enemies/Flier.gd` | Kinds 81 and 96 (and 8E, 8F): level fliers, by the original's rules |
+| `Scripts/Enemies/LedgeWalker.gd` | Kinds 8D and 84: walkers that drop off ledges, by the original's rules |
+| `Scripts/Enemies/CeilingCrawler.gd` | Kind 86: along the ceiling, and a swoop, by the original's rules |
+| `Scripts/Enemies/Lurker.gd` | Kind 49: waits, comes out, throws, goes back in, by the original's rules |
+| `Scripts/Enemies/Chainsaw.gd` | Kind 91, by the original's rules |
+| `Scripts/Enemies/Pouncer.gd`, `Boomerang.gd` | Kind 92 and what it throws (93), by the original's rules |
+| `Scripts/Enemies/Gunner.gd` | Kind 94, by the original's rules |
+| `Scripts/Enemies/Missile.gd` | Kinds 4A and 95: thrown and fired things that fly level, by the original's rules |
+| `Scripts/Enemies/Crawler.gd` | Fitted to measurements: the kinds not yet read from the code that walk or fly at a steady speed |
+| `Scripts/Enemies/LegacyWalker.gd` | The old fitted pattern for kind 49 (no longer used by the room scene) |
+| `Scripts/Enemies/Leaper.gd` | Fitted to measurements: kinds 9D and 9E, which hop and jump (and the old pattern for 92) |
+| `Scripts/Enemies/Shot.gd` | Fitted to measurements: the things the other enemies throw and fire |
 | `Scripts/Enemies/Charger.gd` | Enemy kind A0, which charges |
 | `Scripts/Enemies/PathEnemy.gd` | Enemy kind 88, which rides up and down |
-| `Scripts/Enemies/Shot.gd` | The things enemies throw and fire |
 | `Scripts/Enemies/Puff.gd` | The puff a beaten enemy leaves |
 | `Scripts/Enemies/Boss.gd` | What the bosses share |
 | `Scripts/Enemies/Bebop.gd` | World 1's first boss, in the second sewer |

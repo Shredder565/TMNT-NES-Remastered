@@ -1269,6 +1269,29 @@ func _ready() -> void:
 	var o_past_edge: int = OriginalEnemy._first_column
 	OriginalEnemy.screen_moved_to(0)
 	check(o_at_edge == 2 and o_past_edge == 1 and OriginalEnemy._first_column == 0, "scrolling left, a column is taken up once the screen has gone past it, or is at the room's left end")
+	# The room scene: six places for placed enemies, as in the original.
+	if RomLevels.open_installed() == null:
+		print("  skip  no verified ROM is installed, so the six-enemy limit is not exercised")
+	else:
+		var o_scene: Node = load("res://Scenes/Levels/Area1Sewer.tscn").instantiate()
+		o_scene.start_on_overworld = false
+		add_child(o_scene)
+		o_scene.set_physics_process(false)
+		o_scene.get_node("Turtle").set_physics_process(false)
+		o_scene.load_area(0, 0)
+		for child in o_scene.enemies.get_children():
+			child.set_physics_process(false)
+		var o_before: int = o_scene.placed_enemies()
+		for i in 8:
+			var o_extra := EnemySpot.new()
+			o_extra.kind = 0x8D
+			o_extra.position = Vector2(100 + i * 8, 180)
+			o_extra.hit_points = 4
+			o_scene._make_enemy(o_extra)
+		check(o_before == 4 and o_scene.placed_enemies() == 6, "a room has six places for placed enemies: with all taken, no more are made (%d, %d)" % [o_before, o_scene.placed_enemies()])
+		var o_first_foe: Node = o_scene.enemies.get_child(0)
+		check(o_first_foe is LedgeWalker and o_first_foe.view_corner.is_valid(), "the room scene gives a kind written from the original's code to its own script, with the screen to look at")
+		o_scene.free()
 	OriginalEnemy._first_column = -1
 	OriginalEnemy.frame_counter = -1
 	o_prey.free()
