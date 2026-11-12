@@ -1,0 +1,232 @@
+extends Node
+## Side-by-side check of enemies against a recording of the original.
+## Run from the project:  godot --headless res://tmp_replay.tscn -- <recording.json> [scenario]
+## The turtle and the camera are taken from the recording frame by frame;
+## each enemy is taken over as the recording first shows it and then left
+## to the remake's rules. Every later frame is compared exactly.
+
+const CHANCE_BACK := 1    ## the unpredictable number an update sees is the one the frame before left
+const START_FRAME := 44   ## the room is still coming in before this: objects exist but stand frozen
+const FIELDS := ["x", "y", "vx", "vy", "anim", "step", "aticks", "pic", "left", "blink", "busy"]
+
+var makers := {}        # kind -> Callable(state) -> OriginalEnemy
+var totals := {}
+var only_kinds: Array = []
+var slots := {}
+
+func _signed(v: int) -> int:
+	return v - 65536 if v >= 32768 else v
+
+func _ready() -> void:
+	var args := OS.get_cmdline_user_args()
+	var data: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(args[0]))
+	var only := args[1] if args.size() > 1 else ""
+	var verbose := args.size() > 2 and args[2] == "v"
+	if args.size() > 3:
+		for text in args[3].split(","):
+			only_kinds.append(text.hex_to_int())
+	var levels := RomLevels.open_installed()
+	OriginalEnemy.levels = levels
+	for name: String in data:
+		if only != "" and only != "all" and name != only:
+			continue
+		_run(name, data[name], levels, verbose)
+	print("TOTALS")
+	for kind: String in totals:
+		var t: Array = totals[kind]
+		print("  kind %s: %d frames compared, %d agree exactly (%.2f%%), %d objects" % [kind, t[0], t[1], 100.0 * t[1] / maxi(t[0], 1), t[2]])
+	OriginalEnemy.frame_counter = -1
+	OriginalEnemy.chance_byte = -1
+	get_tree().quit()
+
+func _make(kind: int) -> OriginalEnemy:
+	match kind:
+		0x99: return Star.new()
+		0x4A, 0x95: return Missile.new()
+		0x93: return Boomerang.new()
+	if only_kinds.is_empty() or only_kinds.has(kind):
+		return OriginalEnemy.for_kind(kind)
+	return null
+
+## What each kind keeps beyond the common things, taken from the original's
+## spare bytes ($0520 "mode", $0630 "t6", ...).
+func _adopt_kind(e: OriginalEnemy, s: Dictionary) -> void:
+	if e is Soldier:
+		e.mode = [Soldier.Mode.GROUND, Soldier.Mode.JUMP, Soldier.Mode.DROP, Soldier.Mode.POSE][s.mode] if s.mode < 4 else Soldier.Mode.GROUND
+		e.stun_ticks = s.t6
+	elif e is Lurker:
+		e.mode = [Lurker.Mode.COME_OUT, Lurker.Mode.OUT, Lurker.Mode.DROP, Lurker.Mode.THROW, Lurker.Mode.GO_IN][clampi(s.mode - 0x17, 0, 4)]
+		e.timer = s.t6
+	elif e is Chainsaw:
+		e.mode = Chainsaw.Mode.DROP if s.mode == 6 else Chainsaw.Mode.SWING
+		e.timer = s.t6
+	elif e is Pouncer:
+		e.mode = Pouncer.Mode.DROP if s.mode == 6 else Pouncer.Mode.LEAP
+	elif e is Boomerang:
+		e.grace = s.t6
+		e.thrower = slots.get(str(s.t64))
+	elif e is LedgeWalker:
+		e.falling = s.mode == 0x8E
+	elif e is CeilingCrawler:
+		e.mode = [CeilingCrawler.Mode.CRAWL, CeilingCrawler.Mode.RISE, CeilingCrawler.Mode.SWOOP][clampi(s.mode - 0x90, 0, 2)]
+
+func _state_of(o: Array, cam: int, camy: int) -> Dictionary:
+	return {
+		"x": ((cam + int(o[1])) << 8) | int(o[2]), "y": ((camy + int(o[3])) << 8) | int(o[4]),
+		"vx": _signed(int(o[5])), "vy": _signed(int(o[6])), "anim": int(o[7]), "pic": int(o[8]),
+		"left": int(o[9]) & 1, "blink": (int(o[9]) >> 2) & 1, "busy": 1 if int(o[10]) != 0 else 0, "mode": int(o[11]),
+		"step": int(o[12]), "aticks": int(o[13]), "t6": int(o[14]), "hp": int(o[15]), "safe": int(o[16]),
+		"t5": int(o[17]), "f53": int(o[18]), "f54": int(o[19]), "t64": int(o[20]), "t58": int(o[21]), "flags": int(o[9]),
+	}
+
+func _state_now(e: OriginalEnemy) -> Dictionary:
+	return {
+		"x": e.sub_x, "y": e.sub_y, "vx": e.speed_x, "vy": e.speed_y, "anim": e.animation, "pic": e.picture,
+		"left": 1 if e.facing_left else 0, "blink": 1 if e.blinking else 0, "busy": 1 if e.busy else 0,
+		"step": e.anim_step, "aticks": e.anim_ticks,
+	}
+
+func _adopt(e: OriginalEnemy, s: Dictionary) -> void:
+	e.sub_x = s.x
+	e.sub_y = s.y
+	e.position = Vector2(e.sub_x / 256.0, e.sub_y / 256.0)
+	e._placed = e.position
+	e.speed_x = s.vx
+	e.speed_y = s.vy
+	e.animation = s.anim
+	e.anim_step = s.step
+	e.anim_ticks = s.aticks
+	e.picture = s.pic
+	e.facing_left = s.left == 1
+	e.blinking = s.blink == 1
+	e.safe_ticks = s.safe
+	e.busy = s.busy == 1
+	e.health = 200
+	_adopt_kind(e, s)
+
+func _run(name: String, run: Dictionary, levels: RomLevels, verbose: bool) -> void:
+	var room := levels.room(0, int(run.area))
+	var holder := Node2D.new()
+	add_child(holder)
+	var turtle := Node2D.new()
+	add_child(turtle)
+	var cam := [0, 0]
+	var corner := func() -> Vector2: return Vector2(cam[0], cam[1])
+	var rows: Array = run.rows
+	var hits: Array = run.get("hits", [])
+	var hit_kind := int(run.get("hit_kind", 0))
+	var by_slot := {}        # slot -> enemy
+	slots = by_slot
+	var stats := {}          # slot key -> [compared, equal, first mismatch text, kind]
+	var free_stars: Array = []
+	var prev_c := -1
+	OriginalEnemy._first_column = -1
+	var obj_cam := [0, 0]
+	for f in rows.size():
+		var row: Dictionary = rows[f]
+		var c := int(row.c)
+		var lag := c == prev_c
+		prev_c = c
+		cam[0] = int(row.cam)
+		cam[1] = int(row.camy)
+		OriginalEnemy.screen_moved_to(cam[0])
+		OriginalEnemy.scroll_step = int(row.get("sc", 0))
+		OriginalEnemy.chance_byte = int(rows[maxi(f - CHANCE_BACK, 0)].get("r", 0))
+		turtle.position = Vector2(cam[0] + int(row.t[0]), cam[1] + int(row.t[2]) + 20)
+		if hits.has(float(f)):
+			for slot: String in by_slot:
+				var victim: OriginalEnemy = by_slot[slot]
+				if is_instance_valid(victim) and not victim.gone and victim.kind == hit_kind and not victim.blinking:
+					victim.health = 200
+					victim.take_hit(7)
+		var during := c
+		OriginalEnemy.frame_counter = during
+		if not lag and during % 2 == 0:
+			for child in holder.get_children():
+				if child is OriginalEnemy and not child.gone:
+					child.tick()
+		# Stars and other things the remake's enemies made themselves.
+		for child in holder.get_children():
+			if child is OriginalEnemy and not child.gone and not by_slot.values().has(child) and not free_stars.has(child):
+				child.set_physics_process(false)
+				child.view_corner = corner
+				free_stars.append(child)
+		# An object's place on the screen is only brought into line with a
+		# scroll on its own update, so between updates it is still measured
+		# from where the screen was then.
+		if not lag and during % 2 == 0:
+			obj_cam = [cam[0], cam[1]]
+		var objects: Dictionary = row.o if f >= START_FRAME else {}
+		for slot: String in objects:
+			var o: Array = objects[slot]
+			var kind := int(o[0])
+			var theirs := _state_of(o, obj_cam[0], obj_cam[1])
+			var key := "%s#%s" % [slot, kind]
+			var mine: OriginalEnemy = by_slot.get(slot)
+			if mine != null and (not is_instance_valid(mine) or mine.kind != kind):
+				mine = null
+			if mine == null:
+				# A new object in the original. Something the remake made itself?
+				for star: OriginalEnemy in free_stars:
+					if is_instance_valid(star) and not star.gone and star.kind == kind and star.sub_x == theirs.x and star.sub_y == theirs.y:
+						mine = star
+						free_stars.erase(star)
+						break
+				if mine == null:
+					mine = _make(kind)
+					if mine == null:
+						continue
+					mine.view_corner = corner
+					mine.setup_at(kind, Vector2.ZERO, room, null, turtle)
+					holder.add_child(mine)
+					mine.set_physics_process(false)
+					_adopt(mine, theirs)
+				by_slot[slot] = mine
+				key = "%s#%s@%d" % [slot, kind, f]
+				mine.set_meta("key", key)
+				stats[key] = [0, 0, "", kind]
+				continue
+			key = mine.get_meta("key")
+			var st: Array = stats[key]
+			st[0] += 1
+			if mine.gone:
+				if st[2] == "":
+					st[2] = "frame %d: gone in the remake, still there in the original" % f
+				continue
+			var ours := _state_now(mine)
+			var same := true
+			var diff := ""
+			for field: String in FIELDS:
+				if ours[field] != theirs[field]:
+					same = false
+					diff += " %s %s/%s" % [field, str(ours[field]), str(theirs[field])]
+			if same:
+				st[1] += 1
+			else:
+				if st[2] == "":
+					st[2] = "frame %d (counter %02X):%s  (remake/original)" % [f, during, diff]
+				if verbose and st[0] - st[1] < 6:
+					print("    ", key, " frame ", f, diff)
+		# Objects the original has removed.
+		for slot: String in by_slot.keys():
+			if not objects.has(slot) or int(objects[slot][0]) != by_slot[slot].kind:
+				var left: OriginalEnemy = by_slot[slot]
+				var key: String = left.get_meta("key")
+				if is_instance_valid(left) and not left.gone:
+					stats[key][0] += 1
+					if stats[key][2] == "":
+						stats[key][2] = "frame %d: gone in the original, still there in the remake" % f
+					left.remove()
+				by_slot.erase(slot)
+	print(name)
+	for key: String in stats:
+		var st: Array = stats[key]
+		print("  %s: %d frames, %d exact%s" % [key, st[0], st[1], "" if st[2] == "" else "; first difference " + st[2]])
+		var kind_name := "%02X" % int(st[3])
+		if not totals.has(kind_name):
+			totals[kind_name] = [0, 0, 0]
+		totals[kind_name][0] += st[0]
+		totals[kind_name][1] += st[1]
+		totals[kind_name][2] += 1
+	holder.free()
+	turtle.free()

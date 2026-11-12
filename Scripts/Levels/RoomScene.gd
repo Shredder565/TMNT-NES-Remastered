@@ -9,9 +9,11 @@ extends Node2D
 ## - Room: press Up in front of a doorway, or climb a ladder out of the top.
 ##
 ## Enemies (Research/enemy_kinds.md): every kind that could be recorded is
-## drawn with its own sprites from the ROM. The scripts in Scripts/Enemies
-## move 18 of the kinds (each script lists its kinds in KINDS); the rest
-## stand where the original puts them. In a room, enemies are made as the
+## drawn with its own sprites from the ROM. The kinds of world 1's rooms
+## (but AA) are run by scripts written from the original's own code
+## (OriginalEnemy.for_kind; Research/enemy_routines.md). Other scripts in
+## Scripts/Enemies move more kinds by rules fitted to measurements (each
+## lists its kinds in KINDS); the rest stand where the original puts them. In a room, enemies are made as the
 ## screen reaches their places and removed when they leave it, as in the
 ## original (Research/shots_spawning_tiles.md). Kinds with no recording are purple blocks. All hurt
 ## on touch, by the original's amounts, and can be hit.
@@ -53,6 +55,7 @@ const ARRIVAL_REST_FRAMES := 10
 const ENEMY_SCENE := preload("res://Scenes/Enemies/DummyEnemy.tscn")
 const VIEW_SIZE := Vector2i(256, 192)  ## what the camera shows of a room, above the HUD strip
 const SPAWN_MARGIN := 8.0            ## an enemy is made when its place is this far inside the screen's edge
+const PLACED_AT_ONCE := 6            ## the original's object slots 5 to 10
 const REMOVE_MARGIN := 4.0           ## and removed when it is this close to leaving
 ## World 1's items and boss, as seen in the original (Research/world1.md).
 ## The ROM tables these come from have not been found, so they are listed
@@ -160,6 +163,7 @@ func _ready() -> void:
 	boss_bar.position.y += 10.0
 	boss_bar.hide()
 	health_bar.get_parent().add_child(boss_bar)
+	OriginalEnemy.levels = levels
 	if levels != null:
 		for shot_kind: int in Shot.KINDS:
 			Shot.damage_of[shot_kind] = levels.touch_damage(shot_kind)
@@ -604,11 +608,27 @@ func _on_boss_defeated(kind: int) -> void:
 	if levels != null and levels.has_overworld(cleared + 1):
 		load_overworld(cleared + 1)
 
-## Makes the enemy for one of the ROM's enemy places.
+## How many of the original's six places for placed enemies are taken:
+## everything on the map but what enemies have thrown. A beaten enemy's
+## puff still holds its place.
+func placed_enemies() -> int:
+	var count := 0
+	for thing in enemies.get_children():
+		if thing.is_queued_for_deletion() or thing is Shot or (thing is OriginalEnemy and thing.is_thrown):
+			continue
+		count += 1
+	return count
+
+## Makes the enemy for one of the ROM's enemy places. In a room whose
+## enemies follow the camera there are only six places for them, as in
+## the original (bank 7, $EED3): with all six taken, none is made.
 func _make_enemy(spot: EnemySpot) -> void:
+	if not room.top_down and enemies_follow_camera and placed_enemies() >= PLACED_AT_ONCE:
+		return
 	var damage := levels.weapon_damage(current_turtle) if levels != null else Vector2i.ONE
 	var enemy: Node2D
 	var pictures := SpriteSet.cached("Kind%02X" % spot.kind) if spot.kind >= 0 else null
+	var original := OriginalEnemy.for_kind(spot.kind) if not room.top_down else null
 	if room.top_down and OverworldEnemy.KINDS.has(spot.kind):
 		var mover := OverworldEnemy.new()
 		mover.setup(spot, room, pictures, walker)
@@ -616,6 +636,12 @@ func _make_enemy(spot: EnemySpot) -> void:
 		enemy = mover
 	elif room.top_down:
 		enemy = _make_stand_in(spot)
+	elif original != null:
+		# A kind written from the original's own code.
+		if enemies_follow_camera:
+			original.view_corner = _view_corner
+		original.setup(spot, room, pictures, turtle)
+		enemy = original
 	elif Crawler.KINDS.has(spot.kind):
 		var crawler := Crawler.new()
 		crawler.setup(spot, room, pictures)
@@ -632,10 +658,10 @@ func _make_enemy(spot: EnemySpot) -> void:
 		var mover := PathEnemy.new()
 		mover.setup(spot, pictures)
 		enemy = mover
-	elif Soldier.KINDS.has(spot.kind):
-		var soldier := Soldier.new()
-		soldier.setup(spot, room, pictures, turtle)
-		enemy = soldier
+	elif LegacyWalker.KINDS.has(spot.kind):
+		var walker_enemy := LegacyWalker.new()
+		walker_enemy.setup(spot, room, pictures, turtle)
+		enemy = walker_enemy
 	else:
 		enemy = _make_stand_in(spot)
 	enemy.set("weapon_damage", damage.x)
@@ -853,6 +879,7 @@ func _place_camera() -> void:
 	turtle.sync_screen()
 	var camera: Camera2D = turtle.get_node("Camera2D")
 	camera.position.x = floorf(turtle.scroll_x) + VIEW_SIZE.x / 2.0 - turtle.position.x
+	OriginalEnemy.screen_moved_to(floori(turtle.scroll_x))
 
 func set_flying(on: bool) -> void:
 	flying = on

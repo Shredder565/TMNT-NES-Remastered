@@ -585,38 +585,6 @@ func _ready() -> void:
 	var victim := Node2D.new()
 	add_child(victim)
 	victim.position = Vector2(200, 56)       # the turtle's feet, on the floor
-	var soldier_spot := EnemySpot.new()
-	soldier_spot.position = Vector2(60, 16)  # in the air, 140 pixels away
-	soldier_spot.hit_points = 12
-	soldier_spot.touch_damage = 17
-	var soldier := Soldier.new()
-	soldier.setup(soldier_spot, yard, null, victim)
-	add_child(soldier)
-	soldier.set_physics_process(false)
-	soldier.tick()
-	check(soldier.state == Soldier.State.AIR and soldier.position.y == 18.0, "a soldier in the air falls, 2 pixels on the first update")
-	var hopped := false
-	var highest := 1000.0
-	for i in 60:
-		soldier.tick()
-		if soldier.hopping:
-			hopped = true
-			highest = minf(highest, soldier.position.y)
-	check(hopped and soldier.state == Soldier.State.REST and soldier.position.y == 59.0, "landing far from the turtle it hops towards him and lands 3 pixels into the floor")
-	check(absf(highest - 25.0) < 0.5 and absf(soldier.position.x - 95.0) < 0.01, "the hop rises 34 pixels and carries it 35 across, as recorded (%.1f, %.2f)" % [59.0 - highest, soldier.position.x - 60.0])
-	for i in 400:
-		soldier.tick()
-	check(absf(victim.position.x - soldier.position.x) <= 23.0 and absf(victim.position.x - soldier.position.x) > 21.0 and soldier.direction == 1, "after its rest it walks up and stops 23 pixels from him")
-	var saw_kick := false
-	var saw_punch := false
-	for i in 80:
-		soldier.tick()
-		saw_kick = saw_kick or soldier.state == Soldier.State.KICK
-		saw_punch = saw_punch or soldier.state == Soldier.State.PUNCH
-	check(saw_kick and saw_punch, "in reach it kicks and punches")
-	soldier.take_hit(7)
-	check(soldier.health == 5 and not soldier.is_queued_for_deletion(), "it takes two sword hits")
-	soldier.free()
 	var leaper_spot := EnemySpot.new()
 	leaper_spot.position = Vector2(60, 56)   # on top of the floor, 140 pixels from the turtle
 	leaper_spot.hit_points = 24
@@ -662,14 +630,14 @@ func _ready() -> void:
 	var walker_spot := EnemySpot.new()
 	walker_spot.kind = 0x49
 	walker_spot.position = Vector2(60, 56)
-	var plain := Soldier.new()
+	var plain := LegacyWalker.new()
 	plain.setup(walker_spot, yard, null, victim)
 	add_child(plain)
 	plain.set_physics_process(false)
 	var plain_attacked := false
 	for i in 220:
 		plain.tick()
-		plain_attacked = plain_attacked or plain.state == Soldier.State.KICK or plain.state == Soldier.State.PUNCH or plain.state == Soldier.State.AIR
+		plain_attacked = plain_attacked or plain.state == LegacyWalker.State.KICK or plain.state == LegacyWalker.State.PUNCH or plain.state == LegacyWalker.State.AIR
 	check(absf(victim.position.x - plain.position.x) <= 16.0 and absf(victim.position.x - plain.position.x) > 15.0 and not plain_attacked, "kind 49 walks 1 pixel an update up to 16 pixels from him and stands, with no hop or attack")
 	plain.free()
 	var charger_spot := EnemySpot.new()
@@ -772,72 +740,6 @@ func _ready() -> void:
 		puffs += 1 if child is Puff and child.position == gunner.position else 0
 	check(puffs == 1 and gunner.is_queued_for_deletion(), "a beaten enemy leaves a puff where it stood")
 	clear_shots.call()
-	victim.position = Vector2(200, 56)
-	var trooper_spot := EnemySpot.new()
-	trooper_spot.position = Vector2(60, 16)
-	trooper_spot.hit_points = 12
-	var trooper := Soldier.new()
-	trooper.setup(trooper_spot, yard, null, victim)
-	add_child(trooper)
-	trooper.set_physics_process(false)
-	var stars_seen := {}
-	var first_star_tick := -1
-	var landed_tick := -1
-	for i in 190:
-		trooper.tick()
-		if landed_tick < 0 and trooper.state == Soldier.State.REST and trooper.stars_left > 0:
-			landed_tick = i
-		for child in get_children():
-			if child is Shot and child.kind == 0x99:
-				if stars_seen.is_empty():
-					first_star_tick = i
-				stars_seen[child.get_instance_id()] = true
-	check(stars_seen.size() == 8 and first_star_tick - landed_tick == 25, "after its hop a soldier waits 25 updates and throws 8 stars (%d, %d)" % [stars_seen.size(), first_star_tick - landed_tick])
-	trooper.free()
-	clear_shots.call()
-	var tower := RoomData.from_text([
-		"#..............................#",
-		"#..............................#",
-		"#..............................#",
-		"#..............................#",
-		"#..............................#",
-		"#..............................#",
-		"#..............................#",
-		"#..............................#",
-		"#..............................#",
-		"#..............................#",
-		"#...............################",
-		"#..............................#",
-		"#..............................#",
-		"#..............................#",
-		"#..............................#",
-		"#..............................#",
-		"#..............................#",
-		"#..............................#",
-		"#..............................#",
-		"#..............................#",
-		"#..............................#",
-		"#..............................#",
-		"#..............................#",
-		"################################",
-	], "Jump test")
-	victim.position = Vector2(160, 80)      # on the ledge, 104 pixels above the floor
-	var climber_spot := EnemySpot.new()
-	climber_spot.position = Vector2(90, 184)
-	var climber := Soldier.new()
-	climber.setup(climber_spot, tower, null, victim)
-	add_child(climber)
-	climber.set_physics_process(false)
-	var jump_peak := 1000.0
-	var jumped := false
-	for i in 140:
-		climber.tick()
-		if climber.jumping:
-			jumped = true
-			jump_peak = minf(jump_peak, climber.position.y)
-	check(jumped and absf((187.0 - jump_peak) - 128.3) < 0.2, "a soldier under a ledge the turtle is on makes its spinning jump, 128 pixels up (%.1f)" % (187.0 - jump_peak))
-	check(climber.position.y == 83.0 and climber.position.x > 128.0 and not climber.jumping, "and lands on the ledge")
-	climber.free()
 	victim.position = Vector2(120, 56)
 	var rhino := Rocksteady.new()
 	rhino.setup(Vector2(214, 16), yard, null, victim)
@@ -959,6 +861,440 @@ func _ready() -> void:
 	check(foe.health == 1 and not foe.is_queued_for_deletion(), "a hit takes the weapon's damage off")
 	foe.take_hit(foe.weapon_damage)
 	check(foe.is_queued_for_deletion(), "and it is gone when its hit points run out")
+
+	# ---------------------------------------------------------------------
+	# Enemies by the original's rules (Scripts/Enemies/OriginalEnemy.gd and
+	# the kinds built on it). The side-by-side runs against the emulator are
+	# in Research/enemy_routines.md; these keep the rules from slipping.
+	# ---------------------------------------------------------------------
+	print("Enemies by the original's rules")
+	var o_court := RoomData.from_text([
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"################################",
+		"################################",
+	], "Court")
+	OriginalEnemy.frame_counter = 0x10
+	var o_prey := Node2D.new()
+	add_child(o_prey)
+	o_prey.position = Vector2(200, 176)        # the turtle's feet, on the floor
+	var o_make_soldier := func(at: Vector2) -> Soldier:
+		var spot := EnemySpot.new()
+		spot.kind = 0x98
+		spot.position = at
+		spot.hit_points = 12
+		spot.touch_damage = 17
+		var made := Soldier.new()
+		made.setup(spot, o_court, null, o_prey)
+		add_child(made)
+		made.set_physics_process(false)
+		return made
+	var o_stars_out := func() -> Array:
+		var found := []
+		for child in get_children():
+			if child is Star and not child.gone:
+				found.append(child)
+		return found
+	var o_foot: Soldier = o_make_soldier.call(Vector2(170, 100))
+	o_foot.tick()
+	check(o_foot.mode == Soldier.Mode.DROP and o_foot.position.y == 102.0, "a soldier with no floor under it drops, 2 pixels on the first update")
+	for i in 40:
+		o_foot.tick()
+		if not o_foot.busy:
+			break
+	check(not o_foot.busy and o_foot.whole_y() == 179 and o_foot.speed_y == 0, "it comes to rest 3 pixels into the floor (%.2f)" % o_foot.position.y)
+	check(o_foot.kind_at(0, -4) == RoomData.KIND_EMPTY and o_foot.kind_at(0, 0) == RoomData.KIND_SOLID and o_foot.kind_at(-160, -40) == RoomData.KIND_SOLID and o_foot.kind_at(-150, -40) == RoomData.KIND_EMPTY, "the map is felt in 16-pixel cells")
+	# 30 pixels away: it walks at him, 1.25 pixels an update, and punches inside 24.
+	o_foot.set_animation(Soldier.RISE)
+	o_foot.tick()
+	check(o_foot.animation == Soldier.WALK and o_foot.speed_x == 320 and not o_foot.facing_left, "24 to 63 pixels from the turtle it walks at him at 1.25 pixels an update")
+	var o_walked := 0
+	while not o_foot.busy and o_walked < 40:
+		o_foot.tick()
+		o_walked += 1
+	check(o_foot.mode == Soldier.Mode.POSE and o_foot.animation == Soldier.PUNCH_SHORT and o_foot.speed_x == 0 and o_prey.position.x - o_foot.position.x < 24.0 and o_prey.position.x - o_foot.position.x > 22.0, "under 24 pixels away it stops and punches (%.2f away)" % (o_prey.position.x - o_foot.position.x))
+	var o_punch_ticks := 1
+	while o_foot.busy and o_punch_ticks < 60:
+		o_foot.tick()
+		o_punch_ticks += 1
+	check(o_punch_ticks == 19, "the short punch holds it for 19 updates (%d)" % o_punch_ticks)
+	OriginalEnemy.frame_counter = 0x60
+	o_foot.tick()
+	check(o_foot.animation == Soldier.PUNCH_LONG, "which punch depends on the frame counter: the long one from 96 up")
+	o_punch_ticks = 1
+	while o_foot.busy and o_punch_ticks < 60:
+		o_foot.tick()
+		o_punch_ticks += 1
+	check(o_punch_ticks == 25, "the long punch holds it for 25 updates (%d)" % o_punch_ticks)
+	# Hit: stunned for 16 updates, then it jumps; it blinks for 24.
+	o_foot.take_hit(7)
+	check(o_foot.health == 5 and o_foot.blinking and not o_foot.gone, "a sword hit takes 7 of its 12 hit points and starts it blinking")
+	o_foot.tick()
+	check(o_foot.animation == Soldier.STUNNED and o_foot.speed_x == 0, "hit, it stands stunned")
+	var o_stunned_for := 1
+	while o_foot.mode != Soldier.Mode.JUMP and o_stunned_for < 40:
+		o_foot.tick()
+		o_stunned_for += 1
+	check(o_stunned_for == 17 and o_foot.speed_y == -1536 and o_foot.speed_x == 320, "after 16 updates of that it jumps, 6 pixels an update upward (%d)" % o_stunned_for)
+	var o_blink_left := 0
+	while o_foot.blinking and o_blink_left < 40:
+		o_foot.tick()
+		o_blink_left += 1
+	check(o_stunned_for + o_blink_left == 24, "the blink lasts 24 updates (%d)" % (o_stunned_for + o_blink_left))
+	while o_foot.busy:
+		o_foot.tick()
+	check(o_foot.whole_y() == 179 and o_foot.animation == Soldier.WALK and o_foot.speed_x == 0, "it lands with its walking animation already on")
+	o_foot.take_hit(7)
+	check(o_foot.gone, "a second hit finishes it")
+	o_foot.free()
+	# The jump towards a turtle far away, and the walk on the spot after it.
+	o_prey.position = Vector2(220, 176)
+	var o_jumper: Soldier = o_make_soldier.call(Vector2(60, 179))
+	o_jumper.tick()
+	check(o_jumper.mode == Soldier.Mode.JUMP and o_jumper.speed_x == 320 and o_jumper.position == Vector2(61.25, 173.0), "96 pixels or more from the turtle it jumps towards him")
+	var o_top := 1000.0
+	while o_jumper.busy:
+		o_jumper.tick()
+		o_top = minf(o_top, o_jumper.position.y)
+	check(absf(179.0 - o_top - 131.02) < 0.01 and o_jumper.whole_y() == 179, "a jump with nothing in the way rises 131 pixels (%.2f)" % (179.0 - o_top))
+	var o_landed_at: float = o_jumper.position.x
+	check(absf(o_landed_at - 60.0 - 107.5) < 0.01, "and carries it 107.5 pixels (%.2f)" % (o_landed_at - 60.0))
+	for i in 10:
+		o_jumper.tick()
+	check(o_jumper.position.x == o_landed_at and o_jumper.animation == Soldier.WALK and not o_jumper.busy, "landing in walking range it walks on the spot: the speed is only set when the walking animation starts")
+	o_jumper.free()
+	# The o_star.
+	o_prey.position = Vector2(200, 176)
+	OriginalEnemy.frame_counter = 0x10
+	var o_thrower: Soldier = o_make_soldier.call(Vector2(120, 179))
+	o_thrower.tick()
+	var o_thrown: Array = o_stars_out.call()
+	check(o_thrower.animation == Soldier.THROW and o_thrown.size() == 1 and o_thrown[0].position == Vector2(123, 143) and o_thrown[0].speed_x == 768, "64 to 95 pixels away it throws a o_star, which starts 36 above it and flies at 3 pixels an update")
+	var o_throw_ticks := 1
+	while o_thrower.busy and o_throw_ticks < 40:
+		o_thrower.tick()
+		o_throw_ticks += 1
+	check(o_throw_ticks == 13, "the throw holds it for 13 updates (%d)" % o_throw_ticks)
+	for i in 80:
+		o_thrower.tick()
+	check(o_stars_out.call().size() <= 4, "there are never more than four stars")
+	var o_star: Star = o_thrown[0]
+	while not o_star.gone and o_star.ticks < 200:
+		o_star.tick()
+	check(o_star.gone and o_star.position.x >= 240.0 and o_star.position.x < 243.0, "a o_star is gone when it meets a wall (%.0f)" % o_star.position.x)
+	for o_old_star: Star in o_stars_out.call():
+		o_old_star.free()
+	OriginalEnemy.frame_counter = 0xC0
+	o_thrower.busy = false
+	o_thrower.set_animation(Soldier.RISE)
+	o_thrower.tick()
+	check(o_stars_out.call().is_empty() and o_thrower.animation == Soldier.WALK and o_thrower.speed_x == 320, "with the frame counter at 192 or more it walks instead of throwing")
+	o_thrower.free()
+	# Walls.
+	o_prey.position = Vector2(60, 176)
+	var o_turner: Soldier = o_make_soldier.call(Vector2(214, 179))
+	o_turner.facing_left = false
+	o_turner.go_forward(320)
+	var o_clear_at_214: bool = not o_turner.wall_ahead(24, -16)
+	o_turner.place(Vector2(215, 179))
+	check(o_clear_at_214 and o_turner.wall_ahead(24, -16), "a wall is looked for 24 pixels ahead, plus the whole pixels of its speed")
+	o_turner.turn_round()
+	check(o_turner.facing_left and o_turner.speed_x == -320 and not o_turner.wall_ahead(24, -16), "at a wall it turns round")
+	o_turner.free()
+	# Kinds 81 and 96: level fliers.
+	var o_bat := Flier.new()
+	var o_bat_spot := EnemySpot.new()
+	o_bat_spot.kind = 0x81
+	o_bat_spot.position = Vector2(100, 80)
+	o_bat.setup(o_bat_spot, o_court, null, o_prey)
+	add_child(o_bat)
+	o_bat.set_physics_process(false)
+	OriginalEnemy.scroll_step = 0
+	o_bat.tick()
+	check(o_bat.facing_left and o_bat.position == Vector2(97.5, 80), "kind 81 sets off to the left when the screen is still, 2.5 pixels an update, level")
+	var o_bat_turn := 0.0
+	for i in 40:
+		o_bat.tick()
+		if not o_bat.facing_left and o_bat_turn == 0.0:
+			o_bat_turn = o_bat.position.x
+	check(o_bat_turn == 30.0 and o_bat.position.y == 80.0, "it turns round with a wall 10 pixels ahead, plus the whole pixels of its speed (%.1f)" % o_bat_turn)
+	o_bat.free()
+	# Kinds 8D and 84: walkers that drop off ledges.
+	var o_step := RoomData.from_text([
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##########....................##",
+		"##########....................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"################################",
+		"################################",
+	], "Step")
+	var o_mouse := LedgeWalker.new()
+	var o_mouse_spot := EnemySpot.new()
+	o_mouse_spot.kind = 0x8D
+	o_mouse_spot.position = Vector2(40, 68)
+	o_mouse.setup(o_mouse_spot, o_step, null, o_prey)
+	add_child(o_mouse)
+	o_mouse.set_physics_process(false)
+	o_mouse.tick()
+	check(not o_mouse.facing_left and o_mouse.position == Vector2(41.375, 68), "kind 8D walks the way it faces at 1.375 pixels an update")
+	var o_fell_at := 0.0
+	var o_fall_ticks := 0
+	for i in 120:
+		var o_was: bool = o_mouse.falling
+		o_mouse.tick()
+		if o_mouse.falling and not o_was:
+			o_fell_at = o_mouse.position.x
+		if o_mouse.falling:
+			o_fall_ticks += 1
+		elif o_fell_at > 0.0:
+			break
+	check(o_fell_at >= 92.0 and o_fell_at < 93.4 and o_mouse.whole_y() == 116, "it walks on until nothing is under its back end, 12 pixels behind, then drops and lands 4 pixels into the floor below (%.2f, %d)" % [o_fell_at, o_mouse.whole_y()])
+	check(o_mouse.speed_x == 352 and not o_mouse.falling, "and walks on the way it was going")
+	o_mouse.kind = 0x84
+	o_mouse.busy = false
+	o_mouse.tick()
+	check(o_mouse.speed_x == 768, "kind 84 does the same at 3 pixels an update")
+	o_mouse.free()
+	# Kind 86: along the ceiling, and the swoop.
+	var o_cave := RoomData.from_text([
+		"################################",
+		"################################",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"################################",
+		"################################",
+	], "Cave")
+	o_prey.position = Vector2(200, 112)
+	var o_hanger := CeilingCrawler.new()
+	var o_hanger_spot := EnemySpot.new()
+	o_hanger_spot.kind = 0x86
+	o_hanger_spot.position = Vector2(120, 70)
+	o_hanger.setup(o_hanger_spot, o_cave, null, o_prey)
+	add_child(o_hanger)
+	o_hanger.set_physics_process(false)
+	OriginalEnemy.scroll_step = -1
+	for i in 12:
+		o_hanger.tick()
+	check(o_hanger.mode == CeilingCrawler.Mode.CRAWL and o_hanger.whole_y() == 40 and o_hanger.speed_x == 352, "kind 86 rises to the ceiling and crawls along it, 24 pixels below it (%d)" % o_hanger.whole_y())
+	var o_lowest := 0.0
+	var o_swooped := false
+	for i in 120:
+		o_hanger.tick()
+		if o_hanger.mode == CeilingCrawler.Mode.SWOOP:
+			o_swooped = true
+			o_lowest = maxf(o_lowest, o_hanger.position.y)
+		elif o_swooped:
+			break
+	check(o_swooped and absf(o_lowest - 112.2) < 0.5 and o_hanger.whole_y() == 40 and o_hanger.mode == CeilingCrawler.Mode.CRAWL, "with the turtle under 40 pixels away it swoops, stopped by the floor, and climbs back to the ceiling (%.1f)" % o_lowest)
+	o_hanger.free()
+	OriginalEnemy.scroll_step = 0
+	# Kind 49: waits, comes out, walks and throws, goes back in.
+	var o_thrown_out := func() -> Array:
+		var found := []
+		for child in get_children():
+			if child is OriginalEnemy and child.is_thrown and not child.gone:
+				found.append(child)
+		return found
+	var o_spot_for := func(spot_kind: int, at: Vector2) -> EnemySpot:
+		var made := EnemySpot.new()
+		made.kind = spot_kind
+		made.position = at
+		made.hit_points = 30
+		made.touch_damage = 10
+		return made
+	OriginalEnemy.frame_counter = 0x10
+	OriginalEnemy.chance_byte = 1
+	o_prey.position = Vector2(200, 176)
+	var o_lurker := Lurker.new()
+	o_lurker.setup(o_spot_for.call(0x49, Vector2(110, 179)), o_court, null, o_prey)
+	add_child(o_lurker)
+	o_lurker.set_physics_process(false)
+	o_lurker.tick()
+	check(not o_lurker.busy and o_lurker.animation == Lurker.WAITING, "kind 49 waits while the turtle is 80 pixels or more away")
+	o_prey.position.x = 160.0
+	o_lurker.tick()
+	check(o_lurker.busy and o_lurker.animation == Lurker.COMING_OUT, "with him 32 to 79 pixels away it comes out")
+	var o_out_after := 1
+	while o_lurker.mode != Lurker.Mode.OUT and o_out_after < 60:
+		o_lurker.tick()
+		o_out_after += 1
+	o_lurker.tick()
+	check(o_out_after == 25 and o_lurker.speed_x == 256 and o_lurker.animation == Lurker.WALKING, "coming out takes 24 updates; then it walks at him at 1 pixel an update (%d)" % o_out_after)
+	o_prey.position.x = 230.0
+	for i in 31:
+		o_lurker.tick()
+	var o_missiles: Array = o_thrown_out.call()
+	check(o_missiles.size() == 1 and o_missiles[0].kind == 0x4A and o_missiles[0].speed_x == 832 and o_missiles[0].position.y == o_lurker.position.y - 16.0 and o_lurker.animation == Lurker.THROWING, "on its 32nd update out it throws kind 4A, from 16 above it, at 3.25 pixels an update")
+	o_missiles[0].free()
+	o_prey.position.x = o_lurker.position.x + 10.0
+	for i in 12:
+		o_lurker.tick()
+	check(o_lurker.mode == Lurker.Mode.GO_IN and o_lurker.speed_x == 0, "with the turtle under 16 pixels away it goes back in")
+	for i in 30:
+		o_lurker.tick()
+	check(not o_lurker.busy and o_lurker.animation == Lurker.WAITING, "and waits again")
+	o_lurker.free()
+	# Kind 91: walks 31 updates, swings, walks; stands while it blinks.
+	var o_saw := Chainsaw.new()
+	o_saw.setup(o_spot_for.call(0x91, Vector2(100, 179)), o_court, null, o_prey)
+	add_child(o_saw)
+	o_saw.set_physics_process(false)
+	o_saw.tick()
+	check(o_saw.speed_x == 448 and o_saw.animation == Chainsaw.WALKING, "kind 91 walks the way it faces at 1.75 pixels an update")
+	for i in 31:
+		o_saw.tick()
+	check(o_saw.busy and o_saw.speed_x == 0 and o_saw.animation == Chainsaw.SWING_A and o_saw.position.x == 100.0 + 31 * 1.75, "on its 32nd update it stops and swings its saw")
+	var o_swing := 0
+	while o_saw.busy and o_swing < 80:
+		o_saw.tick()
+		o_swing += 1
+	check(o_swing == 32, "the swing holds it for 32 more updates (%d)" % o_swing)
+	o_saw.take_hit(7)
+	o_saw.tick()
+	check(o_saw.animation == Chainsaw.HURT and o_saw.speed_x == 0 and o_saw.health == 23, "hit, it stands still while it blinks")
+	for i in 24:
+		o_saw.tick()
+	check(not o_saw.blinking and o_saw.speed_x == 448, "and walks on when the blink is over")
+	o_saw.free()
+	# Kind 92 and what it throws, kind 93.
+	o_prey.position = Vector2(220, 176)
+	var o_pouncer := Pouncer.new()
+	o_pouncer.setup(o_spot_for.call(0x92, Vector2(100, 179)), o_court, null, o_prey)
+	add_child(o_pouncer)
+	o_pouncer.set_physics_process(false)
+	o_pouncer.tick()
+	check(o_pouncer.speed_x == 448 and not o_pouncer.busy, "kind 92 walks at the turtle at 1.75 pixels an update")
+	OriginalEnemy.chance_byte = 64
+	o_pouncer.tick()
+	var o_rangs: Array = o_thrown_out.call()
+	check(o_rangs.size() == 1 and o_rangs[0].kind == 0x93 and o_rangs[0].speed_x == 1024 - 16 and o_pouncer.speed_x == 0 and o_pouncer.animation == Pouncer.THROWING, "one update in 64, by chance, it stops and throws kind 93 at 4 pixels an update")
+	OriginalEnemy.chance_byte = 1
+	var o_rang: Boomerang = o_rangs[0]
+	var o_furthest := 0.0
+	o_pouncer.set_physics_process(false)
+	var o_thrower_x: float = o_pouncer.position.x
+	while not o_rang.gone and o_rang.ticks < 400:
+		o_rang.tick()
+		o_furthest = maxf(o_furthest, o_rang.position.x - o_thrower_x)
+	check(o_rang.gone and absf(o_furthest - 126.0) < 2.0 and absf(o_rang.position.x - o_thrower_x) < 4.0, "kind 93 slows, turns and comes back, and is gone when it reaches the thrower (it went %.1f out)" % o_furthest)
+	var o_leapt := false
+	var o_leap_from := 0.0
+	for i in 120:
+		o_pouncer.tick()
+		if o_pouncer.busy and not o_leapt:
+			o_leapt = true
+			o_leap_from = o_prey.position.x - o_pouncer.position.x
+	check(o_leapt and o_leap_from < 40.0 and o_leap_from >= 36.0, "from less than 40 pixels away it leaps (%.2f)" % o_leap_from)
+	o_pouncer.free()
+	# Kind 94 and what it fires, kind 95.
+	o_prey.position = Vector2(220, 176)
+	var o_gunner := Gunner.new()
+	o_gunner.setup(o_spot_for.call(0x94, Vector2(100, 180)), o_court, null, o_prey)
+	add_child(o_gunner)
+	o_gunner.set_physics_process(false)
+	OriginalEnemy.frame_counter = 0x20
+	o_gunner.tick()
+	check(o_gunner.speed_x == 352 and o_thrown_out.call().is_empty(), "kind 94 walks the way it faces at 1.375 pixels an update while bit 5 of the frame counter is set")
+	OriginalEnemy.frame_counter = 0x10
+	for i in 6:
+		o_gunner.tick()
+	var o_shots: Array = o_thrown_out.call()
+	check(o_shots.size() == 4 and o_gunner.speed_x == 0 and o_shots[0].kind == 0x95 and o_shots[0].speed_x == 640 and o_shots[0].position.y == 163.0, "with the turtle within 32 pixels of its height it stands and fires kind 95, one an update, four at most")
+	o_prey.position.y = 100.0
+	o_gunner.tick()
+	check(o_gunner.speed_x == 352, "with him higher than that it walks on")
+	for o_shot: Missile in o_shots:
+		o_shot.free()
+	o_gunner.free()
+	OriginalEnemy.chance_byte = -1
+	# The frames enemies are updated on, and the sixteen map columns to hand.
+	OriginalEnemy.frame_counter = 0x11
+	var o_idle: Soldier = o_make_soldier.call(Vector2(100, 179))
+	check(not o_idle._is_update_frame(), "enemies are not updated on odd frames of the counter")
+	OriginalEnemy.frame_counter = 0x12
+	check(o_idle._is_update_frame(), "and are on even ones")
+	o_idle.free()
+	OriginalEnemy._first_column = -1
+	OriginalEnemy.screen_moved_to(0)
+	OriginalEnemy.screen_moved_to(7)
+	var o_early: int = OriginalEnemy._first_column
+	OriginalEnemy.screen_moved_to(8)
+	var o_late: int = OriginalEnemy._first_column
+	OriginalEnemy.screen_moved_to(17)
+	check(o_early == 0 and o_late == 1 and OriginalEnemy._first_column == 1, "scrolling right, the map column coming in replaces the one going out 8 pixels in; scrolling back does not undo it")
+	OriginalEnemy.screen_moved_to(24)
+	OriginalEnemy.screen_moved_to(16)
+	var o_at_edge: int = OriginalEnemy._first_column
+	OriginalEnemy.screen_moved_to(15)
+	var o_past_edge: int = OriginalEnemy._first_column
+	OriginalEnemy.screen_moved_to(0)
+	check(o_at_edge == 2 and o_past_edge == 1 and OriginalEnemy._first_column == 0, "scrolling left, a column is taken up once the screen has gone past it, or is at the room's left end")
+	# The room scene: six places for placed enemies, as in the original.
+	if RomLevels.open_installed() == null:
+		print("  skip  no verified ROM is installed, so the six-enemy limit is not exercised")
+	else:
+		var o_scene: Node = load("res://Scenes/Levels/Area1Sewer.tscn").instantiate()
+		o_scene.start_on_overworld = false
+		add_child(o_scene)
+		o_scene.set_physics_process(false)
+		o_scene.get_node("Turtle").set_physics_process(false)
+		o_scene.load_area(0, 0)
+		for child in o_scene.enemies.get_children():
+			child.set_physics_process(false)
+		var o_before: int = o_scene.placed_enemies()
+		for i in 8:
+			var o_extra := EnemySpot.new()
+			o_extra.kind = 0x8D
+			o_extra.position = Vector2(100 + i * 8, 180)
+			o_extra.hit_points = 4
+			o_scene._make_enemy(o_extra)
+		check(o_before == 4 and o_scene.placed_enemies() == 6, "a room has six places for placed enemies: with all taken, no more are made (%d, %d)" % [o_before, o_scene.placed_enemies()])
+		var o_first_foe: Node = o_scene.enemies.get_child(0)
+		check(o_first_foe is LedgeWalker and o_first_foe.view_corner.is_valid(), "the room scene gives a kind written from the original's code to its own script, with the screen to look at")
+		o_scene.free()
+	OriginalEnemy._first_column = -1
+	OriginalEnemy.frame_counter = -1
+	o_prey.free()
 
 	print("Levels read from the ROM")
 	var levels := RomLevels.open_installed()
@@ -1101,16 +1437,17 @@ func _ready() -> void:
 		sewer.enemies_follow_camera = false   # these checks want the whole room filled
 		sewer.show_enemies = true
 		sewer.load_area(0, 0)
-		var first_foe: Crawler = sewer.enemies.get_child(0)
+		var first_foe: LedgeWalker = sewer.enemies.get_child(0)
 		check(sewer.enemies.get_child_count() == 21 and first_foe.health == 4 and first_foe.weapon_damage == 7 and first_foe.touch_damage == 7, "the first sewer shows 21 enemies with real hit points; the first is a crawler")
-		var flyer: Crawler = sewer.enemies.get_child(5)
-		check(sewer_spots[5].touch_damage == 9 and flyer.kind == 0x81 and flyer.flies and flyer.touch_damage == 9, "kind 81 is a flyer, with its own touch damage of 9")
+		var flyer: Flier = sewer.enemies.get_child(5)
+		check(sewer_spots[5].touch_damage == 9 and flyer.kind == 0x81 and flyer.touch_damage == 9, "kind 81 is a flyer, with its own touch damage of 9")
 		flyer.set_physics_process(false)
 		var flyer_y := flyer.position.y
 		var flyer_x := flyer.position.x
-		flyer.direction = 1
+		OriginalEnemy.scroll_step = -2
 		flyer.tick()
-		check(flyer.position == Vector2(flyer_x + 2.5, flyer_y), "it flies 2.5 pixels an update and keeps its height")
+		OriginalEnemy.scroll_step = 0
+		check(flyer.position == Vector2(flyer_x + 2.5, flyer_y) and not flyer.facing_left, "it flies 2.5 pixels an update and keeps its height; made while the screen scrolls left, it sets off to the right")
 		var kinds_drawn := 0
 		var kinds_missing: Array[String] = []
 		var kinds_used := {}
@@ -1148,10 +1485,10 @@ func _ready() -> void:
 		check(still_one != null and still_one.sprites != null and still_one.get_node("Art").visible == false, "a kind that does not move yet still shows its own picture")
 		sewer.load_area(0, 0)
 		check(leo.max_health == 128 and sewer.health_bar.max_health == 8 and sewer.health_bar.health == 8, "the turtle has 128 energy, shown as 8 blocks")
-		# The crawler against what was measured in the original.
+		# Kind 8D by the original's rules, in the first sewer's own map.
 		sewer.set_show_enemies(false)
-		var bug := Crawler.new()
-		bug.setup(sewer_spots[0], sewer.room, null)
+		var bug := LedgeWalker.new()
+		bug.setup(sewer_spots[0], sewer.room, null, null)
 		sewer.enemies.add_child(bug)
 		bug.set_physics_process(false)
 		check(bug.direction == 1, "placed on the left half of a screen, it starts off to the right")
@@ -1160,7 +1497,8 @@ func _ready() -> void:
 			bug.tick()
 		check(bug.position == Vector2(245.5, 180) and bug.direction == 1, "it walks 1.375 pixels an update along the floor")
 		bug.position = Vector2(40, 180)
-		bug.direction = -1
+		bug.facing_left = true
+		bug.busy = false
 		var turn_x := 0.0
 		for i in 12:
 			bug.tick()
@@ -1168,7 +1506,8 @@ func _ready() -> void:
 				turn_x = bug.position.x
 		check(turn_x >= 30.0 and turn_x < 32.0, "it turns at the left wall where the original turns (x=%.2f; the original showed 30 and 31)" % turn_x)
 		bug.position = Vector2(186, 100)
-		bug.direction = -1
+		bug.facing_left = true
+		bug.busy = false
 		var fall_from := Vector2.ZERO
 		var fall_ticks := 0
 		for i in 80:
@@ -1181,7 +1520,7 @@ func _ready() -> void:
 			if fall_from != Vector2.ZERO and not bug.falling:
 				break
 		check(absf(fall_from.x - 131.0) < 1.0 and fall_from.y == 102.0, "it walks off the ledge and starts to fall at x=131, as in the original (x=%.2f)" % fall_from.x)
-		check(bug.position.y == 180.0 and bug.direction == -1 and absi(fall_ticks - 26) <= 1, "it lands on the floor at y=180 after about 26 updates and keeps its direction (%d)" % fall_ticks)
+		check(bug.whole_y() == 180 and bug.direction == -1 and absi(fall_ticks - 26) <= 1, "it lands on the floor at y=180 after about 26 updates and keeps its direction (%d)" % fall_ticks)
 		bug.free()
 		sewer.set_show_enemies(false)
 		check(sewer.enemies.get_child_count() == 0, "F8 clears them away")
@@ -1301,7 +1640,7 @@ func _ready() -> void:
 		var fitted := Vector2.ZERO
 		var fitted_at := Vector2.ZERO
 		for thing in sewer.enemies.get_children():
-			if thing is Crawler and thing.kind == 0x8D:
+			if thing is LedgeWalker and thing.kind == 0x8D:
 				var found_shape := thing.find_children("*", "CollisionShape2D", true, false)[0] as CollisionShape2D
 				fitted = (found_shape.shape as RectangleShape2D).size
 				fitted_at = found_shape.position

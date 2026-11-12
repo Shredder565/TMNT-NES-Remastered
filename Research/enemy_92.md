@@ -62,3 +62,10 @@ the same way and turns them at walls, which the recording did not show.
 
 Kinds 88, 49, A0, 9E and 94 have since been done, and the ones still
 standing are listed with reasons, in `enemy_49_88_A0.md`.
+
+## Superseded in part
+
+12 November 2026: the routines of kind 92 have been read from the
+original's code (`enemy_routines.md`), and the remake now runs them by
+those rules: see `enemy_49_91.md` and `enemy_92_94.md`. What this page
+says about them is the earlier measurement and fitted pattern.
