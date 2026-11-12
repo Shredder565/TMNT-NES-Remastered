@@ -52,7 +52,7 @@ func _act() -> void:
 		stop()
 		var shot := throw_object(Missile.new(), FIRED_KIND, 0, -FIRED_UP)
 		if shot != null:
-			shot.tick()
+			shot.update_now()
 		return
 	set_off(WALK_SPEED)
 	if animation != WALKING:

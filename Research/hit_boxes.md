@@ -125,3 +125,12 @@ of door tiles but opens over 16 pixels: for a door at X 32, the turtle's
 middle at 32 to 47 (measured), with the door tile 28 above his feet.
 Doors do nothing while the screen is held for a fight. The remake
 accepted 8 pixels to either side.
+
+## When a swing can hit (12 November 2026)
+
+Found in whole-room play (`live_play.md`): the hit test meets the weapon
+where it was put one update earlier, so the first update of a swing
+cannot hit, and each place of the weapon counts an update later than the
+picture shows it. The kinds run by `OriginalEnemy` now use the
+original's own test instead of Godot's overlap. The reach given above
+is unchanged.

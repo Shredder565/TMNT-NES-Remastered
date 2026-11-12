@@ -93,6 +93,9 @@ var _jump_pressed := false             ## remembered until the next update
 var _attack_pressed := false
 var _hurt_ticks := 0
 var _weapon_picture := Sprite2D.new()  ## the weapon, drawn where the original has it on each step of a swing
+var _weapon_box_new: Array[int] = []    ## the weapon's box after his latest update, and
+var _weapon_box_old: Array[int] = []    ## after the one before (see weapon_box_for_enemies)
+var _crouch_ticks := 0                 ## updates he has been crouching
 var _spinning := false                 ## in the high part of a held jump: his box is the small one
 var power_ticks := 0                   ## updates of the power item left (kind 0B), 0 when not in use
 
@@ -164,6 +167,8 @@ func _physics_process(delta: float) -> void:
 ## One game update, in the same order as the original: move with the
 ## current speed, let the controls ask for the next speed, then test the map.
 func _tick() -> void:
+	_weapon_box_old = _weapon_box_new
+	_weapon_box_new = []
 	if state == State.CLIMB:
 		_climb()
 		_jump_pressed = false
@@ -204,6 +209,7 @@ func _tick() -> void:
 			_control()
 		State.HURT:
 			_hurt_ticks += 1
+			_swing()
 			if on_floor() and _hurt_ticks > 2:
 				state = State.NORMAL
 				speed.x = 0
@@ -211,6 +217,12 @@ func _tick() -> void:
 			speed.x = 0
 	if room != null:
 		_test_room()
+		if state == State.HURT and grounded:
+			# Landed from a throw: he can act again from his next update (measured).
+			state = State.NORMAL
+			speed.x = 0
+	_weapon_box_new = _weapon_box()
+	_crouch_ticks = _crouch_ticks + 1 if state == State.CROUCH else 0
 	_jump_pressed = false
 	_attack_pressed = false
 	_update_art()
@@ -403,6 +415,12 @@ func _control() -> void:
 		jump_tick = 0
 		_spinning = false
 
+	_swing()
+
+## The swing: starting one when attack is pressed, and running it. The
+## original does this while he is thrown by a hit as well (measured: a
+## swing goes on through a hit, and one can be started in the air after it).
+func _swing() -> void:
 	# Attack: the sword is out from the second frame of the swing.
 	if attack_tick >= 0:
 		attack_tick += 1
@@ -564,7 +582,10 @@ func move_across(step: float) -> void:
 	else:
 		screen_x += step
 	if room != null:
-		screen_x = clampf(screen_x, SCREEN_LEFT, SCREEN_RIGHT)
+		# Kept on the screen by his whole pixels; the fraction is left as
+		# it is (measured against the right side: he creeps on by quarters).
+		if floorf(screen_x) > SCREEN_RIGHT or floorf(screen_x) < SCREEN_LEFT:
+			screen_x = clampf(floorf(screen_x), SCREEN_LEFT, SCREEN_RIGHT) + screen_x - floorf(screen_x)
 	position.x = floorf(scroll_x) + screen_x
 
 ## Puts him at a place in the room without scrolling the screen.
@@ -626,6 +647,34 @@ func _place_weapon() -> void:
 	weapon_hitbox.position.y = 0.0
 	weapon_shape.position = Vector2(place.x - 0.25 * facing, place.y - 0.25 - CENTRE_ABOVE_FEET + (8.0 if state == State.CROUCH else 0.0))
 
+## The weapon's box in whole pixels as it stands after this update: its
+## middle across the screen (not the room) and down, half its width and
+## half its height. Empty when he is not swinging.
+func _weapon_box() -> Array[int]:
+	if attack_tick < 0 or weapon_swings.is_empty():
+		return []
+	var swing: Dictionary = weapon_swings[attack_direction]
+	var stage := _swing_stage()
+	var place := Vector2.ZERO
+	if stage >= 0 and not (attack_direction == 2 and stage == 0) and _weapon_shown(stage):
+		place = swing.places[stage]
+	var half: Vector2 = swing.half
+	var lower := 8 if state == State.CROUCH else 0
+	sync_screen()
+	return [floori(screen_x) + int(place.x) * facing, floori(position.y) - int(CENTRE_ABOVE_FEET) + int(place.y) + lower, int(half.x), int(half.y)]
+
+## The weapon's box as the enemies' hit test meets it. The original puts
+## the weapon in place at the end of the enemies' frame, after hits have
+## been worked out, so the test always sees where the weapon was put one
+## update before: on the first update of a swing there is nothing to hit
+## with yet (read from the frame's order at 7:$CC7E, and measured).
+## The weapon keeps its place on the screen meanwhile, so if the screen
+## has scrolled since, it has moved with it.
+func weapon_box_for_enemies() -> Array[int]:
+	if _weapon_box_old.is_empty():
+		return _weapon_box_old
+	return [_weapon_box_old[0] + floori(scroll_x), _weapon_box_old[1], _weapon_box_old[2], _weapon_box_old[3]]
+
 ## Which frame of the swing he is on, or -1 for its first update and its
 ## last two, when the weapon is at his middle and he stands as usual.
 ## Measured in the emulator: one update, then two for each frame, then two.
@@ -670,7 +719,8 @@ func _body_box_name() -> String:
 ## (8 lower when he crouches), half the width and half the height.
 func touch_box() -> Array[int]:
 	var half: Vector2i = body_boxes.get(_body_box_name(), DEFAULT_BODY_BOXES[_body_box_name()])
-	var lower := 8 if state == State.CROUCH else 0
+	# The box shrinks on the update he crouches; it drops the update after (measured).
+	var lower := 8 if state == State.CROUCH and _crouch_ticks >= 2 else 0
 	return [floori(position.x), floori(position.y) - int(CENTRE_ABOVE_FEET) + lower, half.x, half.y]
 
 func _set_attacking(on: bool) -> void:
@@ -720,21 +770,24 @@ func take_damage(amount: int, from_x: float = NAN) -> bool:
 		return false
 	health = maxi(health - amount, 0)
 	health_changed.emit(health, max_health)
-	attack_tick = -1
-	_set_attacking(false)
 	_set_crouching(false)
 	if health == 0:
+		attack_tick = -1
+		_set_attacking(false)
 		state = State.DEAD
 		art.modulate = Color(0.5, 0.5, 0.5)
 		died.emit()
 		return true
-	state = State.HURT
+	state = State.HURT   # a swing under way goes on (measured)
 	_hurt_ticks = 0
 	jump_tick = -1
 	invulnerable_timer = invulnerable_time
 	# Thrown away from what hit him; level with it, to the left (bank 6, $989E).
 	var away := -facing if is_nan(from_x) else (1 if floorf(from_x) < floorf(global_position.x) else -1)
 	speed = Vector2i(KNOCKBACK_RIGHT if away > 0 else KNOCKBACK_LEFT, KNOCKBACK_UP)
+	grounded = false   # thrown: he is in the air at once, so the pull acts from his first update (measured)
+	if room != null:
+		_test_room()   # and the map is felt at once: against a wall he is not thrown into it (measured)
 	return true
 
 ## A hurting tile: energy lost and the blinking safe time, but he is not

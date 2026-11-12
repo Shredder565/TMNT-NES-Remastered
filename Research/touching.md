@@ -103,4 +103,5 @@ Trials that put the object off the bottom of the screen are counted as
 - Kinds still run by the fitted scripts (`Crawler.gd` and the rest) and
   the two bosses still use Godot's overlap.
 - The sweep holds things still. Whether the remake's turtle shows the
-  right box at the right moment in play is for the live comparison.
+  right box at the right moment in play was checked afterwards: on all
+  7390 frames of `live_play.md`.

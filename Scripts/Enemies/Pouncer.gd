@@ -77,7 +77,7 @@ func _act() -> void:
 			thrown.thrower = self
 			thrown.go_forward(THROWN_SPEED)
 			thrown.grace = THROWN_GRACE
-			thrown.tick()
+			thrown.update_now()
 			return
 	set_off(WALK_SPEED)
 	if animation != WALKING:

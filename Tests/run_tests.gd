@@ -1287,7 +1287,10 @@ func _ready() -> void:
 		o_test_turtle.position = Vector2(100.7, 110.4)
 		check(o_test_turtle.touch_box() == [100, 90, 5, 16], "the turtle's box is measured from his middle, 20 above his feet, in whole pixels")
 		o_test_turtle.state = Turtle.State.CROUCH
-		check(o_test_turtle.touch_box() == [100, 98, 5, 11], "crouching it is smaller and 8 lower")
+		o_test_turtle._crouch_ticks = 1
+		var o_first_crouch: Array[int] = o_test_turtle.touch_box()
+		o_test_turtle._crouch_ticks = 2
+		check(o_first_crouch == [100, 90, 5, 11] and o_test_turtle.touch_box() == [100, 98, 5, 11], "crouching it is smaller at once and 8 lower from the update after")
 		o_test_turtle.state = Turtle.State.NORMAL
 		o_test_turtle.max_health = 128
 		o_test_turtle.health = 128
@@ -1304,6 +1307,7 @@ func _ready() -> void:
 		o_bug._physics_process(0.0)
 		check(o_test_turtle.health == 119 and not o_bug.gone, "nothing touches him while he blinks")
 		o_test_turtle.invulnerable_timer = 0.0
+		o_bug._updated_frame = -1
 		o_bug._physics_process(0.0)
 		check(o_test_turtle.health == 109 and not o_bug.gone and o_test_turtle.speed.x > 0, "an enemy that touches him takes its damage, throws him away from it and goes on as it was")
 		o_bug.free()
@@ -1352,6 +1356,41 @@ func _ready() -> void:
 		check(o_before == 4 and o_scene.placed_enemies() == 6, "a room has six places for placed enemies: with all taken, no more are made (%d, %d)" % [o_before, o_scene.placed_enemies()])
 		var o_first_foe: Node = o_scene.enemies.get_child(0)
 		check(o_first_foe is LedgeWalker and o_first_foe.view_corner.is_valid(), "the room scene gives a kind written from the original's code to its own script, with the screen to look at")
+		# Enemies made as the screen scrolls, by the original's rule.
+		o_scene.set_show_enemies(false)
+		o_scene.show_enemies = true
+		for child in o_scene.enemies.get_children():
+			child.free()
+		var o_leo: Turtle = o_scene.get_node("Turtle")
+		o_leo._frame = 0                       # an enemies' frame
+		o_leo.scroll_x = 40.0
+		o_leo.screen_x = 128.0
+		o_leo.position.x = 168.0
+		o_scene._camera_corner = Vector2(38, 0)
+		o_scene._follow_camera()
+		var o_new: Array = o_scene.enemies.get_children()
+		check(o_new.size() == 1 and o_new[0].kind == 0x8D and o_new[0].whole_y() == 180 and absf(o_new[0].position.x - (40 + 248 - 2 - 1.375)) < 0.01 and o_new[0].facing_left, "scrolling right, a place the screen's edge (248 across) has just passed makes its enemy there, a step short, and it takes its first update at once (%s)" % str(o_new[0].position if o_new.size() > 0 else null))
+		o_scene._camera_corner = Vector2(40, 0)
+		o_scene._follow_camera()
+		check(o_scene.enemies.get_child_count() == 1, "nothing is made while the screen does not scroll")
+		o_scene._camera_corner = Vector2(38, 0)
+		o_leo._frame = 1
+		o_scene._follow_camera()
+		check(o_scene.enemies.get_child_count() == 1 and o_scene._camera_corner == Vector2(38, 0), "nor on the turtle's own frame")
+		o_leo._frame = 0
+		o_scene._follow_camera()
+		check(o_scene.enemies.get_child_count() == 2, "nothing remembers that a place has made its enemy: passed again, it makes another")
+		# The weapon as the enemies' hit test meets it.
+		o_leo.weapon_swings = [{ "places": [Vector2(0, 0)], "half": Vector2(14, 14) }, { "places": [Vector2(-6, -23), Vector2(27, -8), Vector2(23, 17)], "half": Vector2(14, 12) }, { "places": [Vector2(0, 0)], "half": Vector2(14, 14) }]
+		o_leo.attack_direction = 1
+		o_leo.attack_tick = 0
+		o_leo._weapon_box_old = []
+		o_leo._weapon_box_new = o_leo._weapon_box()
+		check(o_leo.weapon_box_for_enemies().is_empty() and o_leo._weapon_box_new == [128, floori(o_leo.position.y) - 20, 14, 12], "on the first update of a swing the enemies' hit test has no weapon to meet yet")
+		o_leo._weapon_box_old = o_leo._weapon_box_new
+		o_leo.scroll_x = 43.0
+		check(o_leo.weapon_box_for_enemies() == [171, floori(o_leo.position.y) - 20, 14, 12], "an update later it meets the weapon where it was put then, moved along with the screen")
+		o_leo.attack_tick = -1
 		o_scene.free()
 	OriginalEnemy._first_column = -1
 	OriginalEnemy.frame_counter = -1
@@ -1604,6 +1643,8 @@ func _ready() -> void:
 			if made_at < 0.0 and sewer._spot_enemies.has(far_spot):
 				made_at = sewer._view_corner().x
 		check(made_at >= 40.0 and made_at <= 44.0, "the enemy at x=288 is made when the camera reaches 40, as in the original (%d)" % made_at)
+		await get_tree().physics_frame
+		await get_tree().physics_frame
 		var behind := 0
 		for foe_node in sewer.enemies.get_children():
 			if not foe_node.is_queued_for_deletion() and foe_node.position.x < sewer._view_corner().x:
@@ -1743,7 +1784,7 @@ func _ready() -> void:
 			dummy.health = 4000
 			dummy.animation = 0x90
 			dummy._fit_box_to_animation()
-			dummy.set_physics_process(false)
+			dummy.busy = true   # frozen: it does nothing of its own, but is still hit and touched
 			leo.invulnerable_timer = 5.0
 			for i in 4:
 				await get_tree().physics_frame
@@ -2373,7 +2414,7 @@ func _test_four_turtles() -> void:
 			dummy.health = 4000
 			dummy.animation = 0x90
 			dummy._fit_box_to_animation()
-			dummy.set_physics_process(false)
+			dummy.busy = true   # frozen: it does nothing of its own, but is still hit and touched
 			leo.invulnerable_timer = 5.0
 			for i in 4:
 				await get_tree().physics_frame

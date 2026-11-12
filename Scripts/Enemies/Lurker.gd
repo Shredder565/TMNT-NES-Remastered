@@ -95,7 +95,7 @@ func _out() -> void:
 		set_animation(THROWING)
 		mode = Mode.THROW
 		if thrown != null:
-			thrown.tick()
+			thrown.update_now()
 		return
 	if animation != WALKING:
 		set_animation(WALKING)
