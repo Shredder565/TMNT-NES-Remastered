@@ -91,6 +91,12 @@ const OVERWORLD_VIEW := Vector2(256, 240)
 ## That screen scrolls only while he walks with his place on it beyond
 ## these (measured): right at 126 or more across, left at 124 or less,
 ## up at 116 or less down the screen, down at 118 or more.
+## Going through a door (measured): rows of tiles drawn in, one a frame.
+const WIPE_ROWS_ROOM := 24
+const WIPE_ROWS_OVERWORLD := 32      ## the original's overworld picture is taller; ours shows its first 24 rows
+const WIPE_HOLD_FRAMES := 16         ## everything stands still this long once the picture is whole
+const WIPE_APPEAR_ROOM := 7          ## then the turtle appears, this many frames later in a room
+const WIPE_APPEAR_OVERWORLD := 1
 const OVERWORLD_SAFE_UPDATES := 24   ## after being hurt on the overworld nothing hurts him for this long (measured)
 const OVERWORLD_SCROLL_RIGHT := 126.0
 const OVERWORLD_START_ON_SCREEN := Vector2(144, 120)   ## where he stands on it when a world begins
@@ -143,6 +149,10 @@ var overworld_spot := Vector2.ZERO   ## where he last stood on the overworld: th
 var overworld_screen := Vector2.ZERO ## the corner of the original's screen on the overworld (enemies come and go by it)
 var _overworld_last := Vector2.ZERO  ## where the overworld turtle was a frame ago
 var _overworld_turtle_half := Vector2(4, 4)   ## half the overworld turtle's box (the ROM's, when there is one)
+var door_wipe := true                ## false: doors change sides at once (tests, study keys)
+var _wipe_frame := -1                ## frames into a door's change of sides, -1 when none is on show
+var _wipe_rows := 0
+var _wipe_cover: ColorRect
 var _overworld_frame := 0            ## frames on the overworld
 var _overworld_turn := 0             ## which of every two frames is the enemies' (the one after the turtle's)
 
@@ -185,7 +195,15 @@ func _ready() -> void:
 	add_child(items)
 	walker = OverworldTurtle.new()
 	walker.bandana_color = turtle.bandana_color
-	walker.door_reached.connect(enter_door)
+	walker.door_reached.connect(use_door)
+	var wipe_layer := CanvasLayer.new()
+	wipe_layer.layer = 0   # over the map and everything on it, under the HUD strip and the Start screen
+	add_child(wipe_layer)
+	_wipe_cover = ColorRect.new()
+	_wipe_cover.color = Color.BLACK
+	_wipe_cover.size = Vector2(VIEW_SIZE)
+	_wipe_cover.visible = false
+	wipe_layer.add_child(_wipe_cover)
 	walker.moved.connect(_on_walker_moved)
 	add_child(walker)
 	start_screen = StartScreen.new()
@@ -276,7 +294,7 @@ func _show_hud_text() -> void:
 ## while the playing turtle has no energy left; the remake also waits out
 ## its own "world clear" message.
 func open_start_screen() -> void:
-	if start_screen.is_open() or _clearing or room == null or turtle.state == Turtle.State.DEAD:
+	if start_screen.is_open() or _clearing or wiping() or room == null or turtle.state == Turtle.State.DEAD:
 		return
 	turtle_energy[current_turtle] = turtle.health
 	if room.top_down:
@@ -863,6 +881,52 @@ func _place_turtle(centre: Vector2) -> void:
 	_place_enemies()   # the view has moved to where he arrived
 	(turtle.get_node("Camera2D") as Camera2D).reset_smoothing()
 
+## Goes through a door as the player sees it in the original (measured,
+## Research/overworld.md): the turtle is gone at once and the screen goes
+## black; the other side is drawn in from the top, one row of tiles a
+## frame; everything then stands still for 16 frames; and the turtle
+## appears (in a room 7 frames after that, hanging on the ladder if that
+## is where the door leaves him). There is no climbing picture at a
+## manhole. `enter_door` alone changes sides at once, with none of this.
+func use_door(door: Door) -> void:
+	enter_door(door)
+	if door_wipe and levels != null:
+		_start_wipe()
+
+func _start_wipe() -> void:
+	_wipe_frame = 0
+	_wipe_rows = WIPE_ROWS_OVERWORLD if room.top_down else WIPE_ROWS_ROOM
+	_wipe_cover.position = Vector2.ZERO
+	_wipe_cover.size = Vector2(VIEW_SIZE)
+	_wipe_cover.visible = true
+	turtle.visible = false
+	walker.visible = false
+	for held: Node in [turtle, walker, enemies, items]:
+		held.process_mode = Node.PROCESS_MODE_DISABLED
+
+## Is a door's change of sides still being shown?
+func wiping() -> bool:
+	return _wipe_frame >= 0
+
+func _step_wipe() -> void:
+	_wipe_frame += 1
+	var drawn := minf((_wipe_frame - 1) * RoomData.TILE, VIEW_SIZE.y)
+	_wipe_cover.position.y = drawn
+	_wipe_cover.size.y = VIEW_SIZE.y - drawn
+	_wipe_cover.visible = drawn < VIEW_SIZE.y
+	var appear := WIPE_APPEAR_OVERWORLD if room.top_down else WIPE_APPEAR_ROOM
+	if _wipe_frame < 1 + _wipe_rows + WIPE_HOLD_FRAMES + appear:
+		return
+	_wipe_frame = -1
+	_wipe_cover.visible = false
+	turtle.visible = not room.top_down
+	walker.visible = room.top_down
+	turtle.process_mode = Node.PROCESS_MODE_DISABLED if room.top_down else Node.PROCESS_MODE_INHERIT
+	walker.process_mode = Node.PROCESS_MODE_INHERIT if room.top_down else Node.PROCESS_MODE_DISABLED
+	enemies.process_mode = Node.PROCESS_MODE_INHERIT
+	items.process_mode = Node.PROCESS_MODE_INHERIT
+	walker.rest_frames = 0
+
 ## The door the big turtle is using right now, or null.
 ## Up at a doorway while standing, or climbing a ladder out of the top.
 func _room_door_in_use() -> Door:
@@ -898,6 +962,9 @@ func _make_body(rect: Rect2i, one_way: bool) -> StaticBody2D:
 	return body
 
 func _physics_process(_delta: float) -> void:
+	if _wipe_frame >= 0:
+		_step_wipe()
+		return
 	if flying:
 		var mover: Node2D = walker if room.top_down else turtle
 		mover.position += Input.get_vector("move_left", "move_right", "move_up", "move_down") * 4.0
@@ -913,7 +980,7 @@ func _physics_process(_delta: float) -> void:
 		return
 	var door := _room_door_in_use()
 	if door != null:
-		enter_door(door)
+		use_door(door)
 		return
 	_apply_floor_kinds()
 	_place_camera()

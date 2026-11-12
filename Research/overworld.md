@@ -235,6 +235,44 @@ the same and the attack stops.
 | Soldier beside him: a miss, then a hit | 664 | the soldier alive and its hit points the same on every frame |
 | Roller drives past while he swings | 450 | the roller's hit points the same on every frame; the same 51 frames of blinking after it touched him |
 
+## Going through a door (added 12 November 2026, third pass; measured)
+
+Recorded frame by frame: walking onto the first manhole, standing in the
+sewer, climbing back out. For each frame: the "inside" flag ($5C), the
+play routine's step ($34) and hold counter ($3D), the turtle's state,
+animation and picture, the colour list, and the picture itself.
+
+**Onto a manhole.** There is no picture of the turtle climbing down. On
+the frame his step reaches the manhole the game is already inside
+($5C = 1), his picture number is 0 (he is not drawn) and the screen is
+black. The room is then drawn in from the top, one row of tiles (8
+lines) a frame, 24 frames for the sewer's 24 rows. The colour list does
+not change: it is the drawing that is gradual, not a fade. Everything
+then stands still for 16 frames ($3D counts down). Two frames later his
+state becomes $0B and then $0C (on a ladder), and 7 frames after the
+hold ended he is first drawn, hanging on the ladder at the top of the
+screen (animation $88, picture 23). He does not move until a button is
+pressed: he stayed there 3 seconds in the recording. From manhole to
+first sight of him: 49 frames.
+
+**Up a ladder and out.** At 17 lines from the top his state goes $12,
+$0D, and the game is on the overworld: black, the map drawn in from the
+top over 32 frames (its picture is 30 rows), the 16-frame hold, and he
+is drawn the frame after, standing facing down (picture 145) at the
+place the door's record gives. 51 frames in all.
+
+The remake had neither: doors changed sides at once (with a 10-frame
+rest on the overworld). `RoomScene.use_door` now shows it: black, the
+rows drawn in one a frame (24 in a room; on the overworld 32 frames, of
+which the remake's shorter view shows the first 24 rows), the 16-frame
+hold with nothing moving, and the turtle appearing 7 frames later in a
+room and 1 on the overworld. In a room he arrives hanging on the ladder
+where the door leaves him on one, as before. The study keys (F3, F4, F7)
+still change maps at once.
+
+Not looked at: doors between two rooms, and doorways that are not
+ladders (assumed the same); sounds.
+
 ## Still different from the original
 
 - Losing all his energy on the overworld only puts him back at the

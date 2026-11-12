@@ -1402,6 +1402,7 @@ func _ready() -> void:
 		small.step(Vector2i.LEFT)
 		check(small._picture.flip_h and small._picture.position.x == -facing_right_x - small._picture.texture.get_width(), "walking left mirrors the right-facing picture")
 		small.position = Vector2(160, 296)
+		sewer.door_wipe = false   # these door tests carry straight on; the change of sides as shown is tested in "Doors as shown"
 		Input.action_press("move_left")
 		for i in 14:
 			await get_tree().physics_frame
@@ -1798,6 +1799,7 @@ func _ready() -> void:
 	await _test_overworld_animation()
 	await _test_overworld_combat()
 	await _test_four_turtles()
+	await _test_doors_as_shown()
 
 	print("ROM screen")
 	var rom_path := "user://_test_fake.nes"
@@ -2321,3 +2323,46 @@ func _test_four_turtles() -> void:
 
 func RoomScene_names() -> Array:
 	return ["Leonardo", "Raphael", "Michelangelo", "Donatello"]
+
+# ============================ Doors as shown ============================
+func _test_doors_as_shown() -> void:
+	print("Doors as shown")
+	var levels := RomLevels.open_installed()
+	if levels == null:
+		print("  skip  no verified ROM is installed, so there are no doors to go through")
+		return
+	var sewer = load("res://Scenes/Levels/Area1Sewer.tscn").instantiate()
+	add_child(sewer)
+	sewer.set_show_enemies(false)
+	var small: OverworldTurtle = sewer.walker
+	var leo: Turtle = sewer.turtle
+	await get_tree().physics_frame
+	sewer.use_door(sewer.room.doors[4])   # the first manhole
+	check(not sewer.room.top_down and sewer.wiping() and not leo.visible and not small.visible and sewer._wipe_cover.visible and sewer._wipe_cover.size.y == 192.0, "stepping onto a manhole: the turtle is gone and the screen is black at once")
+	check(leo.state == Turtle.State.CLIMB and leo.position == Vector2(40, 44), "he is already on the sewer's ladder, out of sight")
+	for i in 13:
+		await get_tree().physics_frame
+	check(sewer._wipe_cover.position.y == 96.0 and sewer._wipe_cover.size.y == 96.0, "the sewer is drawn in from the top, a row of tiles a frame (12 rows after 13 frames)")
+	for i in 12:
+		await get_tree().physics_frame
+	check(not sewer._wipe_cover.visible and sewer.wiping() and not leo.visible, "after 24 rows the picture is whole, and he is still not on show")
+	Input.action_press("move_down")
+	for i in RoomScene_hold_frames() - 2:
+		await get_tree().physics_frame
+	check(sewer.wiping() and leo.position == Vector2(40, 44), "nothing moves for the 16 frames it stands still and the 7 before he appears")
+	for i in 3:
+		await get_tree().physics_frame
+	Input.action_release("move_down")
+	check(not sewer.wiping() and leo.visible and leo.state == Turtle.State.CLIMB, "then he appears, hanging on the ladder, and can be moved")
+	sewer.use_door(sewer.room.doors[0])   # up the ladder again
+	check(sewer.room.top_down and sewer.wiping() and not small.visible, "going back up: the same, with the map drawn in")
+	for i in 1 + 32 + 16 + 1 + 1:
+		await get_tree().physics_frame
+	check(not sewer.wiping() and small.visible and small.position == Vector2(144, 296) and not leo.visible, "50 frames later the small turtle stands by the manhole")
+	sewer.door_wipe = false
+	sewer.use_door(sewer.room.doors[4])
+	check(not sewer.wiping() and leo.visible, "with the wipe switched off a door changes sides at once")
+	sewer.free()
+
+func RoomScene_hold_frames() -> int:
+	return 16 + 7
