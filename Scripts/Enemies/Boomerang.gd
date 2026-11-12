@@ -37,5 +37,5 @@ func _act() -> void:
 		remove()
 
 func _touch(turtle: Turtle) -> void:
-	if turtle.take_damage(touch_damage, global_position.x):
+	if turtle.touched_by(self, touch_damage):
 		remove()

@@ -228,13 +228,12 @@ static func chance() -> int:
 
 func _physics_process(_delta: float) -> void:
 	_frame += 1
-	if _is_update_frame():
-		tick()
-	if gone:
+	if not _is_update_frame():
 		return
-	for body in get_overlapping_bodies():
-		if body is Turtle:
-			_touch(body)
+	tick()
+	# Touches are worked out once an update, after everything has moved.
+	if not gone and is_instance_valid(target) and target is Turtle and can_touch() and touches_turtle(target):
+		_touch(target)
 
 ## Enemies are updated on the frames the turtle is not.
 func _is_update_frame() -> bool:
@@ -244,8 +243,49 @@ func _is_update_frame() -> bool:
 		return target._frame % TICK_FRAMES != 0
 	return _frame % TICK_FRAMES == 0
 
+## What touching the turtle does. A touch that hurts him does nothing to
+## an ordinary enemy: it goes on as it was.
 func _touch(turtle: Turtle) -> void:
 	turtle.touched_by(self, touch_damage)
+
+## False for an object that can neither hurt him nor be hit just now.
+func can_touch() -> bool:
+	return true
+
+## Half the width and the height of its box for the animation on show.
+## The box is that wide to each side of its position, and runs from its
+## height above the position down to 2 above it.
+func box_half() -> Vector2i:
+	if levels != null and animation != 0:
+		var half := levels.box_half_size(kind, animation)
+		if half != Vector2i.ZERO:
+			return half
+	var stand_in := _stand_in_box()
+	return Vector2i(roundi(stand_in.size.x / 2.0), roundi(-stand_in.position.y))
+
+## The original's box test (bank 6, $9AD3), in whole pixels. It is not
+## the same on both sides: with this object to the left of his middle, or
+## above it, boxes that just meet count; to the right, or below (or
+## level), they must overlap by a pixel.
+func touches_turtle(turtle: Turtle) -> bool:
+	return touches_box(turtle.touch_box())
+
+## The same test against a box given as the turtle gives his: middle
+## across, middle down, half width, half height.
+func touches_box(his: Array[int]) -> bool:
+	var half := box_half()
+	var x := whole_x()
+	var y := whole_y()
+	var across: bool
+	if x < his[0]:
+		across = x + half.x >= his[0] - his[2]
+	else:
+		across = x - half.x < his[0] + his[2]
+	if not across:
+		return false
+	if y < his[1]:
+		return y - 2 >= his[1] - his[3]
+	return y - half.y < his[1] + his[3]
 
 ## One game update.
 func tick() -> void:
