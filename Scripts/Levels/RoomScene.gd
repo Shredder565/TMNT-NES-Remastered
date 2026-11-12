@@ -79,6 +79,20 @@ const SCREEN_LEFT := 20.0
 const SCREEN_RIGHT := 236.0
 const HOLD_ENTER_FRAMES := 16       ## clear screen to the extra enemy coming in
 const HOLD_LEAVE_FRAMES := 64       ## that enemy beaten to the screen being freed
+## The overworld (Research/overworld.md): the original's screen there is
+## 256 x 240 with the turtle kept near its middle. An enemy is made when
+## the screen's edge reaches its place, 8 pixels inside any of the four
+## edges, and removed within 4 pixels of leaving. None is there when the
+## map first comes up.
+const OVERWORLD_VIEW := Vector2(256, 240)
+## That screen scrolls only while he walks with his place on it beyond
+## these (measured): right at 126 or more across, left at 124 or less,
+## up at 116 or less down the screen, down at 118 or more.
+const OVERWORLD_SCROLL_RIGHT := 126.0
+const OVERWORLD_START_ON_SCREEN := Vector2(144, 120)   ## where he stands on it when a world begins
+const OVERWORLD_SCROLL_LEFT := 124.0
+const OVERWORLD_SCROLL_UP := 116.0
+const OVERWORLD_SCROLL_DOWN := 118.0
 const TURTLE_ENERGY := 128           ## the original's full energy; the bar shows it as 8 blocks
 const ENERGY_BLOCKS := 8
 ## The four turtles, in the original's order (its number 0 to 3).
@@ -122,6 +136,10 @@ var current_turtle := 0              ## who is playing: 0 Leonardo, 1 Raphael, 2
 var turtle_energy: Array = [TURTLE_ENERGY, TURTLE_ENERGY, TURTLE_ENERGY, TURTLE_ENERGY]
 var start_screen: StartScreen        ## the Start (information) screen
 var overworld_spot := Vector2.ZERO   ## where he last stood on the overworld: the Start screen's map marks it
+var overworld_screen := Vector2.ZERO ## the corner of the original's screen on the overworld (enemies come and go by it)
+var _overworld_last := Vector2.ZERO  ## where the overworld turtle was a frame ago
+var _overworld_frame := 0            ## frames on the overworld
+var _overworld_turn := 0             ## which of every two frames is the enemies' (the one after the turtle's)
 
 @onready var background: Sprite2D = $Background
 @onready var solids: Node2D = $Solids
@@ -130,6 +148,7 @@ var overworld_spot := Vector2.ZERO   ## where he last stood on the overworld: th
 @onready var health_bar: Control = $HUD/HealthBar
 
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_PAUSABLE   # the Start screen stops the game by pausing the tree
 	levels = RomLevels.open_installed()
 	turtle.max_health = TURTLE_ENERGY
 	turtle.health = TURTLE_ENERGY
@@ -161,6 +180,7 @@ func _ready() -> void:
 	walker = OverworldTurtle.new()
 	walker.bandana_color = turtle.bandana_color
 	walker.door_reached.connect(enter_door)
+	walker.moved.connect(_on_walker_moved)
 	add_child(walker)
 	start_screen = StartScreen.new()
 	start_screen.use_installed_rom()
@@ -315,10 +335,92 @@ func _place_enemies() -> void:
 	_camera_corner = _view_corner()
 	if not show_enemies or room == null:
 		return
+	if room.top_down:
+		_overworld_last = Vector2(-1000, -1000)   # the screen is placed afresh around him
+		_camera_corner = _overworld_corner()
+		if enemies_follow_camera:
+			return   # the original's map comes up empty; they come in as the screen moves
 	var view := Rect2(_camera_corner, Vector2(VIEW_SIZE))
 	for spot in room.enemy_spots:
 		if room.top_down or not enemies_follow_camera or view.has_point(spot.position):
 			_make_enemy(spot)
+
+## The corner of the original's screen on the overworld. A step he takes
+## while beyond one of the marks above moves the screen instead of his
+## place on it; the screen stops at the map's edges. At the start of a
+## world he stands 144 across and 120 down it (measured in world 1);
+## through a door, the screen is where the door's record puts it.
+func _overworld_corner() -> Vector2:
+	var size := Vector2(room.size_pixels())
+	var limit := Vector2(maxf(size.x - OVERWORLD_VIEW.x, 0.0), maxf(size.y - OVERWORLD_VIEW.y, 0.0))
+	var spot := walker.position.floor()
+	var step := spot - _overworld_last
+	if step.length() > 16.0:
+		overworld_screen = spot - OVERWORLD_START_ON_SCREEN   # he was put here: the start, the fly key
+	else:
+		var before := _overworld_last - overworld_screen
+		if (step.x > 0.0 and before.x >= OVERWORLD_SCROLL_RIGHT) or (step.x < 0.0 and before.x <= OVERWORLD_SCROLL_LEFT):
+			overworld_screen.x += step.x
+		if (step.y > 0.0 and before.y >= OVERWORLD_SCROLL_DOWN) or (step.y < 0.0 and before.y <= OVERWORLD_SCROLL_UP):
+			overworld_screen.y += step.y
+	_overworld_last = spot
+	overworld_screen = overworld_screen.clamp(Vector2.ZERO, limit)
+	return overworld_screen
+
+## Puts the original's screen somewhere on the overworld (a door's record, a test).
+func set_overworld_screen(corner: Vector2) -> void:
+	overworld_screen = corner
+	_overworld_last = walker.position.floor()
+	_camera_corner = corner
+
+## The original updates the turtle on one frame and everything else on
+## the next, in turn. The enemies' frame is where they come in, act and go.
+func _on_walker_moved() -> void:
+	_overworld_frame += 1
+	if room == null or not room.top_down:
+		return
+	var corner := _overworld_corner()
+	if walker.updated:
+		_overworld_turn = (_overworld_frame + 1) % 2
+	elif _overworld_frame % 2 == _overworld_turn and show_enemies and enemies_follow_camera:
+		_follow_overworld(corner)
+
+## The overworld's enemies come and go with the screen, as in a room, but
+## through all four edges. A new one starts one screen step away from its
+## place, against the way the screen moved, and acts at once (measured).
+func _follow_overworld(corner: Vector2) -> void:
+	var old := _camera_corner
+	_camera_corner = corner
+	if corner.distance_to(old) > 64.0:
+		old = corner   # the view jumped (a door, the fly key): nothing comes in this time
+	var view := OVERWORLD_VIEW
+	var _just_made := {}
+	for spot in room.enemy_spots:
+		var place := spot.position
+		var across_now := place.x >= corner.x + SPAWN_MARGIN and place.x <= corner.x + view.x - SPAWN_MARGIN
+		var across_before := place.x >= old.x + SPAWN_MARGIN and place.x <= old.x + view.x - SPAWN_MARGIN
+		var down_now := place.y >= corner.y + SPAWN_MARGIN and place.y <= corner.y + view.y - SPAWN_MARGIN
+		var down_before := place.y >= old.y + SPAWN_MARGIN and place.y <= old.y + view.y - SPAWN_MARGIN
+		if across_now and down_now and not (across_before and down_before):
+			var living: Variant = _spot_enemies.get(spot)
+			if living == null or not is_instance_valid(living) or living.is_queued_for_deletion():
+				_make_enemy(spot)
+				var made: Variant = _spot_enemies.get(spot)
+				if made is OverworldEnemy:
+					made.screen_corner = corner
+					made.position -= corner - old
+					made.tick()
+					_just_made[made] = true
+	for thing in enemies.get_children():
+		if thing is OverworldEnemy and not thing.is_queued_for_deletion():
+			thing.screen_corner = corner
+			if not _just_made.has(thing):
+				thing.tick()
+		var across: float = thing.position.x - corner.x
+		var down: float = thing.position.y - corner.y
+		# The original keeps a thing whose place on the screen is 4 to 251 both ways.
+		if across < REMOVE_MARGIN or across >= 256.0 - REMOVE_MARGIN or down < REMOVE_MARGIN or down >= 256.0 - REMOVE_MARGIN:
+			thing.queue_free()
 
 ## Puts the room's items out. They are there from the start and stay until
 ## picked up; leaving the room and coming back brings them back.
@@ -507,7 +609,12 @@ func _make_enemy(spot: EnemySpot) -> void:
 	var damage := levels.weapon_damage(current_turtle) if levels != null else Vector2i.ONE
 	var enemy: Node2D
 	var pictures := SpriteSet.cached("Kind%02X" % spot.kind) if spot.kind >= 0 else null
-	if room.top_down:
+	if room.top_down and OverworldEnemy.KINDS.has(spot.kind):
+		var mover := OverworldEnemy.new()
+		mover.setup(spot, room, pictures, walker)
+		mover.self_driven = false   # the map scene gives them their turn
+		enemy = mover
+	elif room.top_down:
 		enemy = _make_stand_in(spot)
 	elif Crawler.KINDS.has(spot.kind):
 		var crawler := Crawler.new()
@@ -651,6 +758,7 @@ func enter_door(door: Door) -> void:
 	if not door.to_room:
 		load_overworld(door.to_area)
 		walker.position = door.arrive
+		set_overworld_screen(door.arrive_camera)
 		# Stands in for the original's fade between screens (length not measured).
 		walker.rest_frames = ARRIVAL_REST_FRAMES
 		walker.camera.reset_smoothing()
@@ -721,7 +829,7 @@ func _physics_process(_delta: float) -> void:
 			_follow_camera()
 		return
 	if room.top_down:
-		return
+		return   # the overworld's enemies are seen to when the small turtle has moved
 	if turtle.position.y > room.size_pixels().y + 200.0:
 		turtle.position = room.start
 		turtle.speed = Vector2i.ZERO

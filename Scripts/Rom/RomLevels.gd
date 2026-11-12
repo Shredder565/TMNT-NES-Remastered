@@ -300,6 +300,7 @@ func _door_list(table: int, index: int, data: RoomData) -> Array[Door]:
 		door.arrive = Vector2(
 			_byte(7, address + 5) + (_byte(7, address + 7) << 8 | _byte(7, address + 8)),
 			_byte(7, address + 6) + (_byte(7, address + 9) << 8 | _byte(7, address + 10)))
+		door.arrive_camera = Vector2(_byte(7, address + 7) << 8 | _byte(7, address + 8), _byte(7, address + 9) << 8 | _byte(7, address + 10))
 		doors.append(door)
 		address += DOOR_BYTES
 	return doors

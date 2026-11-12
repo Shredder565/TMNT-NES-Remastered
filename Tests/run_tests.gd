@@ -1130,7 +1130,7 @@ func _ready() -> void:
 			else:
 				kinds_missing.append("%02X" % used_kind)
 		kinds_missing.sort()
-		check(kinds_used.size() == 29 and kinds_drawn == 24, "24 of the 29 enemy kinds in use are drawn from their own sprites (blocks: %s)" % ", ".join(kinds_missing))
+		check(kinds_used.size() == 29 and kinds_drawn == 26, "26 of the 29 enemy kinds in use are drawn from their own sprites (blocks: %s)" % ", ".join(kinds_missing))
 		sewer.load_area(0, 2)
 		var troop := 0
 		for foe_node in sewer.enemies.get_children():
@@ -1619,4 +1619,107 @@ func _test_overworld_animation() -> void:
 	sewer.set_turtle(2)
 	check(small.sprites != null and small.bandana_color == NesPalette.color(0x27), "the overworld turtle wears the chosen turtle's colour (orange for Michelangelo)")
 	sewer.set_turtle(0)
+
+	# The original's screen on the overworld, and the enemies that come in at its edges.
+	sewer.set_show_enemies(true)
+	sewer.load_overworld(0)
+	check(sewer.enemies.get_child_count() == 0 and sewer.overworld_screen == Vector2(16, 176), "the map comes up with no enemies, the screen's corner at (16, 176)")
+	for i in 15:
+		small.step(Vector2i.RIGHT)
+		sewer._on_walker_moved()
+	check(sewer.overworld_screen == Vector2(46, 176), "walking right from there scrolls the screen at once")
+	for i in 12:
+		small.step(Vector2i.LEFT)
+		sewer._on_walker_moved()
+	check(sewer.overworld_screen == Vector2(42, 176), "walking left it holds until he is 124 across it, then follows")
+	sewer.load_overworld(0)
+	sewer.enter_door(sewer.room.doors[4])
+	sewer.enter_door(sewer.room.doors[0])
+	check(sewer.room.top_down and sewer.overworld_screen == sewer.levels.room(0, 0).doors[0].arrive_camera and sewer.overworld_screen == Vector2(16, 176), "coming up a ladder puts the screen where the door's record says")
+
+	# Kind 9B on its measured round: right, down, left, up and round again.
+	var square: EnemySpot = null
+	for spot in sewer.room.enemy_spots:
+		if spot.kind == 0x9B and spot.position == Vector2(360, 48):
+			square = spot
+	var roller := OverworldEnemy.new()
+	add_child(roller)
+	roller.self_driven = false
+	small.position = Vector2(376, 160)
+	roller.setup(square, sewer.room, SpriteSet.cached("Kind9B"), small)
+	roller.screen_corner = Vector2(248, 40)
+	roller.position = Vector2(360, 50)   # as it came in while the screen scrolled up (measured)
+	var turns: Array[String] = []
+	var corners: Array[Vector2] = []
+	var was := ""
+	for i in 330:
+		roller.tick()
+		var now := "%d,%d" % [signi(roller.speed.x), signi(roller.speed.y)]
+		if now != was and now != "0,0":
+			turns.append(now)
+			corners.append(roller.position)
+		was = now
+	check(turns.slice(0, 6) == ["1,0", "0,1", "-1,0", "0,-1", "1,0", "0,1"], "kind 9B drives right, down, left, up and round again")
+	check(corners.slice(1, 5) == [Vector2(368, 52), Vector2(366, 207), Vector2(319, 205), Vector2(321, 90)], "turning where the original turned (%s)" % str(corners.slice(1, 5)))
+	check(roller.sprites != null and roller.picture_name in ["f135", "f136", "f137", "f138", "f139", "f140"], "drawn from its own six pictures")
+	roller.free()
+
+	# Kind 9A turns the other way round.
+	var other := EnemySpot.new()
+	other.kind = 0x9A
+	other.position = Vector2(66, 368)
+	var roller_a := OverworldEnemy.new()
+	add_child(roller_a)
+	roller_a.self_driven = false
+	small.position = Vector2(202, 296)
+	roller_a.setup(other, sewer.room, SpriteSet.cached("Kind9A"), small)
+	roller_a.screen_corner = Vector2(32, 176)
+	var turns_a: Array[String] = []
+	was = ""
+	for i in 60:
+		roller_a.tick()
+		var now := "%d,%d" % [signi(roller_a.speed.x), signi(roller_a.speed.y)]
+		if now != was and now != "0,0":
+			turns_a.append(now)
+		was = now
+	check(turns_a.slice(0, 4) == ["1,0", "0,-1", "-1,0", "0,1"], "kind 9A drives right, up, left, down")
+	check(roller_a.speed == Vector2i(0, OverworldEnemy.ROLLER_UP), "at the original's speeds: 544 across, 576 up and down")
+	roller_a.free()
+
+	# Kind 40 walks at the turtle and stops within 10 pixels.
+	var guard := EnemySpot.new()
+	guard.kind = 0x40
+	guard.position = Vector2(380, 270)
+	var soldier := OverworldEnemy.new()
+	add_child(soldier)
+	soldier.self_driven = false
+	small.position = Vector2(376, 172)
+	soldier.setup(guard, sewer.room, SpriteSet.cached("Kind40"), small)
+	soldier.screen_corner = Vector2(248, 52)
+	check(soldier.facing_left, "kind 40 comes in facing the turtle")
+	soldier.tick()
+	check(soldier.speed == Vector2i(0, -OverworldEnemy.SOLDIER_SPEED) and soldier.position == Vector2(380, 267), "it walks up at him at 544")
+	for i in 60:
+		soldier.tick()
+	check(soldier.speed == Vector2i.ZERO and soldier.position.y - small.position.y < 10.0 and soldier.position.y - small.position.y >= 6.0, "and stands once he is less than 10 pixels away (%s)" % str(soldier.position))
+	small.position = Vector2(300, 172)
+	soldier.tick()
+	check(soldier.speed.x == -OverworldEnemy.SOLDIER_SPEED and soldier.animation == "across", "when he moves off to the side it walks across after him")
+	soldier.free()
+
+	# In the game: they come in as the screen reaches their places, and go when they leave it.
+	sewer.load_overworld(0)
+	small.position = Vector2(160, 296)
+	sewer.set_overworld_screen(Vector2(16, 176))
+	var came_in := -1
+	for i in 44:
+		small.updated = true
+		small.step(Vector2i.RIGHT if i < 22 else Vector2i.LEFT)
+		sewer._on_walker_moved()
+		small.updated = false
+		sewer._on_walker_moved()
+		if came_in < 0 and sewer.enemies.get_child_count() > 0:
+			came_in = i
+	var first_in: Node = sewer.enemies.get_child(0) if sewer.enemies.get_child_count() > 0 else null
+	check(first_in is OverworldEnemy and first_in.kind == 0x9A and sewer.overworld_screen.x <= 56.0, "kind 9A comes in at the left edge when the screen reaches its place")
 	sewer.free()

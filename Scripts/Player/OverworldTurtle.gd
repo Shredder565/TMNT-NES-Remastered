@@ -18,6 +18,7 @@ extends Node2D
 ##   water there stops him; a doorway there sends him through the door.
 
 signal door_reached(door: Door)
+signal moved   ## every frame, after he has (or has not) moved
 
 const TICK_FRAMES := 2
 const STEP := 2
@@ -39,6 +40,7 @@ var sprites: SpriteSet          ## null without a ROM
 var _frame := 0
 var _steps := 0                 ## updates walked in the current animation, which picks its picture
 var _animation := ""            ## the walk being shown: "right" (also left), "up" or "down"; "" standing
+var updated := false            ## true on the frames his own update ran (every second frame)
 var picture_name := ""          ## the frame on show, e.g. "f148" (the original's picture number 148)
 var _picture := Sprite2D.new()
 
@@ -56,12 +58,18 @@ func _ready() -> void:
 	_show_picture(false)
 
 func _physics_process(_delta: float) -> void:
+	_update()
+	moved.emit()
+
+func _update() -> void:
+	updated = false
 	if rest_frames > 0:
 		rest_frames -= 1
 		return
 	_frame += 1
 	if _frame % TICK_FRAMES != 0:
 		return
+	updated = true
 	var across := int(signf(Input.get_axis("move_left", "move_right")))
 	var down := int(signf(Input.get_axis("move_up", "move_down")))
 	if across != 0:

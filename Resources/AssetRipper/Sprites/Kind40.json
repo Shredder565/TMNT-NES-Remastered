@@ -1,5 +1,5 @@
 {
- "about": "Which ROM tiles make up enemy kind 40, taken from the game's sprite table while it was on screen. Tile numbers and positions only; no graphics. Positions are in pixels from its own position value, facing right.",
+ "about": "Which ROM tiles make up enemy kind 40 (the soldier on the overworld map), taken from the game's sprite table while it was on screen. Tile numbers and positions only; no graphics. Positions are in pixels from its own position value, facing right. 'updates' is how many game updates each picture of an animation stays (measured).",
  "tile_height": 16,
  "palettes": {
   "2": [
@@ -10,6 +10,42 @@
   ]
  },
  "animations": {
+  "up": {
+   "frames": [
+    "f199",
+    "f200"
+   ],
+   "updates": [
+    3,
+    5
+   ],
+   "ticks": 4,
+   "loop": true
+  },
+  "down": {
+   "frames": [
+    "f197",
+    "f198"
+   ],
+   "updates": [
+    3,
+    5
+   ],
+   "ticks": 4,
+   "loop": true
+  },
+  "across": {
+   "frames": [
+    "f201",
+    "f202"
+   ],
+   "updates": [
+    3,
+    5
+   ],
+   "ticks": 4,
+   "loop": true
+  },
   "walk": {
    "frames": [
     "f202",
@@ -21,7 +57,51 @@
   }
  },
  "frames": {
+  "f197": [
+   {
+    "x": 0,
+    "y": -16,
+    "index": 4314,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -16,
+    "index": 4312,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f198": [
+   {
+    "x": 0,
+    "y": -16,
+    "index": 4312,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -16,
+    "index": 4314,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   }
+  ],
   "f199": [
+   {
+    "x": 0,
+    "y": -16,
+    "index": 4318,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
    {
     "x": -8,
     "y": -16,
@@ -29,17 +109,17 @@
     "palette": 2,
     "flip_h": false,
     "flip_v": false
-   },
-   {
-    "x": -7,
-    "y": -16,
-    "index": 4318,
-    "palette": 2,
-    "flip_h": true,
-    "flip_v": false
    }
   ],
   "f200": [
+   {
+    "x": 0,
+    "y": -16,
+    "index": 4316,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
    {
     "x": -8,
     "y": -16,
@@ -47,11 +127,21 @@
     "palette": 2,
     "flip_h": true,
     "flip_v": false
+   }
+  ],
+  "f201": [
+   {
+    "x": 0,
+    "y": -16,
+    "index": 4322,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
    },
    {
-    "x": -7,
+    "x": -8,
     "y": -16,
-    "index": 4316,
+    "index": 4320,
     "palette": 2,
     "flip_h": false,
     "flip_v": false
@@ -59,17 +149,17 @@
   ],
   "f202": [
    {
-    "x": -8,
+    "x": 0,
     "y": -16,
-    "index": 4324,
+    "index": 4326,
     "palette": 2,
     "flip_h": false,
     "flip_v": false
    },
    {
-    "x": 0,
+    "x": -8,
     "y": -16,
-    "index": 4326,
+    "index": 4324,
     "palette": 2,
     "flip_h": false,
     "flip_v": false
