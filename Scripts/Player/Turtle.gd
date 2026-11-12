@@ -80,6 +80,7 @@ var _was_grounded := true
 var _unheld_ticks := 0
 var _just_landed := false
 var room: RoomData                     ## set by the room, so the turtle can find ladders
+var climb_ticks := 0                   ## updates spent moving on the ladder, for its animation
 var climb_distance := 0.0              ## pixels climbed, used to step the ladder animation
 var invulnerable_timer := 0.0
 var _frame := 0
@@ -206,7 +207,7 @@ func _update_art() -> void:
 	var wanted := "stand"
 	if state == State.CLIMB:
 		wanted = "climb"
-	elif attack_tick >= 0:
+	elif attack_tick >= 0 and (weapon_swings.is_empty() or _swing_stage() >= 0):
 		wanted = ["attack_up", "attack", "attack_crouch"][attack_direction]
 	elif state == State.HURT or state == State.DEAD or not on_floor():
 		wanted = "jump"
@@ -221,10 +222,14 @@ func _update_art() -> void:
 		anim_tick += 1
 	if sprites == null:
 		return
-	var frame := sprites.frame_at(anim, attack_tick if attack_tick >= 0 else anim_tick)
+	var frame := sprites.frame_at(anim, anim_tick)
+	if anim.begins_with("attack"):
+		# Two updates a frame, after the swing's first update.
+		frame = sprites.frame_at(anim, _swing_stage() * 2 if _swing_stage() >= 0 else attack_tick)
 	if state == State.CLIMB:
-		# The ladder animation only moves while he does: a new pose every 9 pixels.
-		frame = sprites.frame_at("climb", int(climb_distance / 9.0) * 4)
+		# The ladder animation only moves while he does, up or down: the
+		# first pose for 3 updates, the second for 5 (measured).
+		frame = sprites.frame_at("climb", 0 if climb_ticks % 8 < 3 else 4)
 	if sprites.textures.has(frame):
 		rom_sprite.texture = sprites.textures[frame]
 		rom_sprite.position = sprites.offsets[frame]
@@ -284,6 +289,7 @@ func _climb() -> void:
 			return
 	position.y += step
 	climb_distance += absf(step)
+	climb_ticks += 1
 
 func _ladder_at(x: float, y: float) -> bool:
 	return room.is_ladder_cell(floori(x / RoomData.TILE), floori(y / RoomData.TILE))
@@ -321,6 +327,7 @@ func _try_grab_ladder(vertical: int) -> bool:
 	attack_tick = -1
 	_set_attacking(false)
 	state = State.CLIMB
+	climb_ticks = 0
 	speed = Vector2i.ZERO
 	jump_tick = -1
 	return true
@@ -382,7 +389,7 @@ func _control() -> void:
 				attack_direction = 0
 			elif Input.is_action_pressed("move_down"):
 				attack_direction = 2
-			attack_length = weapon_swings[attack_direction].places.size() * 2
+			attack_length = weapon_swings[attack_direction].places.size() * 2 + 3
 			_set_attacking(true)
 			_place_weapon()
 
@@ -563,12 +570,29 @@ func _set_crouching(on: bool) -> void:
 func _place_weapon() -> void:
 	var swing: Dictionary = weapon_swings[attack_direction]
 	var places: Array = swing.places
-	var place: Vector2 = places[mini(attack_tick / 2, places.size() - 1)]
+	var stage := _swing_stage()
+	var place := Vector2.ZERO
+	# Measured: the crouching swing's first frame keeps the weapon at his
+	# middle whatever the table says.
+	if stage >= 0 and not (attack_direction == 2 and stage == 0):
+		place = places[stage]
 	var half: Vector2 = swing.half
 	var rectangle := weapon_shape.shape as RectangleShape2D
-	rectangle.size = half * 2.0
+	# The original's test lets boxes that just meet count on the left and
+	# above, but not on the right and below (bank 6, $9AD3). Godot counts
+	# every meeting, so the box is half a pixel short on those two sides.
+	rectangle.size = half * 2.0 - Vector2(0.5, 0.5)
 	weapon_hitbox.position.y = 0.0
-	weapon_shape.position = Vector2(place.x, place.y - CENTRE_ABOVE_FEET + (8.0 if state == State.CROUCH else 0.0))
+	weapon_shape.position = Vector2(place.x - 0.25 * facing, place.y - 0.25 - CENTRE_ABOVE_FEET + (8.0 if state == State.CROUCH else 0.0))
+
+## Which frame of the swing he is on, or -1 for its first update and its
+## last two, when the weapon is at his middle and he stands as usual.
+## Measured in the emulator: one update, then two for each frame, then two.
+func _swing_stage() -> int:
+	if attack_tick < 1 or weapon_swings.is_empty():
+		return -1
+	var stage := (attack_tick - 1) / 2
+	return stage if stage < weapon_swings[attack_direction].places.size() else -1
 
 ## His own hit box, as the ROM has it: centred on his middle (20 above his
 ## feet), smaller while he spins through the air, and lower when he crouches.

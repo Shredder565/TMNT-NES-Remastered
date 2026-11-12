@@ -65,13 +65,44 @@ where its middle is from the turtle's middle. For Leonardo, facing right:
 | Forward | (-6, -23) (27, -8) (23, 17) | 28 x 24 |
 | Down | (15, 0) (21, 15) (13, 32) (7, 40) | 28 x 28 |
 
-The remake had one fixed 28 x 28 box in front of him, out from the
-second frame, and no upward swing. It now moves the box frame by frame
-from the first frame, and Up swings upward. The swing-up pictures were
-already in `Leonardo.json`.
+### How a swing runs in time (measured, update 30)
 
-Not read: how long an enemy is safe after a hit. The remake still counts
-one hit each time the box comes to overlap an enemy.
+Recorded frame by frame in the emulator (`Research/cynes/sword_reach.py`):
+
+- The update attack is pressed, and for one update more, the weapon sits
+  at his middle and he still shows his standing (or crouching) picture.
+- Then each frame of the swing lasts two updates: his picture changes and
+  the weapon goes to that frame's place.
+- Then, for two more updates, the weapon is back at his middle and he
+  stands as usual. Only after that can he swing again.
+
+So the forward swing takes 9 updates and the other two 11. The weapon's
+box can hit for the whole of that, also while it is at his middle.
+
+One thing the table does not say: on the crouching swing's first frame
+the weapon stays at his middle (0, 0), not at (15, 0).
+
+Before update 30 the remake ran only the frames (6 updates for every
+swing, so the fourth frame of Up and Down never came), with no first
+update and no last two.
+
+### Boxes that only just meet (read from code, 6:$9AE1)
+
+The test is not the same on both sides. An enemy to the left of (or
+above) the weapon is hit when the boxes just meet; one to the right (or
+below) only when they overlap by a pixel. For a 6-wide soldier and the
+28-wide sword that is from 17 pixels left of the sword's middle to 16
+right of it.
+
+### Checked
+
+Leonardo facing right, a foot soldier held still at every 2 pixels from
+48 behind him to 64 ahead, at four heights, for each of the three swings:
+the remake hits at exactly the places the original does (12 rows of the
+same first place, last place and count; for instance the forward swing,
+level with him: from 22 behind to 42 ahead).
+
+How long an enemy is safe after a hit is in `items_and_hits.md`.
 
 ## Moving floors (read from code, bank 4 $A4BF and $A4DE)
 

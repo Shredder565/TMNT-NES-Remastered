@@ -1677,8 +1677,45 @@ func _ready() -> void:
 			await get_tree().physics_frame
 		Input.action_release("attack")
 		var sword: CollisionShape2D = leo.get_node("WeaponHitbox/CollisionShape2D")
-		check(leo.attack_direction == 0 and leo.anim == "attack_up" and leo.attack_length == 8 and (sword.shape as RectangleShape2D).size == Vector2(28, 28) and not sword.disabled, "Up with attack swings upward: 4 frames, the sword's box 28 x 28")
-		check(sword.position == Vector2(11, -25) or sword.position == Vector2(22, -22), "and the box is where the ROM puts the sword on that frame (%s)" % sword.position)
+		check(leo.attack_direction == 0 and leo.attack_length == 11 and not sword.disabled, "Up with attack swings upward: one update, two for each of its 4 frames, two more (11 in all)")
+		var early := sword.position
+		for i in 4:
+			await get_tree().physics_frame
+		var size := (sword.shape as RectangleShape2D).size
+		var at := sword.position + Vector2(0.25 * leo.facing, 0.25)
+		check(early.distance_to(Vector2(0, -20)) < 0.5 and leo.anim == "attack_up" and (at == Vector2(11, -25) or at == Vector2(22, -22)), "the sword starts at his middle, then goes where the ROM puts it on each frame (%s, then %s)" % [early, at])
+		check(size == Vector2(27.5, 27.5), "its box is 28 x 28, half a pixel short on the sides where the original does not count boxes that only meet")
+		Input.action_release("move_up")
+		# The original's reach, measured: a foot soldier (6 wide) level with
+		# him is hit by the forward swing from 22 behind to 42 ahead.
+		for i in 40:
+			await get_tree().physics_frame
+		leo.facing = 1   # facing right: the last pixel of reach differs by side
+		leo.art.scale.x = 1
+		leo.weapon_hitbox.scale.x = 1
+		leo.position = Vector2(136, 176)
+		var reach := []
+		for across in [-24, -22, 42, 44]:
+			var dummy := OriginalEnemy.for_kind(0x98)
+			dummy.setup_at(0x98, leo.position + Vector2(across * leo.facing, -20), sewer.room, null, leo)
+			sewer.enemies.add_child(dummy)
+			dummy.health = 4000
+			dummy.animation = 0x90
+			dummy._fit_box_to_animation()
+			dummy.set_physics_process(false)
+			leo.invulnerable_timer = 5.0
+			for i in 4:
+				await get_tree().physics_frame
+			Input.action_press("attack")
+			for i in 4:
+				await get_tree().physics_frame
+			Input.action_release("attack")
+			for i in 26:
+				await get_tree().physics_frame
+			reach.append(dummy.health != 4000)
+			dummy.free()
+		leo.invulnerable_timer = 0.0
+		check(reach == [false, true, true, false], "the forward swing reaches a soldier from 22 behind him to 42 ahead, as measured in the original (%s)" % [reach])
 		Input.action_release("move_up")
 		for i in 24:
 			await get_tree().physics_frame
