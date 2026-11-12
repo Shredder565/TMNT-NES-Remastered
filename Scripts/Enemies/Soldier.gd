@@ -61,13 +61,11 @@ var special_weapon_chosen := false
 func _animations() -> Dictionary:
 	return ANIMATIONS
 
-func setup(spot: EnemySpot, in_room: RoomData, sprite_set: SpriteSet, turtle: Node2D) -> void:
-	setup_at(KIND, spot.position, in_room, sprite_set, turtle)
-	health = maxi(spot.hit_points, 1)
-	touch_damage = spot.touch_damage
-	# A new object faces left when it appears on the right half of the screen.
-	facing_left = whole_x() - int(_corner().x) >= 128
-	set_animation(WALK)
+func _default_kind() -> int:
+	return KIND
+
+func _first_animation() -> int:
+	return WALK
 
 func _act() -> void:
 	if busy:
@@ -87,7 +85,7 @@ func _act() -> void:
 		return
 	if not something_behind(12, -1):
 		# No floor under its back foot: it drops.
-		speed_y = (DROP_SPEED << 8) | (speed_y & 255)
+		set_fall_pixels(DROP_SPEED)
 		stop_across()
 		_begin(Mode.DROP)
 		return

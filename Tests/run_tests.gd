@@ -1021,6 +1021,113 @@ func _ready() -> void:
 	o_turner.turn_round()
 	check(o_turner.facing_left and o_turner.speed_x == -320 and not o_turner.wall_ahead(24, -16), "at a wall it turns round")
 	o_turner.free()
+	# Kinds 81 and 96: level fliers.
+	var o_bat := Flier.new()
+	var o_bat_spot := EnemySpot.new()
+	o_bat_spot.kind = 0x81
+	o_bat_spot.position = Vector2(100, 80)
+	o_bat.setup(o_bat_spot, o_court, null, o_prey)
+	add_child(o_bat)
+	o_bat.set_physics_process(false)
+	OriginalEnemy.scroll_step = 0
+	o_bat.tick()
+	check(o_bat.facing_left and o_bat.position == Vector2(97.5, 80), "kind 81 sets off to the left when the screen is still, 2.5 pixels an update, level")
+	var o_bat_turn := 0.0
+	for i in 40:
+		o_bat.tick()
+		if not o_bat.facing_left and o_bat_turn == 0.0:
+			o_bat_turn = o_bat.position.x
+	check(o_bat_turn == 30.0 and o_bat.position.y == 80.0, "it turns round with a wall 10 pixels ahead, plus the whole pixels of its speed (%.1f)" % o_bat_turn)
+	o_bat.free()
+	# Kinds 8D and 84: walkers that drop off ledges.
+	var o_step := RoomData.from_text([
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##########....................##",
+		"##########....................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"################################",
+		"################################",
+	], "Step")
+	var o_mouse := LedgeWalker.new()
+	var o_mouse_spot := EnemySpot.new()
+	o_mouse_spot.kind = 0x8D
+	o_mouse_spot.position = Vector2(40, 68)
+	o_mouse.setup(o_mouse_spot, o_step, null, o_prey)
+	add_child(o_mouse)
+	o_mouse.set_physics_process(false)
+	o_mouse.tick()
+	check(not o_mouse.facing_left and o_mouse.position == Vector2(41.375, 68), "kind 8D walks the way it faces at 1.375 pixels an update")
+	var o_fell_at := 0.0
+	var o_fall_ticks := 0
+	for i in 120:
+		var o_was: bool = o_mouse.falling
+		o_mouse.tick()
+		if o_mouse.falling and not o_was:
+			o_fell_at = o_mouse.position.x
+		if o_mouse.falling:
+			o_fall_ticks += 1
+		elif o_fell_at > 0.0:
+			break
+	check(o_fell_at >= 92.0 and o_fell_at < 93.4 and o_mouse.whole_y() == 116, "it walks on until nothing is under its back end, 12 pixels behind, then drops and lands 4 pixels into the floor below (%.2f, %d)" % [o_fell_at, o_mouse.whole_y()])
+	check(o_mouse.speed_x == 352 and not o_mouse.falling, "and walks on the way it was going")
+	o_mouse.kind = 0x84
+	o_mouse.busy = false
+	o_mouse.tick()
+	check(o_mouse.speed_x == 768, "kind 84 does the same at 3 pixels an update")
+	o_mouse.free()
+	# Kind 86: along the ceiling, and the swoop.
+	var o_cave := RoomData.from_text([
+		"################################",
+		"################################",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"##............................##",
+		"################################",
+		"################################",
+	], "Cave")
+	o_prey.position = Vector2(200, 112)
+	var o_hanger := CeilingCrawler.new()
+	var o_hanger_spot := EnemySpot.new()
+	o_hanger_spot.kind = 0x86
+	o_hanger_spot.position = Vector2(120, 70)
+	o_hanger.setup(o_hanger_spot, o_cave, null, o_prey)
+	add_child(o_hanger)
+	o_hanger.set_physics_process(false)
+	OriginalEnemy.scroll_step = -1
+	for i in 12:
+		o_hanger.tick()
+	check(o_hanger.mode == CeilingCrawler.Mode.CRAWL and o_hanger.whole_y() == 40 and o_hanger.speed_x == 352, "kind 86 rises to the ceiling and crawls along it, 24 pixels below it (%d)" % o_hanger.whole_y())
+	var o_lowest := 0.0
+	var o_swooped := false
+	for i in 120:
+		o_hanger.tick()
+		if o_hanger.mode == CeilingCrawler.Mode.SWOOP:
+			o_swooped = true
+			o_lowest = maxf(o_lowest, o_hanger.position.y)
+		elif o_swooped:
+			break
+	check(o_swooped and absf(o_lowest - 112.2) < 0.5 and o_hanger.whole_y() == 40 and o_hanger.mode == CeilingCrawler.Mode.CRAWL, "with the turtle under 40 pixels away it swoops, stopped by the floor, and climbs back to the ceiling (%.1f)" % o_lowest)
+	o_hanger.free()
+	OriginalEnemy.scroll_step = 0
 	# The frames enemies are updated on, and the sixteen map columns to hand.
 	OriginalEnemy.frame_counter = 0x11
 	var o_idle: Soldier = o_make_soldier.call(Vector2(100, 179))
@@ -1183,16 +1290,17 @@ func _ready() -> void:
 		sewer.enemies_follow_camera = false   # these checks want the whole room filled
 		sewer.show_enemies = true
 		sewer.load_area(0, 0)
-		var first_foe: Crawler = sewer.enemies.get_child(0)
+		var first_foe: LedgeWalker = sewer.enemies.get_child(0)
 		check(sewer.enemies.get_child_count() == 21 and first_foe.health == 4 and first_foe.weapon_damage == 7 and first_foe.touch_damage == 7, "the first sewer shows 21 enemies with real hit points; the first is a crawler")
-		var flyer: Crawler = sewer.enemies.get_child(5)
-		check(sewer_spots[5].touch_damage == 9 and flyer.kind == 0x81 and flyer.flies and flyer.touch_damage == 9, "kind 81 is a flyer, with its own touch damage of 9")
+		var flyer: Flier = sewer.enemies.get_child(5)
+		check(sewer_spots[5].touch_damage == 9 and flyer.kind == 0x81 and flyer.touch_damage == 9, "kind 81 is a flyer, with its own touch damage of 9")
 		flyer.set_physics_process(false)
 		var flyer_y := flyer.position.y
 		var flyer_x := flyer.position.x
-		flyer.direction = 1
+		OriginalEnemy.scroll_step = -2
 		flyer.tick()
-		check(flyer.position == Vector2(flyer_x + 2.5, flyer_y), "it flies 2.5 pixels an update and keeps its height")
+		OriginalEnemy.scroll_step = 0
+		check(flyer.position == Vector2(flyer_x + 2.5, flyer_y) and not flyer.facing_left, "it flies 2.5 pixels an update and keeps its height; made while the screen scrolls left, it sets off to the right")
 		var kinds_drawn := 0
 		var kinds_missing: Array[String] = []
 		var kinds_used := {}
@@ -1230,10 +1338,10 @@ func _ready() -> void:
 		check(still_one != null and still_one.sprites != null and still_one.get_node("Art").visible == false, "a kind that does not move yet still shows its own picture")
 		sewer.load_area(0, 0)
 		check(leo.max_health == 128 and sewer.health_bar.max_health == 8 and sewer.health_bar.health == 8, "the turtle has 128 energy, shown as 8 blocks")
-		# The crawler against what was measured in the original.
+		# Kind 8D by the original's rules, in the first sewer's own map.
 		sewer.set_show_enemies(false)
-		var bug := Crawler.new()
-		bug.setup(sewer_spots[0], sewer.room, null)
+		var bug := LedgeWalker.new()
+		bug.setup(sewer_spots[0], sewer.room, null, null)
 		sewer.enemies.add_child(bug)
 		bug.set_physics_process(false)
 		check(bug.direction == 1, "placed on the left half of a screen, it starts off to the right")
@@ -1242,7 +1350,8 @@ func _ready() -> void:
 			bug.tick()
 		check(bug.position == Vector2(245.5, 180) and bug.direction == 1, "it walks 1.375 pixels an update along the floor")
 		bug.position = Vector2(40, 180)
-		bug.direction = -1
+		bug.facing_left = true
+		bug.busy = false
 		var turn_x := 0.0
 		for i in 12:
 			bug.tick()
@@ -1250,7 +1359,8 @@ func _ready() -> void:
 				turn_x = bug.position.x
 		check(turn_x >= 30.0 and turn_x < 32.0, "it turns at the left wall where the original turns (x=%.2f; the original showed 30 and 31)" % turn_x)
 		bug.position = Vector2(186, 100)
-		bug.direction = -1
+		bug.facing_left = true
+		bug.busy = false
 		var fall_from := Vector2.ZERO
 		var fall_ticks := 0
 		for i in 80:
@@ -1263,7 +1373,7 @@ func _ready() -> void:
 			if fall_from != Vector2.ZERO and not bug.falling:
 				break
 		check(absf(fall_from.x - 131.0) < 1.0 and fall_from.y == 102.0, "it walks off the ledge and starts to fall at x=131, as in the original (x=%.2f)" % fall_from.x)
-		check(bug.position.y == 180.0 and bug.direction == -1 and absi(fall_ticks - 26) <= 1, "it lands on the floor at y=180 after about 26 updates and keeps its direction (%d)" % fall_ticks)
+		check(bug.whole_y() == 180 and bug.direction == -1 and absi(fall_ticks - 26) <= 1, "it lands on the floor at y=180 after about 26 updates and keeps its direction (%d)" % fall_ticks)
 		bug.free()
 		sewer.set_show_enemies(false)
 		check(sewer.enemies.get_child_count() == 0, "F8 clears them away")
@@ -1383,7 +1493,7 @@ func _ready() -> void:
 		var fitted := Vector2.ZERO
 		var fitted_at := Vector2.ZERO
 		for thing in sewer.enemies.get_children():
-			if thing is Crawler and thing.kind == 0x8D:
+			if thing is LedgeWalker and thing.kind == 0x8D:
 				var found_shape := thing.find_children("*", "CollisionShape2D", true, false)[0] as CollisionShape2D
 				fitted = (found_shape.shape as RectangleShape2D).size
 				fitted_at = found_shape.position

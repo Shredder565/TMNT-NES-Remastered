@@ -17,11 +17,14 @@ const TICK_FRAMES := 2
 const SAFE_TICKS := 24            ## updates it blinks, and cannot be hit again, after a hit
 ## The map is felt in 16-pixel cells; a cell is what its top-left tile is.
 const CELL := 16
+const SCREEN_ROWS_PIXELS := 192    ## the room's part of the screen
+const KIND_LEFT_OVER := 0x0C       ## what lies above and below a one-screen room (see kind_at)
 const WALLS := [4, 0x0C, 0x0D]    ## what stops an enemy: walls and both moving floors
 ## An animation list ends by stopping (the enemy's rules see that it ended)
 ## or by starting again.
 const ENDS := 0
 const LOOPS := 1
+const LAND_LIFT := 31             ## the most a landing raises it
 const ENDED := 255                ## the step number of an animation that has stopped
 ## How things fly and fall. One line per number the original's kinds use:
 ## pull (added to the fall speed each update), then the places felt:
@@ -47,6 +50,10 @@ static var counter_offset := 0
 static var levels: RomLevels
 static var _first_column := -1    ## the first of the sixteen map columns to hand; -1 = not tracked
 static var _screen_left := 0
+## How far the screen scrolled in the turtle's last update (the original's
+## RAM $40): some kinds pick the way they set off from its sign.
+static var scroll_step := 0
+static var _step_frame := 0
 
 var kind := 0
 var room: RoomData
@@ -95,6 +102,38 @@ func _act() -> void:
 ## The size of the placeholder block and of the hit box when no ROM is there.
 func _stand_in_box() -> Rect2:
 	return Rect2(-6, -32, 12, 30)
+
+## The kind an object of this script is when the place does not say.
+func _default_kind() -> int:
+	return 0
+
+## The animation a new object of this kind starts with (the ROM's table,
+## for when no ROM is there to ask).
+func _first_animation() -> int:
+	return 0
+
+## The script that runs a kind by the original's rules, or null if that
+## kind has not been written from the original's code yet.
+static func for_kind(spot_kind: int) -> OriginalEnemy:
+	if Soldier.KINDS.has(spot_kind):
+		return Soldier.new()
+	if Flier.KINDS.has(spot_kind):
+		return Flier.new()
+	if LedgeWalker.KINDS.has(spot_kind):
+		return LedgeWalker.new()
+	if CeilingCrawler.KINDS.has(spot_kind):
+		return CeilingCrawler.new()
+	return null
+
+## Makes it the enemy of one of the ROM's enemy places. Set `view_corner`
+## first if there is a screen.
+func setup(spot: EnemySpot, in_room: RoomData, sprite_set: SpriteSet, turtle: Node2D) -> void:
+	setup_at(spot.kind if spot.kind >= 0 else _default_kind(), spot.position, in_room, sprite_set, turtle)
+	health = maxi(spot.hit_points, 1)
+	touch_damage = spot.touch_damage
+	# A new object faces left when it appears on the right half of the screen.
+	facing_left = whole_x() - int(_corner().x) >= 128
+	set_animation(_first_animation())
 
 func setup_at(spot_kind: int, where: Vector2, in_room: RoomData, sprite_set: SpriteSet, turtle: Node2D) -> void:
 	kind = spot_kind
@@ -251,7 +290,15 @@ func kind_at(across: int, down: int) -> int:
 		var corner := _corner()
 		var first := _first_column if _first_column >= 0 else (int(corner.x) + 8) >> 4
 		column = first + posmod(column - first, 16)
-		y = int(corner.y) + ((y - int(corner.y)) & 255)
+		if room.rows * RoomData.TILE <= SCREEN_ROWS_PIXELS:
+			# A room one screen tall. Heights wrap at 256, and outside the
+			# room's own rows the original finds whatever the last map left
+			# in memory there. Measured in world 1 (entered by its first
+			# manhole): solid from 16 below the room's bottom round to its
+			# top, nothing in the 16 pixels just below the room.
+			y &= 255
+			if y >= SCREEN_ROWS_PIXELS:
+				return RoomData.KIND_EMPTY if y < SCREEN_ROWS_PIXELS + CELL else KIND_LEFT_OVER
 	return room.kind_at(column * 2, (y >> 4) * 2)
 
 ## Keeps track of which sixteen map columns the original would have to
@@ -266,6 +313,12 @@ static func screen_moved_to(left_edge: int) -> void:
 		_first_column = maxi(_first_column, (left_edge + 8) >> 4)
 	elif left_edge < _screen_left:
 		_first_column = mini(_first_column, (left_edge + 15) >> 4)
+	var now := Engine.get_physics_frames()
+	if left_edge != _screen_left:
+		scroll_step = left_edge - _screen_left if absi(left_edge - _screen_left) <= 32 else 0
+		_step_frame = now
+	elif now - _step_frame >= TICK_FRAMES:
+		scroll_step = 0
 	_screen_left = left_edge
 
 func wall_at(across: int, down: int) -> bool:
@@ -321,6 +374,11 @@ func stop() -> void:
 	speed_x = 0
 	speed_y = 0
 
+## Sets the whole pixels of the downward speed and leaves its fraction,
+## as the original does in several places.
+func set_fall_pixels(pixels: int) -> void:
+	speed_y = pixels * 256 + (speed_y & 255)
+
 ## Sets the sideways speed, in the way it faces.
 func go_forward(speed: int) -> void:
 	speed_x = -speed if facing_left else speed
@@ -362,7 +420,7 @@ func fly(flight: int) -> void:
 func land(up := -4) -> bool:
 	if not wall_at(0, up):
 		return false
-	for i in 31:
+	for i in LAND_LIFT:
 		sub_y -= 256
 		if not wall_at(0, up):
 			break
@@ -404,10 +462,14 @@ func _show() -> void:
 	_art.scale.x = direction
 	if sprites == null:
 		return
-	var frame := "f%d" % picture
+	var frame := _frame_name()
 	if sprites.textures.has(frame):
 		_picture.texture = sprites.textures[frame]
 		_picture.position = sprites.offsets[frame]
+
+## The sprite map's name for the picture on show.
+func _frame_name() -> String:
+	return "f%d" % picture
 
 ## --- being hit ------------------------------------------------------------
 

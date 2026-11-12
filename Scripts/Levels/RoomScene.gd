@@ -434,8 +434,15 @@ func _make_enemy(spot: EnemySpot) -> void:
 	var damage := levels.weapon_damage(0) if levels != null else Vector2i.ONE  # 0 = Leonardo
 	var enemy: Node2D
 	var pictures := SpriteSet.cached("Kind%02X" % spot.kind) if spot.kind >= 0 else null
+	var original := OriginalEnemy.for_kind(spot.kind) if not room.top_down else null
 	if room.top_down:
 		enemy = _make_stand_in(spot)
+	elif original != null:
+		# A kind written from the original's own code.
+		if enemies_follow_camera:
+			original.view_corner = _view_corner
+		original.setup(spot, room, pictures, turtle)
+		enemy = original
 	elif Crawler.KINDS.has(spot.kind):
 		var crawler := Crawler.new()
 		crawler.setup(spot, room, pictures)
@@ -452,11 +459,6 @@ func _make_enemy(spot: EnemySpot) -> void:
 		var mover := PathEnemy.new()
 		mover.setup(spot, pictures)
 		enemy = mover
-	elif Soldier.KINDS.has(spot.kind):
-		var soldier := Soldier.new()
-		soldier.view_corner = _view_corner
-		soldier.setup(spot, room, pictures, turtle)
-		enemy = soldier
 	elif LegacyWalker.KINDS.has(spot.kind):
 		var walker_enemy := LegacyWalker.new()
 		walker_enemy.setup(spot, room, pictures, turtle)

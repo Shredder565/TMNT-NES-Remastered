@@ -10,6 +10,7 @@ const FIELDS := ["x", "y", "vx", "vy", "anim", "step", "aticks", "pic", "left", 
 
 var makers := {}        # kind -> Callable(state) -> OriginalEnemy
 var totals := {}
+var only_kinds: Array = []
 
 func _signed(v: int) -> int:
 	return v - 65536 if v >= 32768 else v
@@ -18,7 +19,10 @@ func _ready() -> void:
 	var args := OS.get_cmdline_user_args()
 	var data: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(args[0]))
 	var only := args[1] if args.size() > 1 else ""
-	var verbose := args.size() > 2
+	var verbose := args.size() > 2 and args[2] == "v"
+	if args.size() > 3:
+		for text in args[3].split(","):
+			only_kinds.append(text.hex_to_int())
 	var levels := RomLevels.open_installed()
 	OriginalEnemy.levels = levels
 	for name: String in data:
@@ -34,8 +38,9 @@ func _ready() -> void:
 
 func _make(kind: int) -> OriginalEnemy:
 	match kind:
-		0x98: return Soldier.new()
 		0x99: return Star.new()
+	if only_kinds.is_empty() or only_kinds.has(kind):
+		return OriginalEnemy.for_kind(kind)
 	return null
 
 ## What each kind keeps beyond the common things, taken from the original's
@@ -44,8 +49,10 @@ func _adopt_kind(e: OriginalEnemy, s: Dictionary) -> void:
 	if e is Soldier:
 		e.mode = [Soldier.Mode.GROUND, Soldier.Mode.JUMP, Soldier.Mode.DROP, Soldier.Mode.POSE][s.mode] if s.mode < 4 else Soldier.Mode.GROUND
 		e.stun_ticks = s.t6
-	elif e is Star:
-		pass
+	elif e is LedgeWalker:
+		e.falling = s.mode == 0x8E
+	elif e is CeilingCrawler:
+		e.mode = [CeilingCrawler.Mode.CRAWL, CeilingCrawler.Mode.RISE, CeilingCrawler.Mode.SWOOP][clampi(s.mode - 0x90, 0, 2)]
 
 func _state_of(o: Array, cam: int, camy: int) -> Dictionary:
 	return {
@@ -106,6 +113,7 @@ func _run(name: String, run: Dictionary, levels: RomLevels, verbose: bool) -> vo
 		cam[0] = int(row.cam)
 		cam[1] = int(row.camy)
 		OriginalEnemy.screen_moved_to(cam[0])
+		OriginalEnemy.scroll_step = int(row.get("sc", 0))
 		turtle.position = Vector2(cam[0] + int(row.t[0]), cam[1] + int(row.t[2]) + 20)
 		if hits.has(float(f)):
 			for slot: String in by_slot:

@@ -50,9 +50,9 @@ throw:
 
 | Kind | Routine | Remake |
 | --- | --- | --- |
-| 81 (also 8E, 8F) | 5:$97D7 | see `enemy_kinds.md` |
-| 8D | 5:$978E | see `enemy_8D.md` |
-| 86 | 5:$982B | see `enemy_kinds.md` |
+| 81 (also 8E, 8F) | 5:$97D7, then $9833 | `Flier.gd`, `enemy_81_8D_86.md` |
+| 8D (84 at 5:$9977) | 5:$978E, then $9851, $9870 | `LedgeWalker.gd`, `enemy_81_8D_86.md` |
+| 86 | 5:$982B, then $987C, $98D7, $9908 | `CeilingCrawler.gd`, `enemy_81_8D_86.md` |
 | 98, the foot soldier | 5:$864B | `Soldier.gd`, `enemy_98.md` |
 | 99, its star | 5:$8708 | `Star.gd`, `enemy_98.md` |
 | 49 | 5:$9249 | `enemy_49_88_A0.md` |
@@ -62,7 +62,7 @@ throw:
 | 93, with 92 | 5:$92F3 | |
 | 94 | 5:$9983 | |
 | 95, fired by 94 | 5:$99D9 | |
-| 96 | 5:$99E5 | |
+| 96 | 5:$99E5 (the same code as 81) | `Flier.gd`, `enemy_81_8D_86.md` |
 | AA | 5:$A34F | |
 | 15, the puff of a beaten enemy | 5:$8733 | `Puff.gd` |
 
@@ -75,6 +75,9 @@ waiting for the animation on show to end (5:$832F), 4 = a thrown thing
 flying until it meets a wall (5:$8A6A).
 
 ## What an object keeps
+
+RAM $40 holds how far the screen scrolled in the turtle's last update
+(signed); some kinds choose their direction from it.
 
 Besides what `AGENT_BRIEF.md` lists: $0410 the step it is at in its
 animation, $0420 updates left before the next step, $0520 what it is busy
@@ -144,11 +147,17 @@ right, but -2 going left, because -1.25 rounds down).
   is 8 pixels into it. Scrolling left, the column coming in on the left is
   only taken up when it is wholly on the screen. Turning back does not
   undo either. `OriginalEnemy.screen_moved_to` follows this.
+- Heights wrap at 256, and a room one screen tall fills only the first
+  192 pixels of the ring. Above and below that the look-up finds what the
+  last map shown left in memory. Measured in all of world 1's rooms after
+  coming in by the first manhole: solid (kind 0C) from 16 below the
+  room's bottom all the way round to its top, and mostly empty in the 16
+  pixels just under the room. The remake uses exactly that. After coming
+  in another way the leftovers may differ; not measured.
 - Not followed up: what is in the ring when a room has just been entered
   with the screen part-way into a column (the remake assumes the right-hand
-  rule); the same question up and down in rooms two screens tall; and
-  places below the room (the remake calls them empty; the original reads
-  whatever lies after the room in the ring).
+  rule), and the same questions up and down in rooms two screens tall
+  (the remake looks at the real map there).
 
 ## Animations (6:$8010)
 

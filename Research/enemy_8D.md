@@ -80,3 +80,11 @@ frame earlier than the position values.
 The screen-edge turning described above, and the exact hit boxes. The puff
 and being made and removed as the camera moves were added later
 (`shots_spawning_tiles.md`).
+
+## Superseded
+
+12 November 2026: kind 8D's routine has been read from the code and the
+remake now runs it with `LedgeWalker.gd`. See `enemy_81_8D_86.md`; the
+measurements above agree with it, and the turns this page could only
+explain by "the look-ahead wraps round the screen" are explained in
+`enemy_routines.md`.

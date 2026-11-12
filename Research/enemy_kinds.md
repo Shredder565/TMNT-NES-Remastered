@@ -122,3 +122,13 @@ they leave, and their being made and removed as the camera moves are in
 
 Behaviour for the 6 still kinds, the 5 kinds never seen, the objects
 enemies throw or fire, bosses, the other three line-up levels, and names.
+
+## Since this page was written: kinds read from the original's code
+
+Update of 12 November 2026. The enemies' routines have been found
+(`enemy_routines.md`). These kinds no longer use the fitted rules above
+but scripts written from the code, checked frame by frame against the
+emulator: 98 and its star 99 (`enemy_98.md`); 81, 96, 8D, 84 and 86
+(`enemy_81_8D_86.md`). Kind 86 turned out not to be a walker at all: it
+crawls along ceilings and swoops. `Crawler.gd` still lists these kinds in
+its table, but the room scene no longer gives them to it.
