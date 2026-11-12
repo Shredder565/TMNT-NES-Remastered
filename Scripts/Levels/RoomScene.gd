@@ -88,6 +88,7 @@ const OVERWORLD_VIEW := Vector2(256, 240)
 ## That screen scrolls only while he walks with his place on it beyond
 ## these (measured): right at 126 or more across, left at 124 or less,
 ## up at 116 or less down the screen, down at 118 or more.
+const OVERWORLD_SAFE_UPDATES := 24   ## after being hurt on the overworld nothing hurts him for this long (measured)
 const OVERWORLD_SCROLL_RIGHT := 126.0
 const OVERWORLD_START_ON_SCREEN := Vector2(144, 120)   ## where he stands on it when a world begins
 const OVERWORLD_SCROLL_LEFT := 124.0
@@ -138,6 +139,7 @@ var start_screen: StartScreen        ## the Start (information) screen
 var overworld_spot := Vector2.ZERO   ## where he last stood on the overworld: the Start screen's map marks it
 var overworld_screen := Vector2.ZERO ## the corner of the original's screen on the overworld (enemies come and go by it)
 var _overworld_last := Vector2.ZERO  ## where the overworld turtle was a frame ago
+var _overworld_turtle_half := Vector2(4, 4)   ## half the overworld turtle's box (the ROM's, when there is one)
 var _overworld_frame := 0            ## frames on the overworld
 var _overworld_turn := 0             ## which of every two frames is the enemies' (the one after the turtle's)
 
@@ -321,6 +323,11 @@ func _show_turtle_look() -> void:
 		big = SpriteSet.cached("Leonardo")
 		small = SpriteSet.cached("LeonardoOverworld")
 	turtle.set_look(TURTLE_NAMES[current_turtle], colour, big)
+	if levels != null:
+		walker.swings = [levels.overworld_swing(current_turtle, 0), levels.overworld_swing(current_turtle, 1),
+			levels.overworld_swing(current_turtle, 2), levels.overworld_swing(current_turtle, 3)]
+		walker.weapon_sprites = SpriteSet.cached("OverworldWeapons")
+		_overworld_turtle_half = levels.overworld_turtle_half()
 	walker.set_look(colour, small)
 
 ## Fills the map with its enemies. In a room they follow the camera as in
@@ -375,6 +382,47 @@ func set_overworld_screen(corner: Vector2) -> void:
 
 ## The original updates the turtle on one frame and everything else on
 ## the next, in turn. The enemies' frame is where they come in, act and go.
+## The fight on the overworld, on the enemies' frame (Research/overworld.md).
+## Boxes overlap as the original tests them. While the turtle attacks, an
+## enemy his weapon's box or his own box reaches takes his weapon's damage,
+## unless it was hit less than 24 updates ago. Otherwise an enemy touching
+## him takes its touch damage off his energy, stops his attack, and he is
+## safe for 24 updates.
+func _overworld_fight() -> void:
+	if turtle.state == Turtle.State.DEAD:
+		return
+	var body := Rect2(walker.position.floor() - _overworld_turtle_half, _overworld_turtle_half * 2.0)
+	var attacking := walker.attack_tick >= 0
+	var weapon := walker.weapon_box()
+	for thing in enemies.get_children():
+		var foe := thing as OverworldEnemy
+		if foe == null or foe.is_queued_for_deletion():
+			continue
+		var box := foe.box()
+		var touching := _boxes_meet(box, foe.position, body, walker.position)
+		if attacking and foe.safe_updates == 0 and ((weapon.has_area() and _boxes_meet(box, foe.position, weapon, weapon.get_center())) or touching):
+			var weakened := turtle.health * 2 < turtle.max_health
+			foe.take_hit(foe.weapon_damage_low if weakened else foe.weapon_damage)
+		elif touching and walker.safe_updates == 0:
+			walker.safe_updates = OVERWORLD_SAFE_UPDATES
+			walker.cancel_attack()
+			attacking = false
+			turtle.drain(foe.touch_damage)
+
+## The original's test for two boxes meeting (bank 6, $9AE1), for an
+## enemy's box against the turtle's or his weapon's. Edges that only
+## touch count when the enemy is the one to the left or above, and not
+## when it is to the right or below.
+func _boxes_meet(enemy_box: Rect2, enemy_at: Vector2, other: Rect2, other_at: Vector2) -> bool:
+	if floorf(enemy_at.x) >= floorf(other_at.x):
+		if enemy_box.position.x >= other.end.x:
+			return false
+	elif enemy_box.end.x < other.position.x:
+		return false
+	if floorf(enemy_at.y) >= floorf(other_at.y):
+		return enemy_box.position.y < other.end.y
+	return enemy_box.end.y >= other.position.y
+
 func _on_walker_moved() -> void:
 	_overworld_frame += 1
 	if room == null or not room.top_down:
@@ -421,6 +469,7 @@ func _follow_overworld(corner: Vector2) -> void:
 		# The original keeps a thing whose place on the screen is 4 to 251 both ways.
 		if across < REMOVE_MARGIN or across >= 256.0 - REMOVE_MARGIN or down < REMOVE_MARGIN or down >= 256.0 - REMOVE_MARGIN:
 			thing.queue_free()
+	_overworld_fight()
 
 ## Puts the room's items out. They are there from the start and stay until
 ## picked up; leaving the room and coming back brings them back.
@@ -863,6 +912,9 @@ func set_flying(on: bool) -> void:
 func _on_turtle_died() -> void:
 	# Placeholder for the real "switch turtle / game over" flow.
 	await get_tree().create_timer(1.5).timeout
+	if room.top_down:
+		walker.position = room.start
+		walker.safe_updates = 0
 	turtle.position = room.start
 	turtle.revive()
 

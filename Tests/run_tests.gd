@@ -1399,6 +1399,7 @@ func _ready() -> void:
 	# --- Start screen and Overworld animation: sections kept in their own functions below ---
 	await _test_start_screen()
 	await _test_overworld_animation()
+	await _test_overworld_combat()
 
 	print("ROM screen")
 	var rom_path := "user://_test_fake.nes"
@@ -1722,4 +1723,117 @@ func _test_overworld_animation() -> void:
 			came_in = i
 	var first_in: Node = sewer.enemies.get_child(0) if sewer.enemies.get_child_count() > 0 else null
 	check(first_in is OverworldEnemy and first_in.kind == 0x9A and sewer.overworld_screen.x <= 56.0, "kind 9A comes in at the left edge when the screen reaches its place")
+	sewer.free()
+
+# =========================== Overworld combat ===========================
+func _test_overworld_combat() -> void:
+	print("Overworld combat")
+	var idle := OverworldTurtle.new()
+	add_child(idle)
+	idle.set_physics_process(false)
+	idle.start_attack()
+	check(idle.attack_length() == 0 and idle.weapon_step() == -1 and not idle.weapon_box().has_area(), "with no swings set (no ROM) the overworld turtle has no weapon out")
+	idle.free()
+	var levels := RomLevels.open_installed()
+	if levels == null:
+		print("  skip  no verified ROM is installed, so the overworld fight is not exercised")
+		return
+	var down := levels.overworld_swing(0, 0)
+	check(down.pictures == PackedInt32Array([184, 184]) and down.updates == 3 and down.weapon_pictures == PackedInt32Array([208, 208]) and down.places == [Vector2(-2, 18), Vector2(-2, 18)] and down.half == Vector2(3, 4), "Leonardo's downward attack: picture 184, the sword (208) 2 left and 18 below him, its box 6 x 8")
+	check(levels.overworld_swing(1, 0).weapon_pictures == PackedInt32Array([208, 176]) and levels.overworld_swing(3, 2).places[0] == Vector2(17, 1) and levels.overworld_swing(2, 1).places == [Vector2(6, -17), Vector2(3, -17)], "each turtle has his own weapon pictures and places (Raphael's changes picture, Donatello's reaches 17, Michelangelo's moves)")
+	check(levels.overworld_turtle_half() == Vector2(4, 4), "the overworld turtle's own box is 8 x 8")
+
+	var sewer = load("res://Scenes/Levels/Area1Sewer.tscn").instantiate()
+	add_child(sewer)
+	sewer.set_show_enemies(false)
+	var small: OverworldTurtle = sewer.walker
+	var leo: Turtle = sewer.turtle
+	small.set_physics_process(false)
+	check(small.swings.size() == 4 and small.weapon_sprites != null and small.sprites.textures.has("f184") and small.weapon_sprites.textures.has("w208"), "the map scene gives him his swings and the pictures for them")
+	small.position = Vector2(160, 296)
+	small.facing = Vector2i.RIGHT
+	small.sideways_left = false
+	small.start_attack()
+	var steps: Array[int] = [small.weapon_step()]
+	for i in 6:
+		small.attack_tick += 1
+		steps.append(small.weapon_step())
+	check(small.attack_length() == 6 and steps == [0, 0, 1, 1, 1, -1, -1], "an attack holds him 6 updates; the weapon is out for the first 5")
+	small.attack_tick = 0
+	check(small.weapon_box() == Rect2(169, 294, 8, 6) and small.picture_name == "f185", "facing right the sword's box is 13 ahead of him, and he shows picture 185")
+	small.facing = Vector2i.UP
+	small.sideways_left = true
+	small.start_attack()
+	check(small.weapon_box().get_center() == Vector2(156, 279), "going up or down the weapon is mirrored by the way he last walked across")
+	small.cancel_attack()
+
+	# A soldier beside him, as recorded: a swing to the right misses, a swing up lands.
+	var spot := EnemySpot.new()
+	spot.kind = 0x40
+	spot.position = Vector2(152, 424)
+	spot.hit_points = levels.hit_points(0x40)
+	spot.touch_damage = levels.touch_damage(0x40)
+	spot.half_size = levels.box_half_size(0x40, levels.first_animation(0x40))
+	sewer.show_enemies = true
+	sewer._make_enemy(spot)
+	var soldier: OverworldEnemy = sewer.enemies.get_child(0)
+	check(soldier.health == 6 and soldier.touch_damage == 10 and soldier.box() == Rect2(149, 410, 6, 12) and soldier.weapon_damage == 7, "kind 40 has 6 hit points, hurts for 10, and its box is 6 x 12 above its position")
+	small.position = Vector2(146, 432)
+	small.facing = Vector2i.RIGHT
+	small.sideways_left = false
+	small.start_attack()
+	sewer._overworld_fight()
+	check(soldier.health == 6 and leo.health == 128, "a swing to the right from (146, 432) does not reach it, and it does not touch him")
+	small.cancel_attack()
+	small.position = Vector2(146, 430)
+	small.facing = Vector2i.UP
+	small.start_attack()
+	sewer._overworld_fight()
+	check(soldier.is_queued_for_deletion(), "a swing upward from (146, 430) finishes it (7 damage against 6 hit points)")
+	small.cancel_attack()
+	await get_tree().physics_frame
+
+	# Being touched: 10 off his energy, then safe for 24 updates.
+	spot.position = Vector2(380, 189)
+	sewer._make_enemy(spot)
+	var second: OverworldEnemy = null
+	for thing in sewer.enemies.get_children():
+		if thing is OverworldEnemy and not thing.is_queued_for_deletion():
+			second = thing
+	small.position = Vector2(376, 172)
+	sewer._overworld_fight()
+	check(leo.health == 118 and small.safe_updates == 24, "a soldier touching him takes 10 off his energy and he is safe for 24 updates")
+	sewer._overworld_fight()
+	check(leo.health == 118, "nothing more while he is safe")
+	small.safe_updates = 0
+	small.facing = Vector2i.DOWN
+	small.start_attack()
+	sewer._overworld_fight()
+	check(second.is_queued_for_deletion() and leo.health == 118, "attacking while it touches him hits it instead")
+	small.cancel_attack()
+	await get_tree().physics_frame
+
+	# A roller: 48 hit points, safe after a hit, and its touch takes a whole turtle's energy.
+	var heavy := EnemySpot.new()
+	heavy.kind = 0x9B
+	heavy.position = Vector2(368, 131)
+	heavy.hit_points = levels.hit_points(0x9B)
+	heavy.touch_damage = levels.touch_damage(0x9B)
+	heavy.half_size = levels.box_half_size(0x9B, levels.first_animation(0x9B))
+	sewer._make_enemy(heavy)
+	var roller: OverworldEnemy = null
+	for thing in sewer.enemies.get_children():
+		if thing is OverworldEnemy and not thing.is_queued_for_deletion():
+			roller = thing
+	leo.max_health = 1000
+	leo.health = 1000
+	small.position = Vector2(376, 148)
+	small.facing = Vector2i.UP
+	small.sideways_left = true
+	small.start_attack()
+	sewer._overworld_fight()
+	check(roller.health == 41 and roller.safe_updates == 24 and leo.health == 1000, "a sword hit takes 7 off a roller's 48 and it cannot be hit again for 24 updates")
+	roller.position = Vector2(368, 146)
+	sewer._overworld_fight()
+	check(leo.health == 872 and small.attack_tick < 0 and roller.health == 41, "touching him then, it takes 128 off his energy and stops his attack")
 	sewer.free()
