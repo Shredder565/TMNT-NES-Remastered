@@ -47,9 +47,8 @@ func _first_animation() -> int:
 
 ## While it waits it can neither hurt nor be hurt (the original's list at
 ## bank 6, $963F: kind 49 showing animation 50).
-func _touch(turtle: Turtle) -> void:
-	if animation != WAITING:
-		super._touch(turtle)
+func can_touch() -> bool:
+	return animation != WAITING
 
 func _on_weapon_entered(area: Area2D) -> void:
 	if animation != WAITING:

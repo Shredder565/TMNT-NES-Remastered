@@ -32,4 +32,4 @@ func _act() -> void:
 		go_forward(KINDS[kind].speed)
 
 func _touch(turtle: Turtle) -> void:
-	turtle.take_damage(touch_damage, global_position.x)
+	turtle.touched_by(self, touch_damage)

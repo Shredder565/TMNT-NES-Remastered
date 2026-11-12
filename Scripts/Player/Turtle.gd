@@ -42,6 +42,8 @@ const SCROLL_RIGHT_FROM := 160.0  ## moving right, from this on
 const SCREEN_LEFT := 20.0         ## he is kept between these two on the screen
 const SCREEN_RIGHT := 236.0
 const SPRITE_FEET_BELOW := 24.0   ## the original's pictures are drawn with his feet this far below his position value
+## His boxes when no ROM is there to ask (the ROM's own numbers).
+const DEFAULT_BODY_BOXES := { "stand": Vector2i(5, 16), "crouch": Vector2i(5, 11), "ball": Vector2i(5, 6) }
 const CENTRE_ABOVE_FEET := 20.0   ## the original measures his boxes and his weapon from his middle
 const MAX_FALL_SPEED := 2559    ## the original holds the whole pixels of his fall at 9
 
@@ -91,6 +93,7 @@ var _jump_pressed := false             ## remembered until the next update
 var _attack_pressed := false
 var _hurt_ticks := 0
 var _weapon_picture := Sprite2D.new()  ## the weapon, drawn where the original has it on each step of a swing
+var _spinning := false                 ## in the high part of a held jump: his box is the small one
 var power_ticks := 0                   ## updates of the power item left (kind 0B), 0 when not in use
 
 @onready var art: Node2D = $Art
@@ -183,6 +186,7 @@ func _tick() -> void:
 	_just_landed = grounded and not _was_grounded
 	_was_grounded = grounded
 	if grounded:
+		_spinning = false
 		if speed.y > 0:
 			speed.y = 0
 		if jump_tick > 0:
@@ -393,9 +397,11 @@ func _control() -> void:
 			speed.y = SHORT_JUMP_SPEED
 		elif jump_tick == BOOST_TICK and Input.is_action_pressed("jump"):
 			speed.y = BOOST_SPEED
+			_spinning = true   # only the high jump curls him into a ball (the original's state 8)
 	if taking_off:
 		speed.y = JUMP_SPEED
 		jump_tick = 0
+		_spinning = false
 
 	# Attack: the sword is out from the second frame of the swing.
 	if attack_tick >= 0:
@@ -643,18 +649,29 @@ func _weapon_shown(stage: int) -> bool:
 func _fit_body() -> void:
 	if body_boxes.is_empty():
 		return
-	var which := "stand"
-	var lower := 0.0
-	if state == State.CROUCH:
-		which = "crouch"
-		lower = 8.0
-	elif state == State.NORMAL and not on_floor() and attack_tick < 0:
-		which = "ball"
+	var which := _body_box_name()
+	var lower := 8.0 if state == State.CROUCH else 0.0
 	var half := Vector2(body_boxes[which])
 	var rectangle := body_shape.shape as RectangleShape2D
 	if rectangle.size != half * 2.0 or body_shape.position.y != lower - CENTRE_ABOVE_FEET:
 		rectangle.size = half * 2.0
 		body_shape.position = Vector2(0.0, lower - CENTRE_ABOVE_FEET)
+
+## Which of his boxes he has just now.
+func _body_box_name() -> String:
+	if state == State.CROUCH:
+		return "crouch"
+	if state == State.NORMAL and _spinning and not on_floor() and attack_tick < 0:
+		return "ball"
+	return "stand"
+
+## His hit box in whole pixels, for the original's own touch test
+## (OriginalEnemy.touches_turtle): the middle across, the middle down
+## (8 lower when he crouches), half the width and half the height.
+func touch_box() -> Array[int]:
+	var half: Vector2i = body_boxes.get(_body_box_name(), DEFAULT_BODY_BOXES[_body_box_name()])
+	var lower := 8 if state == State.CROUCH else 0
+	return [floori(position.x), floori(position.y) - int(CENTRE_ABOVE_FEET) + lower, half.x, half.y]
 
 func _set_attacking(on: bool) -> void:
 	weapon_art.visible = on and sprites == null
@@ -665,12 +682,13 @@ func _set_attacking(on: bool) -> void:
 ## from, so the turtle is knocked away from it.
 ## What an enemy calls when it touches him. With the power item running
 ## the touch hurts the enemy instead (the original's hit number 16: 240).
-func touched_by(enemy: Node, amount: int) -> void:
+## Returns true if he was hurt.
+func touched_by(enemy: Node, amount: int) -> bool:
 	if power_ticks > 0:
 		if enemy.has_method("take_hit") and weapon_lands(enemy):
 			enemy.take_hit(POWER_DAMAGE)
-		return
-	take_damage(amount, enemy.global_position.x)
+		return false
+	return take_damage(amount, enemy.global_position.x)
 
 ## May a hit land on this enemy now? After one lands the enemy blinks and
 ## nothing more can hit it for 24 updates (bank 6, $9955). True starts

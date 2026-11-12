@@ -1,0 +1,113 @@
+extends Node
+## Checks the remake's touch test against the emulator's sweep
+## (touch_sweep.py -> touch_emu.json), and how often a held touch hurts.
+## godot --headless --fixed-fps 60 res://tmp_touch.tscn -- <touch_emu.json>
+
+func _make(kind: int) -> OriginalEnemy:
+	match kind:
+		0x99: return Star.new()
+		0x4A, 0x95: return Missile.new()
+		0x93: return Boomerang.new()
+	return OriginalEnemy.for_kind(kind)
+
+func _ready() -> void:
+	var trials: Array = JSON.parse_string(FileAccess.get_file_as_string(OS.get_cmdline_user_args()[0]))
+	var levels := RomLevels.open_installed()
+	OriginalEnemy.levels = levels
+	var room := levels.room(0, 0)
+	var boxes := { 0x80: "stand", 0x81: "stand", 0x85: "stand", 0x83: "crouch", 0x87: "ball" }
+	var wrong := 0
+	var hits := 0
+	var per_kind := {}
+	for t: Dictionary in trials:
+		var kind := int(t.kind)
+		var enemy := _make(kind)
+		enemy.setup_at(kind, Vector2.ZERO, room, null, null)
+		add_child(enemy)
+		enemy.set_physics_process(false)
+		var predicted := false
+		for entry: Array in t.log:
+			var tx := int(entry[0])
+			var ty := int(entry[1])
+			var down := ty + int(t.dy)
+			if down >= 192 or down < 4:
+				break   # the original has removed it: off the screen
+			enemy.animation = int(entry[4])
+			enemy.place(Vector2(tx + int(t.dx), down))
+			var half: Vector2i = levels.box_half_size(0, int(entry[2]))
+			var name: String = boxes[int(entry[2])]
+			if half != Turtle.DEFAULT_BODY_BOXES[name]:
+				print("turtle box differs for animation %02X" % int(entry[2]))
+			var his: Array[int] = [tx, ty + (8 if name == "crouch" else 0), half.x, half.y]
+			if enemy.can_touch() and enemy.touches_box(his):
+				predicted = true
+				break
+		var was_hit: bool = t.hit != null
+		hits += 1 if was_hit else 0
+		var key := "%02X" % kind
+		if not per_kind.has(key):
+			per_kind[key] = [0, 0]
+		per_kind[key][0] += 1
+		if predicted != was_hit:
+			wrong += 1
+			per_kind[key][1] += 1
+			if wrong < 10:
+				print("WRONG kind %02X anim %02X %s dx %d dy %d: original %s, remake %s" % [kind, int(t.anim), t.state, int(t.dx), int(t.dy), str(was_hit), str(predicted)])
+		enemy.free()
+	print("touch sweep: %d trials (%d hurt in the original), remake disagrees on %d" % [trials.size(), hits, wrong])
+	for key: String in per_kind:
+		print("  kind %s: %d trials, %d wrong" % [key, per_kind[key][0], per_kind[key][1]])
+	# In the real room: an enemy held on him.
+	var sewer = load("res://Scenes/Levels/Area1Sewer.tscn").instantiate()
+	sewer.start_on_overworld = false
+	add_child(sewer)
+	await get_tree().physics_frame
+	sewer.show_enemies = false
+	sewer.load_area(0, 0)
+	var leo: Turtle = sewer.turtle
+	leo.max_health = 100000
+	leo.health = 100000
+	sewer._place_turtle(Vector2(140, 156))
+	for i in 60:
+		await get_tree().physics_frame
+	var spot := EnemySpot.new()
+	spot.kind = 0x8D
+	spot.position = leo.position + Vector2(0, -12)
+	spot.hit_points = 50
+	spot.touch_damage = 7
+	var held := LedgeWalker.new()
+	held.setup(spot, sewer.room, null, leo)
+	sewer.enemies.add_child(held)
+	var last := leo.health
+	var hurt_at := []
+	var thrown := []
+	for f in 260:
+		held.busy = true
+		held.speed_x = 0
+		held.speed_y = 0
+		held.place(Vector2(floorf(leo.position.x), floorf(leo.position.y) - 12.0))
+		await get_tree().physics_frame
+		if leo.health < last:
+			hurt_at.append(f)
+			thrown.append(leo.speed)
+			last = leo.health
+	var gaps := []
+	for i in range(1, hurt_at.size()):
+		gaps.append(hurt_at[i] - hurt_at[i - 1])
+	print("held touch hurts at frames %s, gaps %s (original: every 48), lost %d each, thrown %s" % [str(hurt_at), str(gaps), (100000 - leo.health) / maxi(hurt_at.size(), 1), str(thrown.slice(0, 2))])
+	held.free()
+	# The box through a held jump.
+	leo.health = 100000
+	sewer._place_turtle(Vector2(140, 156))
+	for i in 80:
+		leo.invulnerable_timer = 0.0
+		await get_tree().physics_frame
+	var names := []
+	Input.action_press("jump")
+	for f in 76:
+		await get_tree().physics_frame
+		if f % 2 == 1:
+			names.append("%s%d" % [leo._body_box_name()[0], int(leo.position.y) - 20])
+	Input.action_release("jump")
+	print("box through a held jump, per update: ", " ".join(names))
+	get_tree().quit()

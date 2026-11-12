@@ -1268,6 +1268,46 @@ func _ready() -> void:
 	check(o_diver.speed_x == 222 and o_diver.aim_direction == 5, "and keeps that course wherever he goes")
 	check(Diver._angle_step(1, 1) == 4 and Diver._angle_step(3, 1) == 1 and Diver._angle_step(0, 5) == 7 and Diver._angle_step(5, 0) == 0, "directions run from 0, level, to 7, straight down")
 	o_diver.free()
+	# Touching the turtle: the original's one-sided box test, in whole pixels.
+	var o_toucher: Soldier = o_make_soldier.call(Vector2(100, 100))
+	var o_his: Array[int] = [100, 90, 5, 16]     # his middle and half his box, standing
+	var o_half: Vector2i = o_toucher.box_half()
+	var o_reach := func(dx: int, dy: int) -> bool:
+		o_toucher.place(Vector2(100 + dx, 90 + dy))
+		return o_toucher.touches_box(o_his)
+	check(o_reach.call(-(o_half.x + 5), 10) and not o_reach.call(-(o_half.x + 6), 10), "an enemy to his left touches him when the boxes just meet")
+	check(o_reach.call(o_half.x + 4, 10) and not o_reach.call(o_half.x + 5, 10), "one to his right must overlap him by a pixel")
+	check(o_reach.call(0, -14) and not o_reach.call(0, -15), "its box ends 2 above its position: from above it touches when that just meets his top")
+	check(o_reach.call(0, o_half.y + 15) and not o_reach.call(0, o_half.y + 16), "from below its top must be a pixel inside his box")
+	o_toucher.free()
+	var o_test_turtle: Turtle = load("res://Scenes/Player/Turtle.tscn").instantiate() if ResourceLoader.exists("res://Scenes/Player/Turtle.tscn") else null
+	if o_test_turtle != null:
+		add_child(o_test_turtle)
+		o_test_turtle.set_physics_process(false)
+		o_test_turtle.position = Vector2(100.7, 110.4)
+		check(o_test_turtle.touch_box() == [100, 90, 5, 16], "the turtle's box is measured from his middle, 20 above his feet, in whole pixels")
+		o_test_turtle.state = Turtle.State.CROUCH
+		check(o_test_turtle.touch_box() == [100, 98, 5, 11], "crouching it is smaller and 8 lower")
+		o_test_turtle.state = Turtle.State.NORMAL
+		o_test_turtle.max_health = 128
+		o_test_turtle.health = 128
+		var o_thrown_star := Star.new()
+		o_thrown_star.setup_at(0x99, Vector2(104, 95), o_court, null, o_test_turtle)
+		o_thrown_star.touch_damage = 9
+		add_child(o_thrown_star)
+		o_thrown_star.busy = true
+		o_thrown_star._physics_process(0.0)
+		check(o_test_turtle.health == 119 and o_thrown_star.gone and o_test_turtle.speed.x < 0, "a star that touches him takes 9, throws him away from it (to the left when it is level or to his right) and is used up")
+		var o_bug := LedgeWalker.new()
+		o_bug.setup(o_spot_for.call(0x8D, Vector2(96, 100)), o_court, null, o_test_turtle)
+		add_child(o_bug)
+		o_bug._physics_process(0.0)
+		check(o_test_turtle.health == 119 and not o_bug.gone, "nothing touches him while he blinks")
+		o_test_turtle.invulnerable_timer = 0.0
+		o_bug._physics_process(0.0)
+		check(o_test_turtle.health == 109 and not o_bug.gone and o_test_turtle.speed.x > 0, "an enemy that touches him takes its damage, throws him away from it and goes on as it was")
+		o_bug.free()
+		o_test_turtle.free()
 	# The frames enemies are updated on, and the sixteen map columns to hand.
 	OriginalEnemy.frame_counter = 0x11
 	var o_idle: Soldier = o_make_soldier.call(Vector2(100, 179))

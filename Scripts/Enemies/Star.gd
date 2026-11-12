@@ -34,5 +34,5 @@ func _act() -> void:
 
 ## A star that hits him is used up (the original's list at bank 6, $9910).
 func _touch(turtle: Turtle) -> void:
-	if turtle.take_damage(touch_damage, global_position.x):
+	if turtle.touched_by(self, touch_damage):
 		remove()
