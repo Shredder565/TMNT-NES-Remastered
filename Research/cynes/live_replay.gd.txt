@@ -11,7 +11,10 @@ func _ready() -> void:
 	var args := OS.get_cmdline_user_args()
 	var data: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(args[0]))
 	var only := args[1] if args.size() > 1 else "all"
-	var verbose := args.size() > 2
+	var verbose := args.size() > 2 and args[2] == "v"
+	if args.size() > 3:
+		dump_from = int(args[3].split("-")[0])
+		dump_to = int(args[3].split("-")[1])
 	var sewer = load("res://Scenes/Levels/Area1Sewer.tscn").instantiate()
 	sewer.start_on_overworld = false
 	add_child(sewer)
@@ -26,6 +29,9 @@ func _ready() -> void:
 			grand[i] += result[i]
 	print("ALL: %d frames; turtle exact %d, energy %d, his box %d, enemies %d" % grand)
 	get_tree().quit()
+
+var dump_from := -1
+var dump_to := -1
 
 func _signed(v: int) -> int:
 	return v - 65536 if v >= 32768 else v
@@ -133,6 +139,8 @@ func _run(sewer, name: String, run: Dictionary, levels: RomLevels, verbose: bool
 				have.append("%02X %d %d a%02X hp%d" % [thing.kind, thing.sub_x, thing.sub_y, thing.animation, thing.health])
 		want.sort()
 		have.sort()
+		if f >= dump_from and f <= dump_to:
+			print("f%d c%02X cam %d/%d hold %d | turtle R %s O %s state %s | scroll %s fight %s/%s stage %d\n     R %s\n     O %s" % [f, c, cam, camy, int(row.hold), str(leo.position), str(theirs), str(leo.state), str(leo.scroll_x), str(sewer.fighting), str(sewer.fight_corner), sewer.hold_stage, str(have), str(want)])
 		if want == have:
 			counts[4] += 1
 		else:

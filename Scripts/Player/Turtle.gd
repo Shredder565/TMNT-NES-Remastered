@@ -102,6 +102,7 @@ var _swing_lingers := 0                ## updates left of the swing's own box af
 var _low_after := 0                    ## updates left of the low box after a downward swing has ended
 var _swing_rest := 0                   ## updates left in which a new swing cannot start
 var _crouch_ticks := 0                 ## updates he has been crouching
+var _crouched_before := false          ## was he crouching at the end of the update before this one
 var _spinning := false                 ## in the high part of a held jump: his box is the small one
 var power_ticks := 0                   ## updates of the power item left (kind 0B), 0 when not in use
 
@@ -228,6 +229,7 @@ func _tick() -> void:
 			state = State.NORMAL
 			speed.x = 0
 	_weapon_box_new = _weapon_box()
+	_crouched_before = _crouch_ticks >= 1
 	_crouch_ticks = _crouch_ticks + 1 if state == State.CROUCH else 0
 	if _low_after > 0:
 		_low_after -= 1
@@ -428,7 +430,10 @@ func _control() -> void:
 			speed.y = SHORT_JUMP_SPEED
 		elif jump_tick == BOOST_TICK and Input.is_action_pressed("jump"):
 			speed.y = BOOST_SPEED
-			_spinning = true   # only the high jump curls him into a ball (the original's state 8)
+			# Only the high jump curls him into a ball (the original's state 8),
+			# and not if a swing is going on at this moment: he then keeps his
+			# full box for the rest of the jump (measured in three runs).
+			_spinning = attack_tick < 0
 	if taking_off:
 		speed.y = JUMP_SPEED
 		jump_tick = 0
@@ -761,8 +766,11 @@ func _body_box_name() -> String:
 ## (8 lower when he crouches), half the width and half the height.
 func touch_box() -> Array[int]:
 	var half: Vector2i = body_boxes.get(_body_box_name(), DEFAULT_BODY_BOXES[_body_box_name()])
-	# The box shrinks on the update he crouches; it drops the update after (measured).
-	var lower := 8 if (state == State.CROUCH and _crouch_ticks >= 2) or _low_swing() or _low_after >= 1 else 0
+	# The box changes size on the update he crouches or gets up; it drops,
+	# or comes back up, the update after (measured: the original's "lower"
+	# flag runs one update behind, also when he jumps out of a crouch).
+	# The same on the first update of a downward swing begun in the air.
+	var lower := 8 if _crouched_before or (_low_swing() and attack_tick >= 1) or _low_after >= 1 else 0
 	return [floori(position.x), floori(position.y) - int(CENTRE_ABOVE_FEET) + lower, half.x, half.y]
 
 func _set_attacking(on: bool) -> void:

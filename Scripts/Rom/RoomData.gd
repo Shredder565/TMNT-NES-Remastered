@@ -40,6 +40,13 @@ var screen_size := Vector2i(256, 192)  ## one screen in pixels (256 x 256 on the
 var doors: Array[Door] = []            ## the doorways in this map and where they lead
 var enemy_spots: Array[EnemySpot] = [] ## where the original puts its enemies
 var encounters: Array[Encounter] = []  ## what appears when the camera reaches a place (bosses)
+## True for a room read from the ROM. The original feels its map in cells
+## of 16 x 16 pixels (bank 7, $C7C7: one nibble a cell), and a cell is
+## whatever its top-left 8 x 8 tile is (measured). So points are looked
+## up that way, for the turtle as for the enemies.
+var coarse := false
+var entry_lineup := -1                 ## the enemy line-up the room comes up with (-1: not from a ROM)
+var lineups := PackedInt32Array()      ## the line-up for each of the 4 line-up levels (Research/enemy_placement.md)
 
 ## A room drawn with text: '#' solid, 'H' ladder, anything else empty.
 static func from_text(lines: PackedStringArray, room_name := "Test room") -> RoomData:
@@ -86,6 +93,8 @@ func is_door_cell(col: int, row: int) -> bool:
 	return kind_at(col, row) == KIND_DOOR or kind_at(col - 1, row) == KIND_DOOR
 
 func kind_at_pixel(x: float, y: float) -> int:
+	if coarse:
+		return kind_at(floori(x / TILE) & ~1, floori(y / TILE) & ~1)
 	return kind_at(floori(x / TILE), floori(y / TILE))
 
 ## Overworld: can the turtle not walk here? Walls, water and the map's edge.
@@ -132,6 +141,8 @@ func nearest_walkable(point: Vector2) -> Vector2:
 	return point
 
 func solid_at(x: float, y: float) -> bool:
+	if coarse:
+		return is_solid_cell(floori(x / TILE) & ~1, floori(y / TILE) & ~1)
 	return is_solid_cell(floori(x / TILE), floori(y / TILE))
 
 ## Is this point in the top cell of a ladder that comes up through a floor?

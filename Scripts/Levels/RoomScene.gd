@@ -88,8 +88,23 @@ const BOSS_COMPANY := {
 ## a boss fight is held on).
 const SCREEN_LEFT := 20.0
 const SCREEN_RIGHT := 236.0
-const HOLD_ENTER_FRAMES := 16       ## clear screen to the extra enemy coming in
-const HOLD_LEAVE_FRAMES := 64       ## that enemy beaten to the screen being freed
+## A fight the screen is held for (bank 6, $9C1D; Research/encounters.md),
+## counted in updates: from the screen being clear to the extra enemy or
+## the boss coming in, and from that enemy being gone to the screen being freed.
+const HOLD_ENTER_UPDATES := 8
+const HOLD_LEAVE_UPDATES := 64
+## The line-up level (bank 6, $8174; Research/enemy_placement.md): the
+## points made in this room pick a row, and the row's four times (in units
+## of 128 frames) say how many steps up the level goes if the room's clock
+## is still short of them.
+const LEVEL_POINTS := [2000, 4000, 7000, 10000, 14000, 20000, 28000, 35000]
+const LEVEL_TIMES := [
+	[32, 24, 16, 8], [96, 48, 40, 32], [96, 80, 72, 64], [128, 112, 104, 96],
+	[160, 144, 136, 128], [192, 176, 168, 160], [224, 208, 200, 192], [256, 240, 232, 224],
+]
+const LEVEL_STEPS_BACK := 2          ## what the original then takes off again (see _check_lineup)
+const LINEUP_FIXED := 7              ## a room on this line-up never changes it
+const CLOCK_FRAMES := 128
 ## The overworld (Research/overworld.md): the original's screen there is
 ## 256 x 240 with the turtle kept near its middle. An enemy is made when
 ## the screen's edge reaches its place, 8 pixels inside any of the four
@@ -142,6 +157,7 @@ var _view_top := 0.0                 ## the top of the screen in the room
 var _made: Node2D                    ## what _make_enemy_at has just made, if anything
 var _camera_corner := Vector2.ZERO
 var _floor_frame := 0
+var _stood_before := false         ## was the turtle on the ground an update ago
 var items: Node2D                    ## holds the items of the room on show
 var boss: Boss                       ## the room's boss while it is alive
 var boss_bar: Control                ## the boss's energy, under the turtle's
@@ -153,7 +169,6 @@ var boss_bar: Control                ## the boss's energy, under the turtle's
 var hud_strip: HudStrip
 var overworld_energy: OverworldEnergyBar
 var show_help_text := false
-var score := 0
 var high_score := 0
 var _hud_ripper: ChrRipper
 var _top_bar: ColorRect
@@ -166,8 +181,19 @@ var fight_corner := Vector2.ZERO     ## where the screen is held during a boss f
 var fighting := false
 var _company: Node2D                 ## what stands by during the fight
 var hold: Encounter                  ## the held fight going on, if any
-var hold_stage := 0                  ## 1: clear the screen. 2: beat the enemy that came in
-var _hold_frames := 0
+var hold_stage := 0                  ## 1: clear the screen. 2: beat the enemy that came in. 3: beat the boss
+var _hold_count := 0                 ## updates left in the wait going on
+var _encounter: Encounter            ## the table entry the screen is held for (a held fight or a boss)
+var _encounter_index := -1
+var hold_bound := false              ## the original's $B0: set once the held screen was first clear
+## Points and the line-up level (Research/enemy_placement.md).
+var score := 0                       ## points made this game
+var room_points := 0                 ## points made since this room was entered
+var room_clock := 0                  ## counts every 128th frame since this room was entered
+var lineup_level := 0                ## 0 to 3: which of a room's four line-ups a change turns to
+var lineup := -1                     ## the line-up enemies are made from just now
+var _lineup_pending := false         ## the level has changed; the line-up follows once the screen is clear
+var _typed_spots := {}               ## [place, line-up] -> the place as that line-up fills it
 var _holds_done := {}                ## this room's held fights already fought (by number)
 var _boss_done := {}                 ## (world, area) -> true once that room's boss has appeared
 var _clearing := false               ## true while the "world clear" message is up
@@ -327,6 +353,13 @@ func show_room(new_room: RoomData) -> void:
 	turtle.scroll_x = -1000.0   # forces the screen to be placed afresh around him
 	turtle.sync_screen()
 	_place_camera()
+	# Entering a map starts its points and its clock afresh, and it comes up
+	# with its own line-up whatever the level is (bank 7, $E7F9 and $D551).
+	room_points = 0
+	room_clock = 0
+	lineup = room.entry_lineup
+	_lineup_pending = false
+	_typed_spots.clear()
 	_place_enemies()
 	_place_items()
 	_boss_camera_x = _view_corner().x
@@ -676,15 +709,26 @@ func _place_items() -> void:
 		item.setup(entry[0], entry[1], SpriteSet.cached("Kind%02X" % entry[0]))
 		items.add_child(item)
 
-## Starts a fight when the camera reaches a place the ROM's encounter
-## table names (Research/encounters.md), and holds the screen there.
-func _check_boss() -> void:
-	if levels == null or not show_enemies or fighting or room.top_down or not room.name.begins_with("World"):
-		return
+## Is this one of the frames on which the original sees to its enemies?
+## (They and the turtle take turns; the room scene runs before both.)
+func _enemies_frame() -> bool:
+	return turtle._frame % Turtle.TICK_FRAMES == 0
+
+## Nothing on the screen but items: no enemy, nothing thrown, no puff of
+## a beaten one, no boss (bank 7, $EEE9).
+func _screen_clear() -> bool:
+	for thing in enemies.get_children():
+		if not thing.is_queued_for_deletion() and not (thing is OriginalEnemy and thing.gone):
+			return false
+	return boss == null or not is_instance_valid(boss) or boss.is_queued_for_deletion()
+
+## The table entry whose place the camera is on, or -1 (bank 6, $9C4D).
+## An entry in column 0 wants the camera at the room's left end; any other
+## wants it 3 to 5 pixels short of that screen. Entries already fought are
+## passed over.
+func _find_encounter() -> int:
 	var key := Vector2i(world, area)
 	var corner := _view_corner()
-	var before := _boss_camera_x
-	_boss_camera_x = corner.x
 	for index in room.encounters.size():
 		var entry := room.encounters[index]
 		if entry.is_boss:
@@ -694,31 +738,88 @@ func _check_boss() -> void:
 			continue
 		if floori(corner.y / VIEW_SIZE.y) != entry.row:
 			continue
-		var wanted := entry.camera_x()
-		if entry.column == 0:
-			if corner.x > 0.0:
-				continue
-		else:
-			# The camera must be on that spot, give or take a pixel. It
-			# scrolls at most 4 pixels at a time, so a step that small
-			# across the spot counts too.
-			var on_it := absf(corner.x - wanted) <= 1.0
-			var stepped_over := absf(corner.x - before) <= 4.0 and minf(corner.x, before) < wanted and maxf(corner.x, before) > wanted
-			if not on_it and not stepped_over:
-				continue
-		if entry.is_boss:
-			_start_fight(entry, key)
-		else:
-			_start_hold(entry, index)
-		break
+		var short := entry.column * 256 - int(corner.x)
+		if (entry.column == 0 and int(corner.x) == 0) or (entry.column != 0 and short >= 3 and short <= 5):
+			return index
+	return -1
 
-## A held fight: the screen stops; see _run_fight for the rest.
+## The fights the screen is held for, by the original's routine (bank 6,
+## $9C1D), once an update on the enemies' frame before any of them moves:
+## - the camera comes to an entry's place: the screen stops;
+## - nothing more while anything is on the screen. The eighth update that
+##   finds it clear brings in the entry's enemy, or its boss;
+## - a held fight's enemy gone (its puff too): 64 updates later the entry
+##   is marked as fought and the screen is freed. A boss's end is the
+##   boss's own business (_on_boss_defeated).
+func _check_boss() -> void:
+	if boss != null and is_instance_valid(boss):
+		boss_bar.set_health(ceili(maxi(boss.health, 0) * float(ENERGY_BLOCKS) / maxi(boss.full_health, 1)), ENERGY_BLOCKS)
+		hud_strip.show_boss(maxi(boss.health, 0))
+	if levels == null or room.top_down or not room.name.begins_with("World"):
+		return
+	if not show_enemies:
+		if hold_stage != 0:
+			_end_fight()
+		return
+	if not _enemies_frame():
+		return
+	if hold_stage == 2:
+		if not _screen_clear():
+			return
+		if _hold_count == 0:
+			_hold_count = HOLD_LEAVE_UPDATES
+		_hold_count -= 1
+		if _hold_count == 0:
+			_holds_done[_encounter_index] = true
+			_end_fight()
+		return
+	if hold_stage == 3:
+		return
+	var index := _find_encounter()
+	if index < 0:
+		return
+	var entry := room.encounters[index]
+	if hold_stage == 0:
+		_start_hold(entry, index)
+	if not _screen_clear():
+		return
+	hold_bound = true
+	_hold_count -= 1
+	if _hold_count > 0:
+		return
+	if entry.is_boss:
+		hold_stage = 3
+		_start_fight(entry, Vector2i(world, area))
+	else:
+		hold_stage = 2
+		_bring_in(entry)
+
+## The screen stops for an entry of the table; see _check_boss for the rest.
 func _start_hold(entry: Encounter, index: int) -> void:
-	_holds_done[index] = true
-	hold = entry
+	_encounter = entry
+	_encounter_index = index
+	hold = null if entry.is_boss else entry
 	hold_stage = 1
-	_hold_frames = 0
+	_hold_count = HOLD_ENTER_UPDATES
 	_hold_screen(Vector2(entry.camera_x(), entry.row * VIEW_SIZE.y))
+
+## A held fight's extra enemy (bank 6, $81F4 and $82DB). Its kind is the
+## entry's slot in the line-up of the line-up level as it stands now, which
+## the room turns to at this moment. It appears at the entry's place counted
+## from the screen's corner, also if that is inside a wall, and is updated
+## in the same round.
+func _bring_in(entry: Encounter) -> void:
+	_turn_to_level_lineup()
+	var spot := EnemySpot.new()
+	spot.position = fight_corner + entry.offset
+	spot.slot = entry.slot & 7
+	spot.points = entry.points
+	levels._set_kind(spot, levels.kind_in_slot(lineup, spot.slot))
+	spot.kinds = PackedInt32Array([spot.kind, spot.kind, spot.kind, spot.kind])
+	_make_enemy_at(spot, false)
+	if _made is OriginalEnemy:
+		_made.held_on_screen = true
+		_made.update_now()
 
 func _hold_screen(corner: Vector2) -> void:
 	turtle.sync_screen()
@@ -738,7 +839,6 @@ func living_enemies() -> int:
 	return count
 
 func _start_fight(entry: Encounter, key: Vector2i) -> void:
-	_boss_done[key] = true
 	_boss_key = key
 	boss = Bebop.new() if entry.kind == Bebop.KIND else Rocksteady.new()
 	boss.setup(entry.position, room, SpriteSet.cached("Kind%02X" % entry.kind), turtle)
@@ -783,6 +883,9 @@ func _end_fight() -> void:
 		hud_strip.show_boss(-1)
 	hold = null
 	hold_stage = 0
+	_hold_count = 0
+	_encounter = null
+	hold_bound = false
 	turtle.scroll_locked = false
 	if not fighting:
 		return
@@ -792,42 +895,11 @@ func _end_fight() -> void:
 		camera.limit_left = 0
 		camera.limit_right = room.size_pixels().x
 
-## Keeps the turtle on the screen; shows a boss's energy; and runs a held
-## fight: once the screen is clear of enemies, one more comes in after 16
-## frames, and 64 frames after that one is beaten the screen is freed.
-func _run_fight() -> void:
-	if not fighting:
-		return
-	if boss != null and is_instance_valid(boss):
-		boss_bar.set_health(ceili(maxi(boss.health, 0) * float(ENERGY_BLOCKS) / maxi(boss.full_health, 1)), ENERGY_BLOCKS)
-		hud_strip.show_boss(maxi(boss.health, 0))
-	if hold == null:
-		return
-	if not show_enemies:
-		_end_fight()
-		return
-	if living_enemies() > 0:
-		_hold_frames = 0
-		return
-	_hold_frames += 1
-	if hold_stage == 1 and _hold_frames >= HOLD_ENTER_FRAMES:
-		var spot := EnemySpot.new()
-		spot.position = fight_corner + hold.offset
-		spot.kind = hold.kind
-		spot.kinds = PackedInt32Array([hold.kind, hold.kind, hold.kind, hold.kind])
-		spot.hit_points = hold.hit_points
-		spot.touch_damage = hold.touch_damage
-		spot.half_size = hold.half_size
-		_make_enemy(spot)
-		hold_stage = 2
-		_hold_frames = 0
-	elif hold_stage == 2 and _hold_frames >= HOLD_LEAVE_FRAMES:
-		_end_fight()
-
 ## Beating the first boss frees the screen, and those who stood by are
 ## gone. Beating the last one ends the world: the original then starts the
 ## next world on its overworld. (What it shows in between is not done.)
 func _on_boss_defeated(kind: int) -> void:
+	_boss_done[_boss_key] = true
 	if _company != null and is_instance_valid(_company):
 		_company.queue_free()
 	_company = null
@@ -861,11 +933,14 @@ func placed_enemies() -> int:
 ## one made as the screen scrolls: such a one is not made inside a wall,
 ## and gets its first update in the same round.
 func _make_enemy(spot: EnemySpot, at := Vector2.INF, scrolled_in := false) -> void:
-	if not room.top_down and enemies_follow_camera and placed_enemies() >= PLACED_AT_ONCE:
-		return
 	var place := spot
+	if not room.top_down and enemies_follow_camera:
+		_check_lineup()
+		place = _in_lineup(spot)
+		if placed_enemies() >= PLACED_AT_ONCE:
+			return
 	if at != Vector2.INF and at != spot.position:
-		place = spot.moved_to(at)
+		place = place.moved_to(at)
 	_make_enemy_at(place, scrolled_in)
 	if at != Vector2.INF and not scrolled_in and _made is OriginalEnemy:
 		# One made as the room comes up does not face by where it stands:
@@ -873,6 +948,70 @@ func _make_enemy(spot: EnemySpot, at := Vector2.INF, scrolled_in := false) -> vo
 		_made.facing_left = _coming_up_facing_left
 	if _made != null:
 		_spot_enemies[spot] = _made
+
+## The room's clock (bank 7, $CC31): one more every 128th frame.
+func _run_clock() -> void:
+	if OriginalEnemy.counter() % CLOCK_FRAMES == 0 and room_clock < 0xFF00:
+		room_clock += 1
+
+## Points for a beaten enemy: to the score, and to the room's own count,
+## which the line-up level looks at.
+func add_points(points: int) -> void:
+	score += points
+	room_points += points
+	high_score = maxi(high_score, score)
+	if hud_strip != null:
+		hud_strip.show_scores(score, high_score)
+
+## A place of the room as the line-up in use fills it.
+func _in_lineup(spot: EnemySpot) -> EnemySpot:
+	if levels == null or lineup < 0 or lineup == room.entry_lineup or spot.kinds.is_empty() or spot.kinds[0] < 0x10:
+		return spot
+	var key := [spot, lineup]
+	if not _typed_spots.has(key):
+		_typed_spots[key] = levels.spot_in_lineup(spot, lineup)
+	return _typed_spots[key]
+
+## The line-up level, looked at each time a place is about to make its
+## enemy (bank 6, $816A to $8222; read from code, checked in the emulator).
+## - With 2000 points or more made in this room, the points pick a row of
+##   four times; the level worked out is how many of them, from the first,
+##   the room's clock is still short of (0 to 4).
+## - If that is not the level in force, it becomes the level, less 2 and
+##   not below 0. (The original takes one off below half and another
+##   below a quarter of the hit points of object 0, the turtle, whose hit
+##   points are kept elsewhere: that number is always 0.) A change of
+##   line-up is then due.
+## - A change that is due happens the next time a place makes its enemy
+##   with the screen clear of enemies: the room turns to its line-up for
+##   the level.
+func _check_lineup() -> void:
+	if levels == null or lineup < 0 or lineup == LINEUP_FIXED:
+		return
+	if _lineup_pending:
+		if _screen_clear():
+			_turn_to_level_lineup()
+		return
+	var row := -1
+	for points: int in LEVEL_POINTS:
+		if room_points < points:
+			break
+		row += 1
+	if row < 0:
+		return
+	var worked_out := 0
+	for time: int in LEVEL_TIMES[row]:
+		if room_clock >= time:
+			break
+		worked_out += 1
+	if worked_out != lineup_level:
+		lineup_level = maxi(worked_out - LEVEL_STEPS_BACK, 0)
+		_lineup_pending = true
+
+func _turn_to_level_lineup() -> void:
+	if levels != null and room.lineups.size() == 4:
+		lineup = room.lineups[lineup_level & 3]
+	_lineup_pending = false
 
 func _make_enemy_at(spot: EnemySpot, scrolled_in: bool) -> void:
 	_made = null
@@ -892,6 +1031,8 @@ func _make_enemy_at(spot: EnemySpot, scrolled_in: bool) -> void:
 		if enemies_follow_camera:
 			original.view_corner = _view_corner
 		original.setup(spot, room, pictures, turtle)
+		original.points = spot.points
+		original.beaten.connect(add_points)
 		if scrolled_in and original.kind_at(0, -8) == RoomData.KIND_SOLID:
 			original.free()   # its place is in a wall (bank 6, $82B1)
 			return
@@ -1065,10 +1206,14 @@ func _follow_camera() -> void:
 			thing.queue_free()
 
 ## The floor kinds that act on the turtle (Research/shots_spawning_tiles.md).
+## A moving floor (bank 4, $A4BF) adds its 1.25 pixels to the sideways
+## speed his ground routine sets, so it moves him once an update, with his
+## own step, and first on the second update after he lands (measured).
 func _apply_floor_kinds() -> void:
 	if turtle.state == Turtle.State.DEAD:
 		return
 	_floor_frame += 1
+	var his_update := (turtle._frame + 1) % Turtle.TICK_FRAMES == 0   # his update comes later this frame
 	var feet := turtle.position
 	if turtle.on_floor():
 		var x := floorf(feet.x)
@@ -1082,12 +1227,14 @@ func _apply_floor_kinds() -> void:
 				under = room.kind_at_pixel(x - 6.0, y + 1.0)
 		if under == RoomData.KIND_DEADLY and _floor_frame % Turtle.TICK_FRAMES == 0:
 			turtle.drain(RoomData.HURT_DAMAGE)
-		elif under == RoomData.KIND_MOVING_FLOOR or under == RoomData.KIND_MOVING_FLOOR_LEFT:
+		elif (under == RoomData.KIND_MOVING_FLOOR or under == RoomData.KIND_MOVING_FLOOR_LEFT) and his_update and _stood_before:
 			# Kind D carries him right and kind C left, 1.25 pixels an update,
 			# unless a wall is on that side (9 ahead at 7 and 24 up, 6 ahead at 32 up).
 			var way := 1.0 if under == RoomData.KIND_MOVING_FLOOR else -1.0
 			if not (room.solid_at(x + way * 9.0, y - 7.0) or room.solid_at(x + way * 9.0, y - 24.0) or room.solid_at(x + way * 6.0, y - 32.0)):
-				turtle.move_across(way * RoomData.MOVING_FLOOR_SPEED / 256.0 / Turtle.TICK_FRAMES)
+				turtle.move_across(way * RoomData.MOVING_FLOOR_SPEED / 256.0)
+	if his_update:
+		_stood_before = turtle.on_floor()
 
 ## The bar shows the turtle's energy as 8 blocks, a part-used block still lit.
 func _show_energy(energy: int, full: int) -> void:
@@ -1275,8 +1422,8 @@ func _physics_process(_delta: float) -> void:
 	_check_row()
 	_apply_floor_kinds()
 	_place_camera()
+	_run_clock()
 	_check_boss()
-	_run_fight()
 	if show_enemies and enemies_follow_camera:
 		_follow_camera()
 
