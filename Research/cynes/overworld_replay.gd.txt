@@ -2,7 +2,7 @@
 ## recording's buttons on world 1's overworld and writes what the remake did,
 ## frame by frame, for comparing. To use it, copy it into the project as a
 ## script on a bare Node in a temporary scene and run
-##   godot --headless --fixed-fps 60 res://tmp.tscn -- recording.json out.json
+##   godot --headless --fixed-fps 60 res://tmp.tscn -- recording.json out.json [world 0-4]
 ## The original acts on a button one frame after it is set, and drops a
 ## frame now and then (its frame counter does not move): both are allowed for.
 extends Node
@@ -13,6 +13,9 @@ func _ready() -> void:
 	var sewer = load("res://Scenes/Levels/Area1Sewer.tscn").instantiate()
 	add_child(sewer)
 	await get_tree().physics_frame
+	if args.size() > 2:
+		sewer.load_overworld(int(args[2]))
+	sewer.frame_clock = int(rows[0].fc) - 1
 	var w: OverworldTurtle = sewer.walker
 	w.position = Vector2(rows[0].tx, rows[0].ty)
 	w.stand()
@@ -27,6 +30,7 @@ func _ready() -> void:
 		last_fc = int(row.fc)
 		if lag:
 			out.append(out[-1])
+			sewer.frame_clock = int(row.fc)
 			continue
 		for bit: int in BITS:
 			if held & bit:
@@ -34,6 +38,8 @@ func _ready() -> void:
 			else:
 				Input.action_release(BITS[bit])
 		held = int(row.btn)
+		w.safe_updates = 1000   # the recordings were made with the turtle kept safe
+		w.visible = true
 		await get_tree().physics_frame
 		var things := []
 		for e in sewer.enemies.get_children():

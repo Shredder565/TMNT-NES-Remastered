@@ -1489,7 +1489,7 @@ func _ready() -> void:
 			else:
 				kinds_missing.append("%02X" % used_kind)
 		kinds_missing.sort()
-		check(kinds_used.size() == 29 and kinds_drawn == 26, "26 of the 29 enemy kinds in use are drawn from their own sprites (blocks: %s)" % ", ".join(kinds_missing))
+		check(kinds_used.size() == 29 and kinds_drawn == 27, "27 of the 29 enemy kinds in use are drawn from their own sprites (blocks: %s)" % ", ".join(kinds_missing))
 		sewer.load_area(0, 2)
 		var troop := 0
 		for foe_node in sewer.enemies.get_children():
@@ -2087,6 +2087,33 @@ func _test_overworld_animation() -> void:
 	check(turns_a.slice(0, 4) == ["1,0", "0,-1", "-1,0", "0,1"], "kind 9A drives right, up, left, down")
 	check(roller_a.speed == Vector2i(0, OverworldEnemy.ROLLER_UP), "at the original's speeds: 544 across, 576 up and down")
 	roller_a.free()
+
+	# Kind 9C (world 3) comes after the turtle, deciding only on half the frames.
+	var hunter_spot := EnemySpot.new()
+	hunter_spot.kind = 0x9C
+	hunter_spot.position = Vector2(270, 480)
+	var third_map := levels.overworld(2)
+	var hunter := OverworldEnemy.new()
+	add_child(hunter)
+	hunter.self_driven = false
+	small.position = Vector2(150, 480)
+	hunter.setup(hunter_spot, third_map, SpriteSet.cached("Kind9C"), small)
+	hunter.screen_corner = Vector2(24, 360)
+	hunter.frame_clock = 0
+	hunter.tick()
+	check(hunter.speed == Vector2i.ZERO and hunter.facing_left, "kind 9C faces the turtle but does not decide while bit 3 of the frame counter is clear")
+	hunter.frame_clock = 8
+	hunter.tick()
+	check(hunter.speed == Vector2i(-OverworldEnemy.ROLLER_ACROSS, 0) and hunter.position.x < 270.0, "with the bit set it drives at him")
+	hunter.frame_clock = 0
+	var before_x := hunter.position.x
+	hunter.tick()
+	check(hunter.position.x < before_x, "and keeps going on the frames it does not decide")
+	hunter.frame_clock = 8
+	for i in 80:
+		hunter.tick()
+	check(hunter.speed == Vector2i.ZERO and absf(hunter.position.x - small.position.x) < 8.0, "it stands once he is less than 8 pixels away (%s)" % str(hunter.position))
+	hunter.free()
 
 	# Kind 40 walks at the turtle and stops within 10 pixels.
 	var guard := EnemySpot.new()
