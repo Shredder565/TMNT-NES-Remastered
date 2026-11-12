@@ -144,6 +144,23 @@ var _floor_frame := 0
 var items: Node2D                    ## holds the items of the room on show
 var boss: Boss                       ## the room's boss while it is alive
 var boss_bar: Control                ## the boss's energy, under the turtle's
+## With a ROM the screen is laid out as the original's (Research/hud.md):
+## a room's picture starts 4 lines down and is 191 lines, with the
+## original's strip under it; the overworld fills all 240 lines and has no
+## strip; the left and right 8 pixels are dark. The help text (and the
+## plain bars) show only without a ROM, or when F9 asks for the text.
+var hud_strip: HudStrip
+var overworld_energy: OverworldEnergyBar
+var show_help_text := false
+var score := 0
+var high_score := 0
+var _hud_ripper: ChrRipper
+var _top_bar: ColorRect
+var _left_edge: ColorRect
+var _right_edge: ColorRect
+const ROOM_TOP_LINE := 4             ## the original writes its scroll 4 lines short (bank 7, $C47A)
+const ROOM_LINES := 191              ## lines of a room that show above the strip
+const RIGHT_EDGE_FROM_LINE := 2      ## the sprites that hide the right edge start here
 var fight_corner := Vector2.ZERO     ## where the screen is held during a boss fight
 var fighting := false
 var _company: Node2D                 ## what stands by during the fight
@@ -200,6 +217,7 @@ func _ready() -> void:
 	health_bar.get_parent().add_child(boss_bar)
 	OriginalEnemy.levels = levels
 	OriginalEnemy.pace_maker = turtle
+	_build_hud_strip()
 	if levels != null:
 		for shot_kind: int in Shot.KINDS:
 			Shot.damage_of[shot_kind] = levels.touch_damage(shot_kind)
@@ -270,7 +288,9 @@ func show_room(new_room: RoomData) -> void:
 	room = new_room
 	var ripper: ChrRipper = null
 	if levels != null:
-		ripper = ChrRipper.new(RomInfo.inspect_file(Game.ROM_PATH).chr_rom)
+		if _hud_ripper == null:
+			_hud_ripper = ChrRipper.new(RomInfo.inspect_file(Game.ROM_PATH).chr_rom)
+		ripper = _hud_ripper
 	background.texture = ImageTexture.create_from_image(room.build_image(ripper))
 	for child in solids.get_children():
 		child.queue_free()
@@ -312,7 +332,85 @@ func show_room(new_room: RoomData) -> void:
 	_wait_for_up_release = true
 	if room.top_down:
 		overworld_spot = walker.position
+	_lay_out_screen()
 	_show_hud_text()
+
+## Makes the strip and the dark edges (hidden until a ROM's room is shown).
+func _build_hud_strip() -> void:
+	var layer: Node = health_bar.get_parent()
+	hud_strip = HudStrip.new()
+	hud_strip.visible = false
+	layer.add_child(hud_strip)
+	layer.move_child(hud_strip, hud.get_index())   # the help text, when asked for, goes over it
+	overworld_energy = OverworldEnergyBar.new()
+	overworld_energy.visible = false
+	layer.add_child(overworld_energy)
+	layer.move_child(overworld_energy, hud.get_index())
+	_top_bar = ColorRect.new()
+	_top_bar.size = Vector2(256, ROOM_TOP_LINE)
+	_left_edge = ColorRect.new()
+	_left_edge.size = Vector2(8, 240)
+	_right_edge = ColorRect.new()
+	_right_edge.position = Vector2(248, RIGHT_EDGE_FROM_LINE)
+	_right_edge.size = Vector2(8, 240 - RIGHT_EDGE_FROM_LINE)
+	for bar: ColorRect in [_top_bar, _left_edge, _right_edge]:
+		bar.color = Color.BLACK
+		bar.visible = false
+		layer.add_child(bar)
+
+## Does the screen follow the original's layout (it does with a ROM)?
+func original_layout() -> bool:
+	return levels != null and room != null
+
+## Places the picture, the strip and the dark edges for the room or the
+## overworld that has just been loaded.
+func _lay_out_screen() -> void:
+	var as_original := original_layout()
+	var in_room := as_original and not room.top_down
+	var panel: ColorRect = health_bar.get_parent().get_node("Panel")
+	panel.visible = not as_original or in_room
+	panel.position.y = HudStrip.FIRST_LINE if in_room else float(VIEW_SIZE.y)
+	panel.size.y = 240.0 - panel.position.y
+	hud_strip.visible = in_room
+	overworld_energy.visible = as_original and room.top_down
+	if overworld_energy.visible:
+		overworld_energy.use(_hud_ripper)
+		overworld_energy.show_energy(turtle.health)
+	_top_bar.visible = in_room
+	_left_edge.visible = as_original
+	_right_edge.visible = as_original
+	health_bar.visible = not as_original
+	if boss_bar != null:
+		boss_bar.modulate.a = 0.0 if as_original else 1.0   # its own show and hide stay as the fight sets them
+	hud.visible = not as_original or show_help_text
+	var room_camera: Camera2D = turtle.get_node("Camera2D")
+	room_camera.offset.y = -ROOM_TOP_LINE if in_room else 0.0
+	# A room's places are counted on its picture, so the whole view goes down
+	# 4 lines. The overworld's are the original's own numbers, which its
+	# sprites follow and its map does not: there only the map goes down.
+	background.position.y = ROOM_TOP_LINE if as_original and room.top_down else 0.0
+	if in_room:
+		hud_strip.third_box = world == 2 or world == 3
+		hud_strip.use(_hud_ripper, room.chr_page, room.palettes[0] if not room.palettes.is_empty() else [])
+		hud_strip.show_turtle(current_turtle, turtle.health)
+	if as_original and room.top_down:
+		walker.camera.top_level = true
+		walker.camera.anchor_mode = Camera2D.ANCHOR_MODE_FIXED_TOP_LEFT
+		for side: int in [SIDE_LEFT, SIDE_TOP]:
+			walker.camera.set_limit(side, -10000000)
+		for side: int in [SIDE_RIGHT, SIDE_BOTTOM]:
+			walker.camera.set_limit(side, 10000000)
+		_overworld_corner()
+
+## The overworld's picture is the original's screen: its corner on the map.
+func _place_overworld_camera() -> void:
+	if original_layout() and room.top_down and walker.camera.top_level:
+		walker.camera.position = overworld_screen
+
+## F9: the help text over the picture, on or off.
+func set_help_text(on: bool) -> void:
+	show_help_text = on
+	hud.visible = not original_layout() or on
 
 ## The two lines of help under the picture.
 func _show_hud_text() -> void:
@@ -454,6 +552,7 @@ func _overworld_corner() -> Vector2:
 			overworld_screen.y += step.y
 	_overworld_last = spot
 	overworld_screen = overworld_screen.clamp(Vector2.ZERO, limit)
+	_place_overworld_camera()
 	return overworld_screen
 
 ## Puts the original's screen somewhere on the overworld (a door's record, a test).
@@ -461,6 +560,7 @@ func set_overworld_screen(corner: Vector2) -> void:
 	overworld_screen = corner
 	_overworld_last = walker.position.floor()
 	_camera_corner = corner
+	_place_overworld_camera()
 
 ## The original updates the turtle on one frame and everything else on
 ## the next, in turn. The enemies' frame is where they come in, act and go.
@@ -678,6 +778,8 @@ func _make_prop(kind: int, at: Vector2) -> Node2D:
 func _end_fight() -> void:
 	if boss_bar != null:
 		boss_bar.hide()
+	if hud_strip != null:
+		hud_strip.show_boss(-1)
 	hold = null
 	hold_stage = 0
 	turtle.scroll_locked = false
@@ -697,6 +799,7 @@ func _run_fight() -> void:
 		return
 	if boss != null and is_instance_valid(boss):
 		boss_bar.set_health(ceili(maxi(boss.health, 0) * float(ENERGY_BLOCKS) / maxi(boss.full_health, 1)), ENERGY_BLOCKS)
+		hud_strip.show_boss(maxi(boss.health, 0))
 	if hold == null:
 		return
 	if not show_enemies:
@@ -733,6 +836,7 @@ func _on_boss_defeated(kind: int) -> void:
 	_clearing = true
 	var cleared := world
 	hud.text = "WORLD %d CLEAR" % (cleared + 1)
+	hud.visible = true
 	await get_tree().create_timer(clear_message_seconds).timeout
 	_clearing = false
 	if levels != null and levels.has_overworld(cleared + 1):
@@ -987,6 +1091,9 @@ func _apply_floor_kinds() -> void:
 ## The bar shows the turtle's energy as 8 blocks, a part-used block still lit.
 func _show_energy(energy: int, full: int) -> void:
 	health_bar.set_health(ceili(energy * float(ENERGY_BLOCKS) / maxi(full, 1)), ENERGY_BLOCKS)
+	if hud_strip != null:
+		hud_strip.show_turtle(current_turtle, energy)
+		overworld_energy.show_energy(energy)
 
 func set_show_enemies(on: bool) -> void:
 	show_enemies = on
@@ -1049,13 +1156,22 @@ func use_door(door: Door) -> void:
 func _start_wipe() -> void:
 	_wipe_frame = 0
 	_wipe_rows = WIPE_ROWS_OVERWORLD if room.top_down else WIPE_ROWS_ROOM
-	_wipe_cover.position = Vector2.ZERO
-	_wipe_cover.size = Vector2(VIEW_SIZE)
+	_wipe_cover.position = Vector2(0, _picture_top())
+	_wipe_cover.size = Vector2(VIEW_SIZE.x, _picture_lines())
 	_wipe_cover.visible = true
 	turtle.visible = false
 	walker.visible = false
 	for held: Node in [turtle, walker, enemies, items]:
 		held.process_mode = Node.PROCESS_MODE_DISABLED
+
+## Where the map's picture starts on the screen and how many lines it has.
+func _picture_top() -> float:
+	return float(ROOM_TOP_LINE) if original_layout() and not room.top_down else 0.0
+
+func _picture_lines() -> float:
+	if not original_layout():
+		return float(VIEW_SIZE.y)
+	return 240.0 if room.top_down else float(ROOM_LINES)
 
 ## Is a door's change of sides still being shown?
 func wiping() -> bool:
@@ -1063,10 +1179,11 @@ func wiping() -> bool:
 
 func _step_wipe() -> void:
 	_wipe_frame += 1
-	var drawn := minf((_wipe_frame - 1) * RoomData.TILE, VIEW_SIZE.y)
-	_wipe_cover.position.y = drawn
-	_wipe_cover.size.y = VIEW_SIZE.y - drawn
-	_wipe_cover.visible = drawn < VIEW_SIZE.y
+	var lines := _picture_lines()
+	var drawn := minf((_wipe_frame - 1) * RoomData.TILE, lines)
+	_wipe_cover.position.y = _picture_top() + drawn
+	_wipe_cover.size.y = lines - drawn
+	_wipe_cover.visible = drawn < lines
 	var appear := WIPE_APPEAR_OVERWORLD if room.top_down else WIPE_APPEAR_ROOM
 	if _wipe_frame < 1 + _wipe_rows + WIPE_HOLD_FRAMES + appear:
 		return
@@ -1275,5 +1392,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		set_show_enemies(not show_enemies)
 	elif event.is_action_pressed("go_overworld"):
 		load_overworld(world)
+	elif event.is_action_pressed("toggle_help"):
+		set_help_text(not show_help_text)
 	elif event.is_action_pressed("toggle_fly"):
 		set_flying(not flying)

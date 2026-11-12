@@ -54,7 +54,8 @@ bytes 32 to 63, as "row 31"). Drawing that row above the picture makes
 the remake's title match the emulator in all 61,440 pixels; the notice
 matches too (its colour bytes there are 0, a blank tile). So the 4-line
 shift is a real property of how the picture is scrolled and not an
-emulator quirk; where the game sets it is not found yet (*open*).
+emulator quirk. Its cause is in `hud.md`: the program takes 4 off the
+vertical scroll before handing it to the console (7:$C47A).
 
 ## What the remake does
 

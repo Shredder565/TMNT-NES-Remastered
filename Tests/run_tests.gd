@@ -1913,6 +1913,7 @@ func _ready() -> void:
 	await _test_doors_as_shown()
 	await _test_losing_a_turtle()
 	await _test_title_screen()
+	await _test_screen_layout()
 
 	print("ROM screen")
 	var rom_path := "user://_test_fake.nes"
@@ -2478,11 +2479,11 @@ func _test_doors_as_shown() -> void:
 	var leo: Turtle = sewer.turtle
 	await get_tree().physics_frame
 	sewer.use_door(sewer.room.doors[4])   # the first manhole
-	check(not sewer.room.top_down and sewer.wiping() and not leo.visible and not small.visible and sewer._wipe_cover.visible and sewer._wipe_cover.size.y == 192.0, "stepping onto a manhole: the turtle is gone and the screen is black at once")
+	check(not sewer.room.top_down and sewer.wiping() and not leo.visible and not small.visible and sewer._wipe_cover.visible and sewer._wipe_cover.position.y == 4.0 and sewer._wipe_cover.size.y == 191.0, "stepping onto a manhole: the turtle is gone and the room's 191 lines are black at once")
 	check(leo.state == Turtle.State.CLIMB and leo.position == Vector2(40, 44), "he is already on the sewer's ladder, out of sight")
 	for i in 13:
 		await get_tree().physics_frame
-	check(sewer._wipe_cover.position.y == 96.0 and sewer._wipe_cover.size.y == 96.0, "the sewer is drawn in from the top, a row of tiles a frame (12 rows after 13 frames)")
+	check(sewer._wipe_cover.position.y == 100.0 and sewer._wipe_cover.size.y == 95.0, "the sewer is drawn in from the top, a row of tiles a frame (12 rows after 13 frames)")
 	for i in 12:
 		await get_tree().physics_frame
 	check(not sewer._wipe_cover.visible and sewer.wiping() and not leo.visible, "after 24 rows the picture is whole, and he is still not on show")
@@ -2508,6 +2509,71 @@ func RoomScene_hold_frames() -> int:
 	return 16 + 7
 
 # ============================ Losing a turtle ============================
+func _test_screen_layout() -> void:
+	print("Screen layout and HUD")
+	check(HudStrip.bar_tiles(128) == PackedByteArray([0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30]), "full energy is eight full tiles")
+	check(HudStrip.bar_tiles(0) == PackedByteArray([0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32]), "no energy is eight empty tiles")
+	check(HudStrip.bar_tiles(7)[0] == 0x31 and HudStrip.bar_tiles(8)[0] == 0x30 and HudStrip.bar_tiles(16)[1] == 0x32 and HudStrip.bar_tiles(17)[1] == 0x31, "a tile is 16 energy: 1 to 7 left over is a half tile, 8 or more a full one")
+	check(HudStrip.bar_tiles(0x45) == PackedByteArray([0x30, 0x30, 0x30, 0x30, 0x31, 0x32, 0x32, 0x32]), "energy $45 is four full tiles and a half one")
+	check(HudStrip.digit_tiles(1205) == PackedByteArray([10, 10, 10, 1, 2, 10, 5]), "a score is seven digits, nought being tile 10")
+	check(OverworldEnergyBar.sprite_tiles(0x45) == PackedByteArray([0xAA, 0xAA, 0xAA, 0xAA, 0xAC, 0xAE, 0xAE, 0xAE]), "the overworld's eight sprites follow the same rule")
+	var strip := HudStrip.new()
+	strip.turtle = 2
+	check(strip.tile_at(1, 0) == 0x1F and strip.tile_at(4, 0) == 10 and strip.tile_at(12, 0) == 0x30 and strip.tile_at(1, 2) == 0x17, "the strip has Pts., the score, the energy and HI where the original has them")
+	check(strip.tile_at(21, 0) == 0x48 and strip.tile_at(21, 1) == 0x49 and strip.tile_at(22, 0) == 0x4A and strip.tile_at(22, 1) == 0x4B, "the weapon box is the playing turtle's four tiles")
+	check(strip.tile_at(24, 0) == 0x3C and strip.tile_at(25, 1) == 0x3F and strip.tile_at(27, 0) == 0, "then the empty box, and no third box")
+	strip.third_box = true
+	strip.boss_energy = 38
+	check(strip.tile_at(27, 0) == 0x3C and strip.tile_at(12, 2) == 0x30 and strip.tile_at(14, 2) == 0x31 and strip.tile_at(15, 2) == 0x32, "worlds 3 and 4 have a third box; a boss's energy goes under the turtle's")
+	strip.free()
+	var scene = load("res://Scenes/Levels/Area1Sewer.tscn").instantiate()
+	add_child(scene)
+	scene.set_physics_process(false)
+	var panel: ColorRect = scene.get_node("HUD/Panel")
+	if scene.levels == null:
+		check(not scene.hud_strip.visible and scene.health_bar.visible and scene.hud.visible and panel.visible and panel.position.y == 192.0, "without a ROM the plain bar and text stay under the room")
+		scene.queue_free()
+		return
+	var small: OverworldTurtle = scene.walker
+	check(scene.room.top_down and not scene.hud_strip.visible and not panel.visible and not scene.hud.visible and not scene.health_bar.visible, "the overworld fills the screen: no strip, no panel, no help text")
+	check(scene.overworld_energy.visible and scene.overworld_energy.position == Vector2(96, 209), "its only extra is the row of energy sprites at 96 across, 209 down")
+	check(small.camera.top_level and small.camera.position == scene.overworld_screen and scene.background.position.y == 4.0, "the picture is the original's screen, with the map 4 lines lower than its sprites")
+	check(scene._left_edge.visible and scene._right_edge.visible and scene._right_edge.position == Vector2(248, 2), "the left 8 pixels and the right 8 (from line 2) are dark")
+	small.position += Vector2(0, -3)
+	scene._on_walker_moved()
+	check(small.camera.position == scene.overworld_screen, "the picture follows the original's screen as he walks")
+	scene.turtle.health = 0x45
+	scene.turtle.health_changed.emit(0x45, 128)
+	check(scene.overworld_energy.energy == 0x45, "the energy sprites follow his energy")
+	scene.turtle.health = 128
+	scene.turtle.health_changed.emit(128, 128)
+	scene.set_help_text(true)
+	check(scene.hud.visible, "F9 brings the help text back")
+	scene.set_help_text(false)
+	scene.door_wipe = false
+	scene.load_area(0, 0)
+	var room_camera: Camera2D = scene.turtle.get_node("Camera2D")
+	check(scene.hud_strip.visible and scene.hud_strip.position.y == 195.0 and panel.visible and panel.position.y == 195.0 and not scene.overworld_energy.visible, "in a room the strip starts on line 195")
+	check(room_camera.offset.y == -4.0 and scene._top_bar.visible and scene.background.position.y == 0.0, "and the room is 4 lines down the screen")
+	check(scene.hud_strip.page == scene.room.chr_page and scene.hud_strip.colours == scene.room.palettes[0], "the strip uses the room's own graphics page and first colour group")
+	check(not scene.hud.visible and not scene.health_bar.visible, "the plain bar and the help text are out of the way")
+	scene.set_turtle(3)
+	check(scene.hud_strip.turtle == 3 and scene.hud_strip.tile_at(21, 0) == 0x4C, "changing turtle changes the weapon box")
+	scene.turtle.drain(20)
+	check(scene.hud_strip.energy == scene.turtle.health and scene.hud_strip.tile_at(19, 0) != 0x30, "losing energy shows on the strip")
+	var lit := 0
+	var image: Image = scene.hud_strip.picture()
+	for y in image.get_height():
+		for x in image.get_width():
+			if image.get_pixel(x, y) != image.get_pixel(0, 0):
+				lit += 1
+	check(image.get_size() == Vector2i(256, 45) and lit > 400, "the strip is drawn from the ROM's tiles (%d lit pixels)" % lit)
+	scene.load_area(2, 2)
+	check(scene.hud_strip.third_box, "a world 3 room shows the third box")
+	scene.load_overworld(0)
+	check(not scene.hud_strip.visible and scene.overworld_energy.visible and room_camera.offset.y == 0.0, "back on the overworld the strip goes again")
+	scene.queue_free()
+
 func _test_title_screen() -> void:
 	print("Title screen")
 	check(Game.SCENE_TITLE == "res://Scenes/UI/Title.tscn" and ResourceLoader.exists(Game.SCENE_TITLE), "the title is a scene of its own")

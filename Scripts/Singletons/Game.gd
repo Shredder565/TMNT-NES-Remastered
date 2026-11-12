@@ -7,7 +7,7 @@ extends Node
 ## user:// is a per-user folder Godot manages for us. On Windows it is
 ## %APPDATA%\Godot\app_userdata\TMNT Remake. Nothing in it is ever committed to Git.
 ## Shown on the ROM screen so we can tell which update is installed.
-const BUILD := 36
+const BUILD := 37
 
 const ROM_PATH := "user://baserom.nes"
 const ROM_ASSETS_PATH := "user://rom_assets"
@@ -38,6 +38,7 @@ const DEFAULT_KEYS := {
 	"toggle_fly": [KEY_F6],
 	"go_overworld": [KEY_F7],
 	"toggle_enemies": [KEY_F8],
+	"toggle_help": [KEY_F9],
 }
 
 ## Action name -> controller buttons, on from the start with no setup.
@@ -65,6 +66,10 @@ const ANY_CONTROLLER := -1        ## listen to every controller plugged in
 
 func _ready() -> void:
 	_register_input_actions()
+	# The build number is in the window's title, since the original's
+	# screen layout leaves no room for it in the picture.
+	if DisplayServer.get_name() != "headless":
+		DisplayServer.window_set_title("TMNT Remake - build %d" % BUILD)
 
 func _register_input_actions() -> void:
 	for action: String in DEFAULT_KEYS:
