@@ -39,6 +39,27 @@
    ],
    "ticks": 8,
    "loop": true
+  },
+  "attack_down": {
+   "frames": [
+    "f184"
+   ],
+   "ticks": 1,
+   "loop": true
+  },
+  "attack_right": {
+   "frames": [
+    "f185"
+   ],
+   "ticks": 1,
+   "loop": true
+  },
+  "attack_up": {
+   "frames": [
+    "f186"
+   ],
+   "ticks": 1,
+   "loop": true
   }
  },
  "frames": {
@@ -233,6 +254,68 @@
     "index": 4118,
     "palette": 0,
     "flip_h": true,
+    "flip_v": false
+   }
+  ],
+  "f184": [
+   {
+    "x": -4,
+    "y": -22,
+    "index": 4098,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -6,
+    "index": 4126,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -6,
+    "index": 4100,
+    "palette": 0,
+    "flip_h": true,
+    "flip_v": false
+   }
+  ],
+  "f185": [
+   {
+    "x": -7,
+    "y": -7,
+    "index": 4114,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 1,
+    "y": -7,
+    "index": 4128,
+    "palette": 0,
+    "flip_h": true,
+    "flip_v": false
+   }
+  ],
+  "f186": [
+   {
+    "x": -8,
+    "y": -9,
+    "index": 4118,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -9,
+    "index": 4130,
+    "palette": 0,
+    "flip_h": false,
     "flip_v": false
    }
   ]

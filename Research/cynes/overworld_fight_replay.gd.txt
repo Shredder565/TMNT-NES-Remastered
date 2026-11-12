@@ -1,0 +1,60 @@
+## The remake's side of Research/cynes/overworld_fight_checks.py: replays a
+## recording's buttons on world 1's overworld and writes what the remake did,
+## frame by frame. Copy it into the project as the script of a bare Node in
+## a temporary scene and run
+##   godot --headless --fixed-fps 60 res://tmp.tscn -- recording.json out.json <turtle 0-3> <0 or 1> [strong]
+## The fourth argument is which of every two frames his update falls on
+## (try both and keep the better); "strong" gives him energy to spare.
+extends Node
+const BITS := {1: "move_right", 2: "move_left", 4: "move_down", 8: "move_up", 0x40: "attack"}
+func _ready() -> void:
+	var args := OS.get_cmdline_user_args()
+	var rows: Array = JSON.parse_string(FileAccess.get_file_as_string(args[0]))
+	var sewer = load("res://Scenes/Levels/Area1Sewer.tscn").instantiate()
+	add_child(sewer)
+	await get_tree().physics_frame
+	sewer.set_turtle(int(args[2]))
+	if args.size() > 4:
+		sewer.turtle.max_health = 1000000
+		sewer.turtle.health = 1000000
+	var w: OverworldTurtle = sewer.walker
+	w.position = Vector2(rows[0].tx, rows[0].ty)
+	w.stand()
+	sewer._place_enemies()
+	sewer.set_overworld_screen(Vector2(rows[0].cam[0], rows[0].cam[1]))
+	w._frame = int(args[3])
+	w.sideways_left = bool(rows[0].left)
+	w.stand()
+	var out := []
+	var last_fc := -1
+	var held := 0
+	for row: Dictionary in rows:
+		var lag := int(row.fc) == last_fc
+		last_fc = int(row.fc)
+		if lag and not out.is_empty():
+			out.append(out[-1])
+			continue
+		for bit: int in BITS:
+			if held & bit:
+				Input.action_press(BITS[bit])
+			else:
+				Input.action_release(BITS[bit])
+		held = int(row.btn)
+		await get_tree().physics_frame
+		var things := []
+		for e in sewer.enemies.get_children():
+			if e is OverworldEnemy and not e.is_queued_for_deletion():
+				things.append([e.kind, e.position.x, e.position.y, e.health])
+		var step := w.weapon_step()
+		var weapon := 0
+		var rel := [0, 0]
+		if step >= 0:
+			var swing: Dictionary = w.swings[w.attack_direction]
+			weapon = swing.weapon_pictures[step]
+			var box := w.weapon_box()
+			rel = [box.get_center().x - w.position.x, box.get_center().y - w.position.y]
+		out.append({"t": [w.position.x, w.position.y], "pic": w.picture_name, "attacking": w.attack_tick >= 0, "weapon": weapon, "rel": rel, "energy": sewer.turtle.health, "safe": w.safe_updates, "e": things})
+	var file := FileAccess.open(args[1], FileAccess.WRITE)
+	file.store_string(JSON.stringify(out))
+	file.close()
+	get_tree().quit()

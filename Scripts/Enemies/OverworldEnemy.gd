@@ -7,8 +7,8 @@ extends Node2D
 ## Research/overworld.md. Positions are the original's own position values,
 ## speeds are in 1/256 pixel per update, and an update is two frames.
 ##
-## They only move for now: touching one does not hurt the overworld turtle
-## and he cannot hit them yet.
+## Touching one hurts the turtle and his weapon hurts them; the map scene
+## (RoomScene) tests the boxes, since it knows both sides.
 
 const KINDS := [0x9A, 0x9B, 0x40]
 const TICK_FRAMES := 2
@@ -18,6 +18,7 @@ const ROLLER_ACROSS_VAN := 0x0260
 const ROLLER_UP := 0x0240
 const ROLLER_UP_VAN := 0x0280
 const SOLDIER_SPEED := 0x0220
+const SAFE_UPDATES := 24           ## after a hit that does not finish it, nothing can hit it for this long
 const SOLDIER_NEAR := 10           ## closer than this on one axis, the soldier does not walk along it
 const FACE_FROM := 8               ## further than this across, he turns to face the turtle
 ## The points the original tests before moving, from the enemy's position:
@@ -48,6 +49,8 @@ var speed := Vector2i.ZERO         ## 1/256 pixel per update
 var facing_left := false
 var animation := ""                ## "up", "down" or "across"
 var health := 1
+var half_size := Vector2i(8, 16)   ## half its box, from the ROM's table for its kind
+var safe_updates := 0              ## updates left in which it cannot be hit
 var touch_damage := 0
 var weapon_damage := 1
 var weapon_damage_low := 1
@@ -70,6 +73,8 @@ func setup(spot: EnemySpot, map: RoomData, pictures: SpriteSet, turtle: Node2D) 
 	target = turtle
 	health = maxi(spot.hit_points, 1)
 	touch_damage = spot.touch_damage
+	if spot.half_size != Vector2i.ZERO:
+		half_size = spot.half_size
 	animation = "up"   # the ROM starts all three on their "up" animation
 	# It comes in facing the turtle (measured for the soldier; the rollers
 	# were only ever seen coming in with the turtle to their right).
@@ -96,7 +101,28 @@ func tick() -> void:
 			_soldier()
 	_move()
 	_animation_updates += 1
+	if safe_updates > 0:
+		safe_updates -= 1
 	_show_picture()
+
+## Its box on the map, as the original places an enemy's: as wide as the
+## half width to each side, and from the half height above its position
+## down to 2 above it (Research/hit_boxes.md).
+func box() -> Rect2:
+	var at := position.floor()
+	return Rect2(at.x - half_size.x, at.y - half_size.y, half_size.x * 2.0, maxf(half_size.y - 2.0, 1.0))
+
+## The turtle's weapon lands. Returns true if that finished it.
+func take_hit(amount: int) -> bool:
+	if safe_updates > 0 or is_queued_for_deletion():
+		return false
+	health -= amount
+	if health <= 0:
+		Puff.leave(self)
+		queue_free()
+		return true
+	safe_updates = SAFE_UPDATES
+	return false
 
 ## A roller keeps going the way it is going until a wall or water is in
 ## the way, then tries the next way round: kind 9A goes right, up, left,
@@ -240,7 +266,7 @@ func _move() -> void:
 	position += Vector2(whole)
 
 func _show_picture() -> void:
-	_picture.visible = sprites != null
+	_picture.visible = sprites != null and (safe_updates == 0 or safe_updates % 2 == 0)   # it blinks after a hit
 	queue_redraw()
 	if sprites == null:
 		return

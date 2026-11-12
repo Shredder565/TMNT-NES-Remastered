@@ -69,6 +69,19 @@ const T_SWING_ANIMATIONS := [0x9F48, 0x9F50, 0x9F4C]   ## up, forward, down: one
 const T_WEAPON_PLACES := 0xE23F     ## per weapon animation ($9C on): list of (across, down) per frame
 const WEAPON_PLACES_END := 0xE2DD
 const WEAPON_ANIMATION_STEP := 0x0C ## the weapon's animation is the turtle's plus this
+## Animations (bank 6), for the turtle and his weapon (object kinds below
+## $80, animation numbers $80 and up): the list of picture numbers each
+## animation shows, ending in $FF (or $FE when it repeats), and how many
+## updates each picture stays.
+const T_ANIMATION_PICTURES := 0x8BC5  ## per animation number (less $80): where its list is
+const T_ANIMATION_UPDATES := 0x9305   ## plus the animation number: updates per picture
+## The attack on the overworld (Research/overworld.md). Directions there
+## are numbered 0 down, 1 up, 2 right, 3 left.
+const T_OW_SWING_ANIMATIONS := 0xAA8E   ## bank 4, per direction: the turtle's animation
+const T_OW_WEAPON_ANIMATIONS := 0xE135  ## bank 7, per turtle and direction: the weapon's animation
+const T_OW_WEAPON_PLACES := 0xE2DD      ## bank 7, per weapon animation ($B0 on): (across, down) per picture
+const OW_FIRST_WEAPON_ANIMATION := 0xB0
+const OW_STANDING_ANIMATION := 0xC3     ## any of his overworld animations has the same box
 const ENEMY_LINEUPS := 18
 const OVERWORLD_LINEUP := 16      ## every overworld uses this one
 const ENEMY_SPOT_BYTES := 3
@@ -356,6 +369,41 @@ func box_half_size(kind: int, animation: int) -> Vector2i:
 		table = T_BOX_HIGH_KIND_HIGH_ANIM if animation >= 0x80 else T_BOX_HIGH_KIND_LOW_ANIM
 	var index := _byte(6, table + animation)
 	return Vector2i(_byte(6, T_BOX_SIZES + index * 2), _byte(6, T_BOX_SIZES + index * 2 + 1))
+
+## The picture numbers an animation of the turtle or his weapon shows, in order.
+func animation_pictures(animation: int) -> PackedInt32Array:
+	var address := _word(6, T_ANIMATION_PICTURES + (animation & 0x7F) * 2)
+	var pictures := PackedInt32Array()
+	while pictures.size() < 32 and _byte(6, address) < 0xFE:
+		pictures.append(_byte(6, address))
+		address += 1
+	return pictures
+
+## How many updates each picture of that animation stays.
+func animation_updates(animation: int) -> int:
+	return maxi(_byte(6, T_ANIMATION_UPDATES + animation), 1)
+
+## A turtle's attack on the overworld: `direction` 0 down, 1 up, 2 right,
+## 3 left. Returns { "pictures": his picture number for each step;
+## "weapon_pictures": the weapon's; "updates": how many updates a step
+## lasts; "places": where the weapon's middle is on each step, from his
+## position, before mirroring; "half": half the weapon's box }.
+func overworld_swing(turtle_index: int, direction: int) -> Dictionary:
+	var body_animation := _byte(4, T_OW_SWING_ANIMATIONS + direction)
+	var animation := _byte(7, T_OW_WEAPON_ANIMATIONS + turtle_index * 4 + direction)
+	var weapon_pictures := animation_pictures(animation)
+	var address := _word(7, T_OW_WEAPON_PLACES + (animation - OW_FIRST_WEAPON_ANIMATION) * 2)
+	var places: Array[Vector2] = []
+	for i in weapon_pictures.size():
+		var across := _byte(7, address + i * 2)
+		var down := _byte(7, address + i * 2 + 1)
+		places.append(Vector2(across - 256 if across > 127 else across, down - 256 if down > 127 else down))
+	return { "pictures": animation_pictures(body_animation), "weapon_pictures": weapon_pictures,
+		"updates": animation_updates(body_animation), "places": places, "half": Vector2(box_half_size(0, animation)) }
+
+## Half the overworld turtle's own box (it is centred on his position).
+func overworld_turtle_half() -> Vector2:
+	return Vector2(box_half_size(0, OW_STANDING_ANIMATION))
 
 ## One swing of a turtle's weapon: `direction` 0 up, 1 forward, 2 down.
 ## Returns { "places": where the weapon's middle is on each frame, from the

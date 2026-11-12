@@ -28,8 +28,8 @@ $059F; the two graphics pages ($27, $28).
 | Enemies appearing | come in at the screen's edges | all there from the start | as the original (below) |
 | Background, colours | nothing: no colour of the list at $059F and neither graphics page changed in 3,800 recorded frames, and standing still for 600 frames no pixel of the map changed (measured) | nothing | nothing |
 | The van | not in world 1: its places use only kinds 40, 9A and 9B (code: placement table 6:$AC8F, line-up 16) | - | - |
-| The turtle's attack (B) | he swings his weapon on the overworld (code 4:$AA25: state 1, animations $C6 to $C8) | missing | still missing |
-| Touching an enemy | hurts: kind 40 takes 10, kinds 9A and 9B take 128, all of a turtle's energy (code: damage table 6:$8B05) | nothing | still nothing |
+| The turtle's attack (B) | he swings his weapon on the overworld (code 4:$AA25: state 1, animations $C6 to $C8) | missing | as the original ("The fight" below) |
+| Touching an enemy | hurts: kind 40 takes 10, kinds 9A and 9B take 128, all of a turtle's energy (code: damage table 6:$8B05) | nothing | as the original |
 | Kind 9C, 42, AC | not placed in world 1 | stand still | unchanged |
 
 ## The turtle's walk (measured; code 4:$AA44, 4:$A634)
@@ -164,9 +164,85 @@ a dropped frame); the picture on about 85% of them.
 Both recordings include an enemy standing still for a single update in
 mid-walk; the rules above produce the same stop at the same place.
 
+## The fight (added 12 November 2026, second pass)
+
+Recorded: the attack in all four directions for each of the four
+turtles; a soldier walking into the turtle and being hit; a soldier
+standing next to him, missed by one swing and hit by another; and a
+roller driving past him while he swings. `Research/cynes/overworld_fight_checks.py`
+and `overworld_fight_replay.gd.txt` are the scripts.
+
+**The attack** (code 4:$AA25, 7:$E115; measured). A new press of B puts
+him in state 1 with animation $C7 (facing down), $C6 (up) or $C8 (right
+and left), from the four bytes at 4:$AA8E. Their pictures are 184, 186
+and 185, in the animation lists every object uses (bank 6: the list's
+address at $8BC5 + twice the animation number less $80, updates per
+picture at $9305 + the animation number): two pictures of 3 updates. As
+with every animation the first picture is one update short, so the
+weapon is out for 5 updates (10 frames) and he is held for 6. He can
+move again on the 7th.
+
+The weapon is object slot 1. Its animation comes from the 16 bytes at
+7:$E135 (four per turtle, by direction: down, up, right, left): Leonardo
+$B1 $B0 $B2, Raphael $B4 $B3 $B5, Michelangelo $B7 $B6 $B8, Donatello
+$BA $B9 $BB. Where it is, from his position, is in the table at 7:$E2DD:
+one pointer per weapon animation from $B0, then (across, down) for each
+picture. Leonardo: down (-2, 18), up (4, -17), across (13, 1). Donatello
+reaches 17 across; Michelangelo's moves between its two pictures. The
+across number is mirrored by the way he last walked sideways, for up and
+down attacks as well (his own up and down pictures are mirrored by it
+too). The weapon's box is centred there; half its size comes from the
+usual box tables (6:$8835, 6:$8A43) by the weapon's animation: 3 x 4 for
+most, 6 x 3 for Donatello across. The weapons are single 8 x 16 sprites
+in sprite colour group 3.
+
+Pressed while he walks, the attack does not stop him: he goes on at
+walking speed the way he was going for as long as it lasts (measured
+going right over open ground; what a wall does then was not looked at -
+the remake stops him at one).
+
+**Boxes** (code 6:$9AD3, the same routine as in rooms). The overworld
+turtle's own box is 8 x 8, centred on his position. An enemy's is its
+half width to each side and from its half height above its position down
+to 2 above it: kind 40 is 6 wide and 12 tall, the rollers 24 wide and 18
+tall. Two boxes meet when they overlap; edges that only touch count when
+the enemy is to the left or above (code 6:$9AE1).
+
+**Hitting** (measured). A weapon hit takes the turtle's weapon damage
+(the same per-turtle row as in rooms, 6:$9BCB; Leonardo 7). Kind 40 has
+6 hit points and goes at once: it turns into object kind $2C, a burst
+that shows for about 46 frames (the remake shows its usual puff, 18
+frames). A roller has 48; after a hit it blinks and cannot be hit again
+for 24 updates, and it keeps driving.
+
+An enemy that is touching the turtle's own box when he attacks is hit as
+if by the weapon (measured once: a soldier standing against him was
+finished on the first frame of a downward swing whose weapon box did not
+reach it). This is a reading of one recording, not of the code.
+
+**Being hurt** (measured). An enemy touching him takes its touch damage
+off his energy (kind 40: 128 to 118; a roller: all of it) and he blinks,
+safe, for 24 updates. He is not thrown back. If he was attacking and the
+enemy could not be hit (a roller within its 24 updates), he is hurt just
+the same and the attack stops.
+
+**Replay against the original**, same buttons, frame by frame:
+
+| Recording | Frames | Result |
+| --- | --- | --- |
+| The attack, four directions and while walking, each turtle | 320 x 4 | his position the same on every frame; the weapon's picture and place the same on all but the first and last frame of each swing (the remake is one frame early at both ends) |
+| Soldier walks into him, then is hit | 420 | his energy the same on every frame; the soldier goes 2 frames later than in the original |
+| Soldier beside him: a miss, then a hit | 664 | the soldier alive and its hit points the same on every frame |
+| Roller drives past while he swings | 450 | the roller's hit points the same on every frame; the same 51 frames of blinking after it touched him |
+
 ## Still different from the original
 
-- The overworld turtle cannot attack and is not hurt by enemies.
+- Losing all his energy on the overworld only puts him back at the
+  world's start after a moment (the placeholder; what the original does
+  is the next piece of work).
+- A beaten soldier leaves the remake's usual puff, not the original's
+  longer burst (kind $2C).
+- No sounds.
 - Kind 9C (it chases the turtle, code 5:$87F8) and kinds 42 and AC stand
   still. None is placed in world 1.
 - The remake's view of the overworld is centred on the turtle with the

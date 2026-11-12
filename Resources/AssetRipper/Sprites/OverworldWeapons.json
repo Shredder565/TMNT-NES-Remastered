@@ -1,0 +1,163 @@
+{
+ "about": "Which ROM tiles make up the four turtles' weapons on the overworld map, by the original's picture number (frame 'w188' is picture 188). Tile numbers and positions only; no graphics. Positions are in pixels from the weapon's own position value, with the turtle's sideways flag facing right.",
+ "tile_height": 16,
+ "palettes": {
+  "3": [
+   15,
+   15,
+   22,
+   55
+  ]
+ },
+ "animations": {},
+ "frames": {
+  "w176": [
+   {
+    "x": -4,
+    "y": -8,
+    "index": 4342,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": true
+   }
+  ],
+  "w177": [
+   {
+    "x": -4,
+    "y": -8,
+    "index": 4346,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": true
+   }
+  ],
+  "w178": [
+   {
+    "x": -4,
+    "y": -8,
+    "index": 4346,
+    "palette": 3,
+    "flip_h": true,
+    "flip_v": true
+   }
+  ],
+  "w187": [
+   {
+    "x": -4,
+    "y": -8,
+    "index": 4334,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "w188": [
+   {
+    "x": -4,
+    "y": -8,
+    "index": 4336,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "w189": [
+   {
+    "x": -4,
+    "y": -8,
+    "index": 4338,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "w190": [
+   {
+    "x": 0,
+    "y": -8,
+    "index": 4340,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -8,
+    "index": 4340,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "w191": [
+   {
+    "x": -4,
+    "y": -8,
+    "index": 4342,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "w192": [
+   {
+    "x": -4,
+    "y": -8,
+    "index": 4344,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "w193": [
+   {
+    "x": -4,
+    "y": -8,
+    "index": 4346,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "w194": [
+   {
+    "x": -4,
+    "y": -8,
+    "index": 4346,
+    "palette": 3,
+    "flip_h": true,
+    "flip_v": false
+   }
+  ],
+  "w195": [
+   {
+    "x": -4,
+    "y": -8,
+    "index": 4348,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "w196": [
+   {
+    "x": -4,
+    "y": -8,
+    "index": 4348,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": true
+   }
+  ],
+  "w208": [
+   {
+    "x": -4,
+    "y": -8,
+    "index": 4334,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": true
+   }
+  ]
+ }
+}
