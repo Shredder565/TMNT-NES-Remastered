@@ -9,6 +9,7 @@ extends CharacterBody2D
 
 signal health_changed(health: int, max_health: int)
 signal died
+signal moved   ## every frame, after he has (or has not) moved
 
 enum State { NORMAL, CROUCH, HURT, DEAD, CLIMB }
 
@@ -131,6 +132,7 @@ func _physics_process(delta: float) -> void:
 	_frame += 1
 	if _frame % TICK_FRAMES == 0:
 		_tick()
+	moved.emit()   # the room puts the screen in place now, not a frame late
 
 ## One game update, in the same order as the original: move with the
 ## current speed, let the controls ask for the next speed, then test the map.

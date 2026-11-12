@@ -129,6 +129,7 @@ func _ready() -> void:
 	turtle.health = TURTLE_ENERGY
 	turtle.health_changed.connect(_show_energy)
 	turtle.died.connect(_on_turtle_died)
+	turtle.moved.connect(_place_camera)
 	_show_energy(turtle.health, turtle.max_health)
 	boss_bar = health_bar.duplicate()
 	boss_bar.position.y += 10.0

@@ -985,6 +985,21 @@ func _ready() -> void:
 		sewer.load_area(0, 0)
 		for i in 20:
 			await get_tree().physics_frame
+		# The screen must sit where his scroll number says on every frame,
+		# also on the frames he moves without it scrolling.
+		leo.position = Vector2(200, 176)
+		for i in 6:
+			await get_tree().physics_frame
+		var lens: Camera2D = leo.get_node("Camera2D")
+		var steady := true
+		var walked_from := leo.position.x
+		for way in ["move_left", "move_right", "move_left"]:
+			Input.action_press(way)
+			for i in 14:
+				await get_tree().physics_frame
+				steady = steady and lens.global_position.x - 128.0 == floorf(leo.scroll_x)
+			Input.action_release(way)
+		check(steady and leo.position.x != walked_from, "the screen does not shake as he walks to and fro in the middle of it")
 		leo.position = Vector2(440, 176)
 		Input.action_press("move_right")
 		for i in 60:
