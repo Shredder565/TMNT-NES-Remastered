@@ -136,3 +136,53 @@ After a first difference the two runs are no longer the same game, so
 the counts for these runs say little: over the whole batch the turtle
 agrees on 5991 frames, his energy on 6676, his box on 6223, and the
 enemies on 6166 of 7590.
+
+## Follow-up (12 November 2026, later)
+
+The open differences of the second batch were gone through. Read from
+code or measured, and now in the remake:
+
+- **The screen up and down** (read from 4:$9906, measured on the last
+  room's ladder). A room taller than one screen is shown a whole screen
+  at a time and the screen never follows a jump. It changes when the
+  turtle's middle is less than 11 from the screen's top while he climbs
+  with Up held, or 172 or more down it. Every object is cleared; the
+  screen moves 4 pixels an update for 48 updates; he is held meanwhile
+  and ends 32 pixels on. The remake centred the screen on him. Guess in
+  the remake: the new screen's enemies come up as when a room does.
+- **Up at a ladder.** "States 0B and 0C" are taking a ladder and being on
+  one; there is a ladder at that spot of the first sewer. What differed
+  was timing: after taking a ladder he pauses, and like everything else
+  he is moved by what the update before decided, so letting go of Up or
+  Down takes one more step. Both are now so.
+- **Swings.** For two updates after a swing ends a press of attack is
+  thrown away: a new forward swing can start 11 updates after the last
+  began, an upward or downward one 13 (measured by pressing again at
+  every delay). A downward swing keeps him in the crouching box, lowered,
+  also in the air; when it ends the low box stays one update more, then
+  the full box 8 lower for one. Any swing's box outlasts it by one
+  update, and a swing made in a high jump uncurls him for the rest of
+  it.
+- **Kind 92's throw** did come up once the runs were repeated: the
+  comparison now takes the original's unpredictable number from the
+  recording, as the fed comparison does. In play the remake rolls.
+
+Both batches again, 14880 frames:
+
+| Batch | Turtle | Energy | His box | Enemies |
+| --- | --- | --- | --- | --- |
+| First (7390 frames) | 7390 | 7390 | 7390 | 7389 |
+| Second (7490 frames) | 7083 | 7305 | 7098 | 6987 |
+
+Eight of the second batch's ten runs now agree on the turtle and his
+energy for every frame. Still open there:
+
+- the first sewer's held fight (8 frames; not looked at yet);
+- the fifth room's run that starts 32 pixels high (31 frames; it is the
+  remake's way of standing him at a place);
+- the last room's mixed run: from frame 262 a kind 92 is hit once more
+  in the remake than in the original, and the two part; a box 8 lower
+  without a swing at frame 302 is not explained either;
+- the fourth room's mixed run: at frame 576 the remake makes a kind 91
+  the original does not;
+- one frame in a jumping run where the ball box comes a frame late.

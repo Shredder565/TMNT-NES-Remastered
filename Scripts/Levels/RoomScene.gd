@@ -59,6 +59,10 @@ const SPAWN_RIGHT := 0xF8            ## in a room: the edge that makes enemies, 
 const SPAWN_LEFT := 0x07             ## ...and scrolling left
 const SPAWN_TOP := 0x17              ## which row of screens: this far down the screen, or
 const SPAWN_BOTTOM := 0xB8           ## this far when the screen is not scrolling up
+const ROW_TOP := 11                  ## the turtle's middle this near the screen's top (climbing, Up held) changes the screen
+const ROW_BOTTOM := 172              ## ...or this far down it
+const ROW_SCROLL := 4                ## pixels an update while it changes
+const CAMERA_DOWN := 120.0           ## the camera's middle below the screen's top (the HUD strip is under the room)
 const PLACED_AT_ONCE := 6            ## the original's object slots 5 to 10
 const REMOVE_MARGIN := 4.0           ## and removed when it is this close to leaving
 ## World 1's items and boss, as seen in the original (Research/world1.md).
@@ -130,6 +134,10 @@ var enemies: Node2D                  ## holds the enemies of the map on show, an
 var enemies_follow_camera := true    ## false: every enemy of a room is there from the start
 var _spot_enemies := {}              ## enemy place -> the enemy it last made
 var _coming_up_facing_left := false
+var _screen_row := 0                 ## which row of screens is on show
+var _row_way := 0                    ## -1 or 1 while the screen changes row
+var _row_frame := 0
+var _view_top := 0.0                 ## the top of the screen in the room
 var _made: Node2D                    ## what _make_enemy_at has just made, if anything
 var _camera_corner := Vector2.ZERO
 var _floor_frame := 0
@@ -384,6 +392,8 @@ func _place_enemies() -> void:
 		enemies.remove_child(child)
 		child.queue_free()
 	_spot_enemies.clear()
+	if _row_way == 0:
+		_settle_row()
 	_camera_corner = _view_corner()
 	if not show_enemies or room == null:
 		return
@@ -843,11 +853,67 @@ func _view_corner() -> Vector2:
 	if room == null or room.top_down:
 		return Vector2.ZERO
 	turtle.sync_screen()
-	var size := room.size_pixels()
-	var down := clampf(turtle.position.y - 24.0 - 120.0, 0.0, maxf(size.y - VIEW_SIZE.y, 0.0))
+	var down := _view_top
 	if fighting:
 		down = fight_corner.y
 	return Vector2(floorf(turtle.scroll_x), down)
+
+## --- the screen up and down (Research/scrolling.md, read from 4:$9906) ---
+## A room taller than one screen is shown a whole screen at a time. The
+## screen does not follow a jump. It changes when the turtle's middle is
+## less than 11 from the screen's top while he climbs with Up held, or 172
+## or more down it: everything on the screen is cleared and the screen
+## moves 4 pixels an update for 48 updates, the turtle held meanwhile.
+
+## Puts the screen on the row of screens the turtle is in, at once.
+func _settle_row() -> void:
+	_row_way = 0
+	if room == null or room.top_down:
+		_screen_row = 0
+		_view_top = 0.0
+		return
+	var rows := maxi(room.size_pixels().y / VIEW_SIZE.y, 1)
+	_screen_row = clampi(floori((turtle.position.y - RoomData.CENTRE_TO_FEET) / VIEW_SIZE.y), 0, rows - 1)
+	_view_top = _screen_row * VIEW_SIZE.y
+
+## Starts a change of screen if the turtle has reached the top or bottom.
+func _check_row() -> void:
+	if fighting or turtle.state == Turtle.State.DEAD:
+		return
+	var rows := room.size_pixels().y / VIEW_SIZE.y
+	var middle := floori(turtle.position.y) - RoomData.CENTRE_TO_FEET - _screen_row * VIEW_SIZE.y
+	var way := 0
+	if middle < ROW_TOP and _screen_row > 0 and turtle.state == Turtle.State.CLIMB and Input.is_action_pressed("move_up"):
+		way = -1
+	elif middle >= ROW_BOTTOM and _screen_row < rows - 1:
+		way = 1
+	if way == 0:
+		return
+	_row_way = way
+	_row_frame = 0
+	turtle.set_physics_process(false)
+	for child in enemies.get_children():   # the original clears every object
+		enemies.remove_child(child)
+		child.queue_free()
+	_spot_enemies.clear()
+
+## One frame of a change of screen: every second frame the screen moves 4
+## pixels. The turtle keeps his place in the room for the first 40 of the
+## 48 updates and is then carried along, so he ends 32 pixels on (measured).
+func _step_row_change() -> void:
+	_row_frame += 1
+	if _row_frame % Turtle.TICK_FRAMES != 0:
+		return
+	var step := _row_frame / Turtle.TICK_FRAMES
+	_view_top += _row_way * ROW_SCROLL
+	var middle := mini(ROW_TOP + ROW_SCROLL * step, ROW_BOTTOM - 1) if _row_way < 0 else maxi(ROW_BOTTOM - ROW_SCROLL * step, ROW_TOP + 1)
+	turtle.position.y = _view_top + middle + RoomData.CENTRE_TO_FEET + turtle.position.y - floorf(turtle.position.y)
+	if step >= VIEW_SIZE.y / ROW_SCROLL:
+		_screen_row += _row_way
+		_view_top = _screen_row * VIEW_SIZE.y
+		_row_way = 0
+		turtle.set_physics_process(true)
+		_place_enemies()   # guess: the new screen's enemies come up as when a room does
 
 ## Enemies coming and going as the screen scrolls, by the original's rule
 ## (bank 6, $80F6 and $8112; Research/enemy_spawning.md). Once an update,
@@ -1057,6 +1123,7 @@ func _physics_process(_delta: float) -> void:
 	if flying:
 		var mover: Node2D = walker if room.top_down else turtle
 		mover.position += Input.get_vector("move_left", "move_right", "move_up", "move_down") * 4.0
+		_settle_row()
 		_place_camera()
 		if not room.top_down and show_enemies and enemies_follow_camera:
 			_follow_camera()
@@ -1071,6 +1138,11 @@ func _physics_process(_delta: float) -> void:
 	if door != null:
 		use_door(door)
 		return
+	if _row_way != 0:
+		_step_row_change()
+		_place_camera()
+		return
+	_check_row()
 	_apply_floor_kinds()
 	_place_camera()
 	_check_boss()
@@ -1086,6 +1158,7 @@ func _place_camera() -> void:
 	turtle.sync_screen()
 	var camera: Camera2D = turtle.get_node("Camera2D")
 	camera.position.x = floorf(turtle.scroll_x) + VIEW_SIZE.x / 2.0 - turtle.position.x
+	camera.position.y = _view_top + CAMERA_DOWN - turtle.position.y
 	OriginalEnemy.screen_moved_to(floori(turtle.scroll_x))
 
 func set_flying(on: bool) -> void:

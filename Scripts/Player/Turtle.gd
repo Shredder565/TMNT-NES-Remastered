@@ -44,6 +44,7 @@ const SCREEN_RIGHT := 236.0
 const SPRITE_FEET_BELOW := 24.0   ## the original's pictures are drawn with his feet this far below his position value
 ## His boxes when no ROM is there to ask (the ROM's own numbers).
 const DEFAULT_BODY_BOXES := { "stand": Vector2i(5, 16), "crouch": Vector2i(5, 11), "ball": Vector2i(5, 6) }
+const SWING_REST := 2
 const CENTRE_ABOVE_FEET := 20.0   ## the original measures his boxes and his weapon from his middle
 const MAX_FALL_SPEED := 2559    ## the original holds the whole pixels of his fall at 9
 
@@ -95,6 +96,11 @@ var _hurt_ticks := 0
 var _weapon_picture := Sprite2D.new()  ## the weapon, drawn where the original has it on each step of a swing
 var _weapon_box_new: Array[int] = []    ## the weapon's box after his latest update, and
 var _weapon_box_old: Array[int] = []    ## after the one before (see weapon_box_for_enemies)
+var _climb_step := 0.0                 ## how far the next update moves him on a ladder
+var _ladder_wait := 0                  ## updates left before he moves on a ladder he has just taken
+var _swing_lingers := 0                ## updates left of the swing's own box after it has ended
+var _low_after := 0                    ## updates left of the low box after a downward swing has ended
+var _swing_rest := 0                   ## updates left in which a new swing cannot start
 var _crouch_ticks := 0                 ## updates he has been crouching
 var _spinning := false                 ## in the high part of a held jump: his box is the small one
 var power_ticks := 0                   ## updates of the power item left (kind 0B), 0 when not in use
@@ -223,6 +229,10 @@ func _tick() -> void:
 			speed.x = 0
 	_weapon_box_new = _weapon_box()
 	_crouch_ticks = _crouch_ticks + 1 if state == State.CROUCH else 0
+	if _low_after > 0:
+		_low_after -= 1
+	if _swing_lingers > 0:
+		_swing_lingers -= 1
 	_jump_pressed = false
 	_attack_pressed = false
 	_update_art()
@@ -294,6 +304,14 @@ func _update_art() -> void:
 ##   nothing at his middle, he falls.
 ## - Jump does nothing on a ladder.
 func _climb() -> void:
+	# Like everything else he is moved by what the update before decided,
+	# so letting go of Up or Down takes one more step (measured).
+	position.y += _climb_step
+	climb_distance += absf(_climb_step)
+	_climb_step = 0.0
+	if _ladder_wait > 0:
+		_ladder_wait -= 1   # taking the ladder: an update's pause first (measured)
+		return
 	var x := floorf(position.x)
 	var feet := floorf(position.y)
 	var side := int(signf(Input.get_axis("move_left", "move_right")))
@@ -334,8 +352,7 @@ func _climb() -> void:
 		elif room.kind_at_pixel(x, feet + 3.0) == RoomData.KIND_EMPTY and room.kind_at_pixel(x, feet - 20.0) == RoomData.KIND_EMPTY:
 			_let_go()
 			return
-	position.y += step
-	climb_distance += absf(step)
+	_climb_step = step
 	climb_ticks += 1
 
 func _ladder_at(x: float, y: float) -> bool:
@@ -374,6 +391,8 @@ func _try_grab_ladder(vertical: int) -> bool:
 	attack_tick = -1
 	_set_attacking(false)
 	state = State.CLIMB
+	_ladder_wait = 1
+	_climb_step = 0.0
 	climb_ticks = 0
 	speed = Vector2i.ZERO
 	jump_tick = -1
@@ -426,31 +445,47 @@ func _swing() -> void:
 		attack_tick += 1
 		if attack_tick >= attack_length:
 			attack_tick = -1
+			_swing_rest = SWING_REST
+			_swing_lingers = 2
+			if attack_direction == 2 and not weapon_swings.is_empty():
+				_low_after = 3
 			_set_attacking(false)
 		elif weapon_swings.is_empty():
 			if attack_tick == 2:
 				_set_attacking(true)   # no ROM: the stand-in swing is out from its second frame
 		else:
 			_place_weapon()
+	elif _swing_rest > 0:
+		# For two updates after a swing a press of attack is thrown away
+		# (measured: the next swing can start 11 updates after a forward
+		# one began, 13 after an upward one).
+		_swing_rest -= 1
+		if _swing_rest == 0 and _attack_pressed and power_ticks == 0:
+			_begin_swing()
 	elif _attack_pressed and power_ticks == 0:
-		attack_tick = 0
-		if weapon_swings.is_empty():
-			attack_direction = 2 if state == State.CROUCH else 1
-			attack_length = 8 if state == State.CROUCH else 6
-		else:
-			# Up or Down held picks the swing, on the ground and in the air.
-			attack_direction = 1
-			if Input.is_action_pressed("move_up"):
-				attack_direction = 0
-			elif Input.is_action_pressed("move_down"):
-				attack_direction = 2
-			# Its length: the first update, each frame's updates, and the last
-			# frame's worth at his middle (Leonardo: 2 updates a frame, so
-			# places * 2 + 3; the others' lists give 1 or 5 updates a frame).
-			var swing: Dictionary = weapon_swings[attack_direction]
-			attack_length = (swing.places.size() + 2) * int(swing.get("updates", 2)) - 1
-			_set_attacking(true)
-			_place_weapon()
+		_begin_swing()
+
+## Starts a swing: which one, and how long it lasts.
+func _begin_swing() -> void:
+	attack_tick = 0
+	_spinning = false   # a swing uncurls him: after it he has his full box for the rest of the jump (measured)
+	if weapon_swings.is_empty():
+		attack_direction = 2 if state == State.CROUCH else 1
+		attack_length = 8 if state == State.CROUCH else 6
+	else:
+		# Up or Down held picks the swing, on the ground and in the air.
+		attack_direction = 1
+		if Input.is_action_pressed("move_up"):
+			attack_direction = 0
+		elif Input.is_action_pressed("move_down"):
+			attack_direction = 2
+		# Its length: the first update, each frame's updates, and the last
+		# frame's worth at his middle (Leonardo: 2 updates a frame, so
+		# places * 2 + 3; the others' lists give 1 or 5 updates a frame).
+		var swing: Dictionary = weapon_swings[attack_direction]
+		attack_length = (swing.places.size() + 2) * int(swing.get("updates", 2)) - 1
+		_set_attacking(true)
+		_place_weapon()
 
 ## Moves him through a ROM room by the original's own rules, read from its
 ## code (bank 4, $9D0C and $9FB0 on; Research/turtle_collision.md). It
@@ -659,7 +694,7 @@ func _weapon_box() -> Array[int]:
 	if stage >= 0 and not (attack_direction == 2 and stage == 0) and _weapon_shown(stage):
 		place = swing.places[stage]
 	var half: Vector2 = swing.half
-	var lower := 8 if state == State.CROUCH else 0
+	var lower := 8 if state == State.CROUCH or _low_swing() else 0
 	sync_screen()
 	return [floori(screen_x) + int(place.x) * facing, floori(position.y) - int(CENTRE_ABOVE_FEET) + int(place.y) + lower, int(half.x), int(half.y)]
 
@@ -706,11 +741,18 @@ func _fit_body() -> void:
 		rectangle.size = half * 2.0
 		body_shape.position = Vector2(0.0, lower - CENTRE_ABOVE_FEET)
 
+## A downward swing keeps him in his crouching box, lowered, for as long
+## as it lasts, also in the air. When it is over the low box stays for
+## one update more, then the full box 8 lower for one, then all is as
+## usual (measured: the original clears its flags an update apart).
+func _low_swing() -> bool:
+	return attack_tick >= 0 and attack_direction == 2 and not weapon_swings.is_empty()
+
 ## Which of his boxes he has just now.
 func _body_box_name() -> String:
-	if state == State.CROUCH:
+	if state == State.CROUCH or _low_swing() or _low_after >= 2:
 		return "crouch"
-	if state == State.NORMAL and _spinning and not on_floor() and attack_tick < 0:
+	if state == State.NORMAL and _spinning and not on_floor() and attack_tick < 0 and _swing_lingers == 0:   # the swing's picture, and box, last one update past its end
 		return "ball"
 	return "stand"
 
@@ -720,7 +762,7 @@ func _body_box_name() -> String:
 func touch_box() -> Array[int]:
 	var half: Vector2i = body_boxes.get(_body_box_name(), DEFAULT_BODY_BOXES[_body_box_name()])
 	# The box shrinks on the update he crouches; it drops the update after (measured).
-	var lower := 8 if state == State.CROUCH and _crouch_ticks >= 2 else 0
+	var lower := 8 if (state == State.CROUCH and _crouch_ticks >= 2) or _low_swing() or _low_after >= 1 else 0
 	return [floori(position.x), floori(position.y) - int(CENTRE_ABOVE_FEET) + lower, half.x, half.y]
 
 func _set_attacking(on: bool) -> void:

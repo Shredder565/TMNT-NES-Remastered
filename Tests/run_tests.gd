@@ -228,6 +228,8 @@ func _ready() -> void:
 	for i in 30:
 		await get_tree().physics_frame
 	Input.action_release("move_down")
+	for i in 4:
+		await get_tree().physics_frame   # letting go takes one more step, as in the original
 	var held_at := leo.position
 	Input.action_press("jump")
 	for i in 8:
@@ -1391,6 +1393,34 @@ func _ready() -> void:
 		o_leo.scroll_x = 43.0
 		check(o_leo.weapon_box_for_enemies() == [171, floori(o_leo.position.y) - 20, 14, 12], "an update later it meets the weapon where it was put then, moved along with the screen")
 		o_leo.attack_tick = -1
+		# After a swing, two updates in which a press of attack is thrown away.
+		o_leo.attack_direction = 1
+		o_leo.attack_length = 9
+		o_leo.attack_tick = 8
+		o_leo._swing()
+		var o_ended: bool = o_leo.attack_tick < 0 and o_leo._swing_rest == 2
+		o_leo._attack_pressed = true
+		o_leo._swing()
+		var o_refused: bool = o_leo.attack_tick < 0
+		o_leo._attack_pressed = true
+		o_leo._swing()
+		check(o_ended and o_refused and o_leo.attack_tick == 0, "a press of attack on the update after a swing ends is thrown away; on the next it starts a new one")
+		# The screen shows one row of screens and does not follow a jump.
+		o_scene.load_area(0, 5)
+		o_leo.position = Vector2(392, 368)
+		o_scene._settle_row()
+		var o_low_row: int = o_scene._screen_row
+		o_leo.position.y = 300.0
+		o_scene._check_row()
+		var o_stays: bool = o_scene._row_way == 0 and o_scene._view_corner().y == 192.0
+		o_leo.position.y = 192.0 + 172.0 + 20.0
+		o_scene._screen_row = 0
+		o_scene._view_top = 0.0
+		o_leo.position.y = 172.0 + 20.0
+		o_scene._check_row()
+		check(o_low_row == 1 and o_stays and o_scene._row_way == 1, "in a room two screens tall the screen stays on his row through a jump, and changes when his middle is 172 down it")
+		o_scene._row_way = 0
+		o_leo.set_physics_process(false)
 		o_scene.free()
 	OriginalEnemy._first_column = -1
 	OriginalEnemy.frame_counter = -1

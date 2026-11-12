@@ -43,3 +43,11 @@ While it scrolls the original sometimes takes three frames over an update
 instead of two (seen 33 times in a 1000-frame run through area 3; about
 once every 32 pixels scrolled, so most likely the work of loading the
 next strip of map). The remake does not copy this.
+
+## Up and down (12 November 2026)
+
+Read from 4:$9906 to $9966 and measured: see "Follow-up" in
+`live_play.md`. The screen shows one row of screens at a time and
+changes row only at its top (climbing, Up held, his middle less than 11
+down) or bottom (his middle 172 or more down), 4 pixels an update. The
+remake's copy is `RoomScene._check_row` and `_step_row_change`.

@@ -68,7 +68,6 @@ func _run(sewer, name: String, run: Dictionary, levels: RomLevels, verbose: bool
 	leo._frame = 0                      # the next frame is the enemies'
 	OriginalEnemy.counter_offset = (int(rows[start].c) - 1) & 255
 	OriginalEnemy.frame_counter = -1
-	OriginalEnemy.chance_byte = -1
 	var counts := [0, 0, 0, 0, 0]
 	var first := ["", "", "", ""]
 	var prev_c := int(rows[start - 1].c)
@@ -90,6 +89,9 @@ func _run(sewer, name: String, run: Dictionary, levels: RomLevels, verbose: bool
 					Input.action_release(BUTTONS[bit])
 			# While the room comes up the original's turtle cannot be touched
 			# (the recorder holds him safe for the first 70 frames): the same here.
+			# The original's one unpredictable number is taken from the
+			# recording (kind 92 rolls it to decide when to throw).
+			OriginalEnemy.chance_byte = int(rows[f - 1].get("r", 1))
 			if f < SAFE_UNTIL:
 				leo.invulnerable_timer = 0.02
 			await get_tree().physics_frame
@@ -138,6 +140,7 @@ func _run(sewer, name: String, run: Dictionary, levels: RomLevels, verbose: bool
 				first[3] = "frame %d (counter %02X, camera %d):\n      remake   %s\n      original %s" % [f, c, cam, str(have), str(want)]
 			if verbose and counts[0] - counts[4] < 4:
 				print("   frame %d\n      remake   %s\n      original %s" % [f, str(have), str(want)])
+	OriginalEnemy.chance_byte = -1
 	print("%s: from frame %d, %d frames; turtle exact %d, energy %d, his box %d, enemies %d" % [name, start, counts[0], counts[1], counts[2], counts[3], counts[4]])
 	var labels := ["turtle", "energy", "box", "enemies"]
 	for i in 4:
