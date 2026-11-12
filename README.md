@@ -82,6 +82,7 @@ number, are the 5 kinds not recorded yet. See `Research/enemy_kinds.md`.
 | `Scripts/Enemies/Chainsaw.gd` | Kind 91, by the original's rules |
 | `Scripts/Enemies/Pouncer.gd`, `Boomerang.gd` | Kind 92 and what it throws (93), by the original's rules |
 | `Scripts/Enemies/Gunner.gd` | Kind 94, by the original's rules |
+| `Scripts/Enemies/Diver.gd` | Kind AA: bobs in the air, then flies at the turtle, by the original's rules |
 | `Scripts/Enemies/Missile.gd` | Kinds 4A and 95: thrown and fired things that fly level, by the original's rules |
 | `Scripts/Enemies/Crawler.gd` | Fitted to measurements: the kinds not yet read from the code that walk or fly at a steady speed |
 | `Scripts/Enemies/LegacyWalker.gd` | The old fitted pattern for kind 49 (no longer used by the room scene) |

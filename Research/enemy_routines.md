@@ -63,7 +63,7 @@ throw:
 | 94 | 5:$9983 | `Gunner.gd`, `enemy_92_94.md` |
 | 95, fired by 94 | 5:$99D9 | `Missile.gd`, `enemy_92_94.md` |
 | 96 | 5:$99E5 (the same code as 81) | `Flier.gd`, `enemy_81_8D_86.md` |
-| AA | 5:$A34F, then $A357 | not done: it steers at the turtle by angle tables (5:$A944, $A9B0) that have not been read |
+| AA | 5:$A34F, then $A357 | `Diver.gd`, `enemy_AA.md` |
 | 15, the puff of a beaten enemy | 5:$8733 | `Puff.gd` |
 
 The full tables (kind, address) are easy to print again with the

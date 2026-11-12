@@ -133,5 +133,7 @@ emulator: 98 and its star 99 (`enemy_98.md`); 81, 96, 8D, 84 and 86
 (`enemy_92_94.md`). Kind 86 turned out not to be a walker at all: it
 crawls along ceilings and swoops. `Crawler.gd`, `Leaper.gd`, `LegacyWalker.gd` and `Shot.gd` still list
 these kinds in their tables, but the room scene no longer gives them to
-those scripts (`OriginalEnemy.for_kind` is asked first). Of the kinds
-placed in world 1's rooms only AA is left on the old footing.
+those scripts (`OriginalEnemy.for_kind` is asked first). Kind AA, which this
+page has as never appearing, does appear and is done too (`enemy_AA.md`),
+though it has no picture yet. That is every kind placed in world 1's
+rooms.

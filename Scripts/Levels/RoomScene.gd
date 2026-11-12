@@ -10,7 +10,7 @@ extends Node2D
 ##
 ## Enemies (Research/enemy_kinds.md): every kind that could be recorded is
 ## drawn with its own sprites from the ROM. The kinds of world 1's rooms
-## (but AA) are run by scripts written from the original's own code
+## are run by scripts written from the original's own code
 ## (OriginalEnemy.for_kind; Research/enemy_routines.md). Other scripts in
 ## Scripts/Enemies move more kinds by rules fitted to measurements (each
 ## lists its kinds in KINDS); the rest stand where the original puts them. In a room, enemies are made as the

@@ -154,6 +154,28 @@ SETS['w1e']=lambda: {
  'a5_s3_hit': record(5,spot(5,3)[0],spot(5,3)[1],walk_lr(100),1000,poke=hit(0x94,{120,300,480,700})),
  'a5_s1_long': record(5,spot(5,1)[0]-90,spot(5,1)[1],still,2400),
 }
+SETS['aa']=lambda: {
+ 'a3_r330': record(3,330,176,lambda f:R if f>40 else 0,700),
+ 'a3_r300': record(3,300,176,lambda f:R if f>80 else 0,700),
+ 'a3_still480': record(3,480,176,still,600),
+ 'a3_still400': record(3,400,176,still,600),
+ 'a3_left': record(3,700,176,lambda f:L if f>40 else 0,900),
+ 'a3_left_jump': record(3,700,176,lambda f:(L if f>40 else 0)|(A if f%60<25 else 0),900),
+ 'a3_pace': record(3,560,176,walk_lr(60,jump=90),900),
+ 'a3_hit': record(3,480,176,walk_lr(80),700,poke=hit(0xAA,{100,200,300})),
+}
+def run_jump(way,start,every,hold):
+    return lambda f: (way if f>start else 0)|(A if f>start and f%every<hold else 0)
+SETS['aa2']=lambda: {
+ 'l380': record(3,380,176,lambda f:L if f>40 else 0,500),
+ 'l380j': record(3,380,176,run_jump(L,40,50,22),500),
+ 'l340j': record(3,340,176,run_jump(L,60,44,30),500),
+ 'r420': record(3,420,176,lambda f:R if f>40 else 0,500),
+ 'r420j': record(3,420,176,run_jump(R,40,50,22),500),
+ 'r440j': record(3,440,176,run_jump(R,70,44,30),500),
+ 'l700j': record(3,700,176,run_jump(L,40,48,26),700),
+ 'l680j': record(3,680,176,run_jump(L,50,40,30),700),
+}
 if __name__=='__main__':
     name=sys.argv[1]
     data=SETS[name]()
