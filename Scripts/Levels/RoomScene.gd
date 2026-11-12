@@ -54,7 +54,11 @@ const LADDER_EXIT_HEIGHT := 16.0
 const ARRIVAL_REST_FRAMES := 10
 const ENEMY_SCENE := preload("res://Scenes/Enemies/DummyEnemy.tscn")
 const VIEW_SIZE := Vector2i(256, 192)  ## what the camera shows of a room, above the HUD strip
-const SPAWN_MARGIN := 8.0            ## an enemy is made when its place is this far inside the screen's edge
+const SPAWN_MARGIN := 8.0            ## (overworld) an enemy is made when its place is this far inside the screen's edge
+const SPAWN_RIGHT := 0xF8            ## in a room: the edge that makes enemies, across the screen, scrolling right
+const SPAWN_LEFT := 0x07             ## ...and scrolling left
+const SPAWN_TOP := 0x17              ## which row of screens: this far down the screen, or
+const SPAWN_BOTTOM := 0xB8           ## this far when the screen is not scrolling up
 const PLACED_AT_ONCE := 6            ## the original's object slots 5 to 10
 const REMOVE_MARGIN := 4.0           ## and removed when it is this close to leaving
 ## World 1's items and boss, as seen in the original (Research/world1.md).
@@ -125,6 +129,8 @@ var show_enemies := true             ## F8: stand-in enemies where the original 
 var enemies: Node2D                  ## holds the enemies of the map on show, and what they throw
 var enemies_follow_camera := true    ## false: every enemy of a room is there from the start
 var _spot_enemies := {}              ## enemy place -> the enemy it last made
+var _coming_up_facing_left := false
+var _made: Node2D                    ## what _make_enemy_at has just made, if anything
 var _camera_corner := Vector2.ZERO
 var _floor_frame := 0
 var items: Node2D                    ## holds the items of the room on show
@@ -184,6 +190,7 @@ func _ready() -> void:
 	boss_bar.hide()
 	health_bar.get_parent().add_child(boss_bar)
 	OriginalEnemy.levels = levels
+	OriginalEnemy.pace_maker = turtle
 	if levels != null:
 		for shot_kind: int in Shot.KINDS:
 			Shot.damage_of[shot_kind] = levels.touch_damage(shot_kind)
@@ -384,10 +391,37 @@ func _place_enemies() -> void:
 		_camera_corner = _overworld_corner()
 		if enemies_follow_camera:
 			return   # the original's map comes up empty; they come in as the screen moves
-	var view := Rect2(_camera_corner, Vector2(VIEW_SIZE))
-	for spot in room.enemy_spots:
-		if room.top_down or not enemies_follow_camera or view.has_point(spot.position):
+	if room.top_down or not enemies_follow_camera:
+		for spot in room.enemy_spots:
 			_make_enemy(spot)
+		return
+	# A room coming up (bank 6, $85CC): the places of the screen its left
+	# edge is in, from 7 pixels inside that edge rightward; and, if the
+	# screen straddles two, the places of the next one up to 8 pixels short
+	# of the right edge. Each enemy stands as far across the *screen* as its
+	# place is across its own screen, so when the screen straddles two they
+	# are not where their places are. No more than six.
+	var left := int(_camera_corner.x)
+	var top := int(_camera_corner.y)
+	var first_edge := left + SPAWN_LEFT
+	_coming_up_facing_left = false   # those of the first pass face right
+	for spot in _screen_spots(first_edge >> 8, (top + SPAWN_TOP) / VIEW_SIZE.y):
+		if (int(spot.position.x) & 255) >= (first_edge & 255):
+			_make_enemy(spot, Vector2(left + (int(spot.position.x) & 255), top + int(spot.position.y) % VIEW_SIZE.y), false)
+	if left & 255 != 0:
+		var second_edge := left + SPAWN_RIGHT
+		_coming_up_facing_left = true    # ...and those of the second pass face left
+		for spot in _screen_spots(second_edge >> 8, (top + SPAWN_TOP) / VIEW_SIZE.y):
+			if (int(spot.position.x) & 255) < (second_edge & 255):
+				_make_enemy(spot, Vector2(left + (int(spot.position.x) & 255), top + int(spot.position.y) % VIEW_SIZE.y), false)
+
+## The enemy places of one screen of the room, in the ROM's order.
+func _screen_spots(column: int, row: int) -> Array[EnemySpot]:
+	var found: Array[EnemySpot] = []
+	for spot in room.enemy_spots:
+		if int(spot.position.x) >> 8 == column and int(spot.position.y) / VIEW_SIZE.y == row:
+			found.append(spot)
+	return found
 
 ## The corner of the original's screen on the overworld. A step he takes
 ## while beyond one of the marks above moves the screen instead of his
@@ -704,9 +738,25 @@ func placed_enemies() -> int:
 ## Makes the enemy for one of the ROM's enemy places. In a room whose
 ## enemies follow the camera there are only six places for them, as in
 ## the original (bank 7, $EED3): with all six taken, none is made.
-func _make_enemy(spot: EnemySpot) -> void:
+## `at` is where it appears, if not at its place. `scrolled_in` is true for
+## one made as the screen scrolls: such a one is not made inside a wall,
+## and gets its first update in the same round.
+func _make_enemy(spot: EnemySpot, at := Vector2.INF, scrolled_in := false) -> void:
 	if not room.top_down and enemies_follow_camera and placed_enemies() >= PLACED_AT_ONCE:
 		return
+	var place := spot
+	if at != Vector2.INF and at != spot.position:
+		place = spot.moved_to(at)
+	_make_enemy_at(place, scrolled_in)
+	if at != Vector2.INF and not scrolled_in and _made is OriginalEnemy:
+		# One made as the room comes up does not face by where it stands:
+		# the original decides its facing before it puts it at its place.
+		_made.facing_left = _coming_up_facing_left
+	if _made != null:
+		_spot_enemies[spot] = _made
+
+func _make_enemy_at(spot: EnemySpot, scrolled_in: bool) -> void:
+	_made = null
 	var damage := levels.weapon_damage(current_turtle) if levels != null else Vector2i.ONE
 	var enemy: Node2D
 	var pictures := SpriteSet.cached("Kind%02X" % spot.kind) if spot.kind >= 0 else null
@@ -723,6 +773,9 @@ func _make_enemy(spot: EnemySpot) -> void:
 		if enemies_follow_camera:
 			original.view_corner = _view_corner
 		original.setup(spot, room, pictures, turtle)
+		if scrolled_in and original.kind_at(0, -8) == RoomData.KIND_SOLID:
+			original.free()   # its place is in a wall (bank 6, $82B1)
+			return
 		enemy = original
 	elif Crawler.KINDS.has(spot.kind):
 		var crawler := Crawler.new()
@@ -752,7 +805,9 @@ func _make_enemy(spot: EnemySpot) -> void:
 		enemies.add_child(enemy)
 	if not room.top_down:
 		_fit_box(enemy, spot.half_size, spot.kind)
-	_spot_enemies[spot] = enemy
+	_made = enemy
+	if scrolled_in and enemy is OriginalEnemy:
+		enemy.update_now()
 
 ## Gives an enemy the hit box the ROM has for its kind: as wide as the
 ## pair says to each side, and from its half height above its position
@@ -790,33 +845,48 @@ func _view_corner() -> Vector2:
 		down = fight_corner.y
 	return Vector2(floorf(turtle.scroll_x), down)
 
-## The original makes an enemy when the screen's edge reaches its place
-## (8 pixels inside either edge), again every time that happens, and removes
-## anything that goes off the screen. Measured in the first sewer.
+## Enemies coming and going as the screen scrolls, by the original's rule
+## (bank 6, $80F6 and $8112; Research/enemy_spawning.md). Once an update,
+## on the enemies' frame, before they move: if the screen scrolled in the
+## turtle's last update, the places of the screen its leading edge is in
+## are gone through. Scrolling right the edge is 248 across the screen,
+## scrolling left it is 7. A place the edge has just passed makes its
+## enemy, at the edge, if one of the six slots is free. Nothing remembers
+## that a place has made one already, and nothing is made while the screen
+## is held for a fight or when it does not scroll.
 func _follow_camera() -> void:
 	var corner := _view_corner()
 	var old := _camera_corner
 	if corner.distance_to(old) > 64.0:
 		_place_enemies()   # the view jumped (a door, a fall, the fly key): start afresh
 		return
+	if not flying and turtle._frame % Turtle.TICK_FRAMES != 0:
+		return   # the turtle's frame: enemies are seen to on the other one
 	_camera_corner = corner
-	for spot in room.enemy_spots:
-		var place := spot.position
-		var in_rows := place.y >= corner.y and place.y < corner.y + VIEW_SIZE.y
-		var was_in_rows := place.y >= old.y and place.y < old.y + VIEW_SIZE.y
-		var from_right := place.x > old.x + VIEW_SIZE.x - SPAWN_MARGIN and place.x <= corner.x + VIEW_SIZE.x - SPAWN_MARGIN
-		var from_left := place.x >= corner.x + SPAWN_MARGIN and place.x < old.x + SPAWN_MARGIN
-		var from_rows := in_rows and not was_in_rows and place.x >= corner.x and place.x < corner.x + VIEW_SIZE.x
-		if ((from_right or from_left) and in_rows) or from_rows:
-			var living: Variant = _spot_enemies.get(spot)
-			if living == null or not is_instance_valid(living) or living.is_queued_for_deletion():
-				_make_enemy(spot)
+	var step := int(corner.x) - int(old.x)
+	if step != 0 and not fighting:
+		var edge := int(corner.x) + (SPAWN_RIGHT if step > 0 else SPAWN_LEFT)
+		var edge_across := edge & 255
+		var row := (int(corner.y) + (SPAWN_BOTTOM if corner.y >= old.y else SPAWN_TOP)) / VIEW_SIZE.y
+		for spot in _screen_spots(edge >> 8, row):
+			# How far the edge is past the place, counted round 256 as the
+			# original does. Scrolling left the test is one short at each
+			# end, so a place can be stepped over.
+			var gap := (edge_across - (int(spot.position.x) & 255)) & 255
+			var passed := gap < step if step > 0 else gap > (step & 255)
+			if passed:
+				var down := (int(spot.position.y) % VIEW_SIZE.y - int(corner.y) % VIEW_SIZE.y) & 255
+				# It is put at the edge and then, like every object, moved back
+				# by the scroll in its first update: so it ends a step short.
+				_make_enemy(spot, Vector2(edge - step, int(corner.y) + down), true)
+	# Things not run by the original's own code are taken off at the
+	# screen's edge here; the others see to it themselves.
 	for thing in enemies.get_children():
-		if thing is Puff:
+		if thing is Puff or thing is OriginalEnemy:
 			continue
 		var across: float = thing.position.x - corner.x
 		var down: float = thing.position.y - corner.y
-		if across < REMOVE_MARGIN or across > VIEW_SIZE.x - REMOVE_MARGIN or down < -40.0 or down > VIEW_SIZE.y + 40.0:
+		if across < REMOVE_MARGIN or across >= VIEW_SIZE.x - REMOVE_MARGIN or down < REMOVE_MARGIN or down >= VIEW_SIZE.y:
 			thing.queue_free()
 
 ## The floor kinds that act on the turtle (Research/shots_spawning_tiles.md).

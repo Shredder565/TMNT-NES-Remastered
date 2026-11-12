@@ -155,4 +155,4 @@ func _dropping() -> void:
 func _throw_star() -> void:
 	var star := throw_object(Star.new(), STAR_KIND, 0, -STAR_UP)
 	if star != null:
-		star.tick()
+		star.update_now()

@@ -1,0 +1,148 @@
+extends Node
+## Whole-room play side by side: the same buttons go to the real room scene
+## as went to the original, and the turtle, his energy, his box and every
+## enemy are compared on every frame.
+## godot --headless --fixed-fps 60 res://tmp_run.tscn -- <recording.json> [scenario] [v]
+
+const SAFE_UNTIL := 70
+const BUTTONS := { 1: "move_right", 2: "move_left", 4: "move_down", 8: "move_up", 0x40: "attack", 0x80: "jump" }
+
+func _ready() -> void:
+	var args := OS.get_cmdline_user_args()
+	var data: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(args[0]))
+	var only := args[1] if args.size() > 1 else "all"
+	var verbose := args.size() > 2
+	var sewer = load("res://Scenes/Levels/Area1Sewer.tscn").instantiate()
+	sewer.start_on_overworld = false
+	add_child(sewer)
+	await get_tree().physics_frame
+	var levels := RomLevels.open_installed()
+	var grand := [0, 0, 0, 0, 0]
+	for name: String in data:
+		if only != "all" and name != only:
+			continue
+		var result: Array = await _run(sewer, name, data[name], levels, verbose)
+		for i in 5:
+			grand[i] += result[i]
+	print("ALL: %d frames; turtle exact %d, energy %d, his box %d, enemies %d" % grand)
+	get_tree().quit()
+
+func _signed(v: int) -> int:
+	return v - 65536 if v >= 32768 else v
+
+func _run(sewer, name: String, run: Dictionary, levels: RomLevels, verbose: bool) -> Array:
+	var rows: Array = run.rows
+	# The room starts running on the first frame an object changes; before
+	# that the original is still bringing the room up.
+	var start := -1
+	for f in range(1, rows.size()):
+		if int(rows[f].c) % 2 == 0 and str(rows[f].o) != str(rows[f - 1].o) and not rows[f - 1].o.is_empty():
+			start = f
+			break
+	if start < 0:
+		start = 42 if int(rows[42].c) % 2 == 0 else 41
+	for action: String in BUTTONS.values():
+		Input.action_release(action)
+	# Leave nothing over from the run before.
+	var old_leo: Turtle = sewer.turtle
+	old_leo.revive()
+	old_leo.attack_tick = -1
+	old_leo._set_attacking(false)
+	old_leo.jump_tick = -1
+	old_leo.speed = Vector2i.ZERO
+	old_leo.power_ticks = 0
+	sewer.set_show_enemies(false)
+	for i in 4:
+		await get_tree().physics_frame
+	await get_tree().process_frame      # so that each turn of the loop below is exactly one physics frame
+	sewer.show_enemies = true
+	sewer.enemies_follow_camera = true
+	sewer.load_area(0, int(run.area))
+	var leo: Turtle = sewer.turtle
+	sewer._place_turtle(Vector2(float(run.start[0]), float(run.start[1]) - 20.0))
+	leo.max_health = 128
+	leo.health = 128
+	leo.invulnerable_timer = 0.0
+	leo.grounded = true
+	leo._was_grounded = true
+	leo._frame = 0                      # the next frame is the enemies'
+	OriginalEnemy.counter_offset = (int(rows[start].c) - 1) & 255
+	OriginalEnemy.frame_counter = -1
+	OriginalEnemy.chance_byte = -1
+	var counts := [0, 0, 0, 0, 0]
+	var first := ["", "", "", ""]
+	var prev_c := int(rows[start - 1].c)
+	var obj_cam := [int(rows[start].cam), int(rows[start].camy)]
+	var lost := false
+	for f in range(start, rows.size()):
+		var row: Dictionary = rows[f]
+		var c := int(row.c)
+		var lag := c == prev_c
+		prev_c = c
+		if not lag:
+			# The original acts on the buttons a frame after they are given
+			# to the emulator (it reads them at the end of its frame).
+			var buttons := int(rows[f - 1].b)
+			for bit: int in BUTTONS:
+				if buttons & bit != 0:
+					Input.action_press(BUTTONS[bit])
+				else:
+					Input.action_release(BUTTONS[bit])
+			# While the room comes up the original's turtle cannot be touched
+			# (the recorder holds him safe for the first 70 frames): the same here.
+			if f < SAFE_UNTIL:
+				leo.invulnerable_timer = 0.02
+			await get_tree().physics_frame
+			await get_tree().process_frame   # let the frame's work finish before looking
+		if leo.state == Turtle.State.DEAD or int(row.e) == 0:
+			break
+		counts[0] += 1
+		if verbose and f < start + 5:
+			print('   dbg f', f, ' turtle frame ', leo._frame, ' physics ', Engine.get_physics_frames(), ' health ', leo.health, ' inv ', leo.invulnerable_timer, ' first enemy ', sewer.enemies.get_child(0).position if sewer.enemies.get_child_count() > 0 else null)
+		# The turtle.
+		var cam := int(row.cam)
+		var camy := int(row.camy)
+		var theirs := Vector2(cam + int(row.t[0]) + int(row.t[1]) / 256.0, camy + int(row.t[2]) + 20 + int(row.t[3]) / 256.0)
+		if theirs.distance_to(leo.position) < 0.01:
+			counts[1] += 1
+		elif first[0] == "":
+			first[0] = "frame %d: remake %s, original %s" % [f, str(leo.position), str(theirs)]
+		if int(row.e) == leo.health:
+			counts[2] += 1
+		elif first[1] == "":
+			first[1] = "frame %d: remake %d, original %d" % [f, leo.health, int(row.e)]
+		var half := levels.box_half_size(0, int(row.t[6]))
+		var his := leo.touch_box()
+		var lower := 8 if int(row.t[7]) & 2 != 0 else 0
+		if Vector2i(his[2], his[3]) == half and his[1] == camy + int(row.t[2]) + lower:
+			counts[3] += 1
+		elif first[2] == "":
+			first[2] = "frame %d: remake %s, original animation %02X half %s lower %d at %d" % [f, str(his), int(row.t[6]), str(half), lower, camy + int(row.t[2])]
+		# Enemies and what they throw.
+		if not lag and c % 2 == 0:
+			obj_cam = [cam, camy]
+		var want := []
+		for slot: String in row.o:
+			var o: Array = row.o[slot]
+			if int(slot) < 5 or int(o[0]) < 0x40:
+				continue   # the weapon, items, the puff
+			want.append("%02X %d %d a%02X hp%d" % [int(o[0]), ((obj_cam[0] + int(o[1])) << 8) | int(o[2]), ((obj_cam[1] + int(o[3])) << 8) | int(o[4]), int(o[7]), int(o[15])])
+		var have := []
+		for thing in sewer.enemies.get_children():
+			if thing is OriginalEnemy and not thing.gone and not thing.is_queued_for_deletion():
+				have.append("%02X %d %d a%02X hp%d" % [thing.kind, thing.sub_x, thing.sub_y, thing.animation, thing.health])
+		want.sort()
+		have.sort()
+		if want == have:
+			counts[4] += 1
+		else:
+			if first[3] == "":
+				first[3] = "frame %d (counter %02X, camera %d):\n      remake   %s\n      original %s" % [f, c, cam, str(have), str(want)]
+			if verbose and counts[0] - counts[4] < 4:
+				print("   frame %d\n      remake   %s\n      original %s" % [f, str(have), str(want)])
+	print("%s: from frame %d, %d frames; turtle exact %d, energy %d, his box %d, enemies %d" % [name, start, counts[0], counts[1], counts[2], counts[3], counts[4]])
+	var labels := ["turtle", "energy", "box", "enemies"]
+	for i in 4:
+		if first[i] != "":
+			print("   first %s difference %s" % [labels[i], first[i]])
+	return counts

@@ -105,3 +105,6 @@ and a ceiling stops its rise.
   The guesses above that shots pass through walls and that the sword
   does not stop them were half right: 4A and 95 do pass through walls,
   the star does not, and the turtle's weapon can destroy all of them.
+
+- **Enemies follow the camera** above is the measured rule. It has been
+  replaced by the original's, read from code: `enemy_spawning.md`.

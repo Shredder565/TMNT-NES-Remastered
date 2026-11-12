@@ -46,7 +46,8 @@ const FLIGHTS := [
 ## one would expect a random number. In play it is the game's own frame
 ## count; a test or a side-by-side run sets `frame_counter` itself.
 static var frame_counter := -1
-static var counter_offset := 0
+static var counter_offset := 1          ## odd, so the counter is even on the frames the turtle does not move
+static var pace_maker: Node             ## the turtle whose frame count the counter follows (set by the room scene)
 ## Set by the room scene when a ROM is installed: used to give an enemy
 ## the hit box the ROM has for the animation it is showing.
 static var levels: RomLevels
@@ -87,6 +88,7 @@ var ticks := 0                    ## updates lived
 var gone := false
 var is_thrown := false            ## true for something an enemy threw
 var _frame := 0
+var _updated_frame := -1
 var _placed := Vector2.INF
 var _art := Node2D.new()
 var _picture := Sprite2D.new()
@@ -220,6 +222,10 @@ func _fit_box_to_animation() -> void:
 static func counter() -> int:
 	if frame_counter >= 0:
 		return frame_counter & 255
+	if is_instance_valid(pace_maker):
+		# Tied to the turtle's own frame count, so that enemies' frames are
+		# the even ones and his the odd ones, as in the original.
+		return (pace_maker._frame + counter_offset) & 255
 	return (Engine.get_physics_frames() + counter_offset) & 255
 
 ## A number from 0 to 255 that nothing can foresee.
@@ -228,18 +234,30 @@ static func chance() -> int:
 
 func _physics_process(_delta: float) -> void:
 	_frame += 1
-	if not _is_update_frame():
-		return
+	if _is_update_frame() and _updated_frame != Engine.get_physics_frames():
+		update_now()
+
+## One update and its touch test. Something made part-way through a frame
+## is given this by its maker, and is then not updated again that frame.
+func update_now() -> void:
+	_updated_frame = Engine.get_physics_frames()
 	tick()
-	# Touches are worked out once an update, after everything has moved.
-	if not gone and is_instance_valid(target) and target is Turtle and can_touch() and touches_turtle(target):
-		_touch(target)
+	# Touches are worked out once an update, after everything has moved;
+	# then the weapon's hits.
+	if gone or not is_instance_valid(target) or not (target is Turtle) or not can_touch():
+		return
+	var turtle: Turtle = target
+	if touches_turtle(turtle):
+		_touch(turtle)
+	var weapon := turtle.weapon_box_for_enemies()
+	if not gone and not blinking and not weapon.is_empty() and touches_box(weapon) and Turtle.weapon_lands(self):
+		take_hit(weapon_damage_low if turtle.health * 2 < turtle.max_health else weapon_damage)
 
 ## Enemies are updated on the frames the turtle is not.
 func _is_update_frame() -> bool:
 	if frame_counter >= 0:
 		return frame_counter % TICK_FRAMES == 0
-	if is_instance_valid(target) and target is Turtle:
+	if is_instance_valid(target) and target is Turtle and target.is_physics_processing():
 		return target._frame % TICK_FRAMES != 0
 	return _frame % TICK_FRAMES == 0
 
@@ -584,6 +602,9 @@ func _frame_name() -> String:
 ## --- being hit ------------------------------------------------------------
 
 func _on_weapon_entered(area: Area2D) -> void:
+	var owner_turtle := area.get_parent() as Turtle
+	if owner_turtle != null and not owner_turtle.weapon_swings.is_empty():
+		return   # with the ROM's swings the hit is worked out in update_now, the original's way
 	if area.name == "WeaponHitbox" and not blinking and Turtle.weapon_lands(self):
 		var turtle := area.get_parent() as Turtle
 		var weakened := turtle != null and turtle.health * 2 < turtle.max_health
