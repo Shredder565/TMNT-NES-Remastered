@@ -26,7 +26,8 @@ def place(ar,x,y,settle=120,keep=True):
     W,H=room_dims(0,ar)
     sx=max(0,min(x-128,W*256-256))
     n[0x48]=0; n[0x5D]=ar; n[0x5C]=1
-    n[0x480]=x-sx; n[0x460]=y-20; n[0x4F]=sx&255; n[0x50]=sx>>8; n[0x51]=0; n[0x52]=0
+    sy=(y-1)//192*192 if H>1 else 0
+    n[0x480]=x-sx; n[0x460]=y-20-sy; n[0x4F]=sx&255; n[0x50]=sx>>8; n[0x51]=sy&255; n[0x52]=sy>>8
     for f in range(settle):
         n[0x500]=60; n[0x77]=0x80
         if not keep: clear(n)
@@ -68,7 +69,7 @@ def record(area,x,y,script,frames,poke=None,settle=1,safe=True):
         btn=script(f)
         e.run(1,btn)
         cam=n[0x4F]|n[0x50]<<8; camy=n[0x51]|n[0x52]<<8
-        rows.append(dict(c=n[0x1E],b=btn,cam=cam,camy=camy,t=[n[0x480],n[0x490],n[0x460],n[0x470],n[0x450],n[0x510]],o=snap(n),hold=n[0x5E],e=n[0x77],sc=(n[0x40]-256 if n[0x40]>127 else n[0x40])))
+        rows.append(dict(c=n[0x1E],b=btn,cam=cam,camy=camy,t=[n[0x480],n[0x490],n[0x460],n[0x470],n[0x450],n[0x510]],o=snap(n),hold=n[0x5E],e=n[0x77],sc=(n[0x40]-256 if n[0x40]>127 else n[0x40]),r=n[0x45]))
     return dict(area=area,start=[x,y],rows=rows,hits=sorted(getattr(poke,'frames',[])),hit_kind=getattr(poke,'kind',0))
 def still(f): return 0
 def hit(slot_kind,frames_at,dmg=7):
@@ -128,6 +129,30 @@ SETS['w1b']=lambda: {
  'a4_right': record(4,spot(4,0)[0],spot(4,0)[1],lambda f:R if f>40 else 0,900),
  'a4_left': record(4,spot(4,1)[0],spot(4,1)[1],lambda f:L if f>40 else 0,900),
  'a4_pace': record(4,spot(4,1)[0],spot(4,1)[1],walk_lr(100,jump=75),1000),
+}
+SETS['w1c']=lambda: {
+ 'a5_s0': record(5,spot(5,0)[0],spot(5,0)[1],still,600),
+ 'a5_s1': record(5,spot(5,1)[0],spot(5,1)[1],still,700),
+ 'a5_s1_left': record(5,spot(5,1)[0],spot(5,1)[1],lambda f:L if f>40 else 0,900),
+ 'a5_s1_pace': record(5,spot(5,1)[0],spot(5,1)[1],walk_lr(80,jump=90),900),
+ 'a5_s0_right': record(5,spot(5,0)[0],spot(5,0)[1],lambda f:R if f>40 else 0,900),
+ 'a5_hit': record(5,spot(5,1)[0],spot(5,1)[1],walk_lr(70),900,poke=hit(0x92,{120,300,480,700})),
+}
+SETS['w1d']=lambda: {
+ 'a4_hit': record(4,spot(4,1)[0],spot(4,1)[1],walk_lr(100),1000,poke=hit(0x91,{150,330,331,500,720})),
+ 'a3_hit': record(3,spot(3,1)[0],spot(3,1)[1],walk_lr(90),1000,poke=hit(0x49,{150,330,500,720})),
+ 'a4_right2': record(4,300,spot(4,1)[1],lambda f:R if f>40 else 0,900),
+ 'a3_right2': record(3,330,spot(3,1)[1],lambda f:R if f>40 else 0,900),
+}
+SETS['w1e']=lambda: {
+ 'a5_s2': record(5,spot(5,2)[0],spot(5,2)[1],still,900),
+ 'a5_s3': record(5,spot(5,3)[0],spot(5,3)[1],still,900),
+ 'a5_s2_right': record(5,spot(5,2)[0],spot(5,2)[1],lambda f:R if f>40 else 0,900),
+ 'a5_s3_left': record(5,spot(5,3)[0],spot(5,3)[1],lambda f:L if f>40 else 0,900),
+ 'a5_s2_pace': record(5,spot(5,2)[0],spot(5,2)[1],walk_lr(90,jump=100),1200),
+ 'a5_s3_pace': record(5,spot(5,3)[0],spot(5,3)[1],walk_lr(120),1200),
+ 'a5_s3_hit': record(5,spot(5,3)[0],spot(5,3)[1],walk_lr(100),1000,poke=hit(0x94,{120,300,480,700})),
+ 'a5_s1_long': record(5,spot(5,1)[0]-90,spot(5,1)[1],still,2400),
 }
 if __name__=='__main__':
     name=sys.argv[1]

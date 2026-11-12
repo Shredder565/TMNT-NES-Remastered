@@ -55,15 +55,15 @@ throw:
 | 86 | 5:$982B, then $987C, $98D7, $9908 | `CeilingCrawler.gd`, `enemy_81_8D_86.md` |
 | 98, the foot soldier | 5:$864B | `Soldier.gd`, `enemy_98.md` |
 | 99, its star | 5:$8708 | `Star.gd`, `enemy_98.md` |
-| 49 | 5:$9249 | `enemy_49_88_A0.md` |
-| 4A, thrown by 49 | 5:$927C | |
-| 91 | 5:$91C6 | |
-| 92 | 5:$9288 | `enemy_92.md` |
-| 93, with 92 | 5:$92F3 | |
-| 94 | 5:$9983 | |
-| 95, fired by 94 | 5:$99D9 | |
+| 49 | 5:$9249, then $934C to $93D3 | `Lurker.gd`, `enemy_49_91.md` |
+| 4A, thrown by 49 | 5:$927C | `Missile.gd`, `enemy_49_91.md` |
+| 91 | 5:$91C6 | `Chainsaw.gd`, `enemy_49_91.md` |
+| 92 | 5:$9288, then $933B | `Pouncer.gd`, `enemy_92_94.md` |
+| 93, thrown by 92 | 5:$92F3 | `Boomerang.gd`, `enemy_92_94.md` |
+| 94 | 5:$9983 | `Gunner.gd`, `enemy_92_94.md` |
+| 95, fired by 94 | 5:$99D9 | `Missile.gd`, `enemy_92_94.md` |
 | 96 | 5:$99E5 (the same code as 81) | `Flier.gd`, `enemy_81_8D_86.md` |
-| AA | 5:$A34F | |
+| AA | 5:$A34F, then $A357 | not done: it steers at the turtle by angle tables (5:$A944, $A9B0) that have not been read |
 | 15, the puff of a beaten enemy | 5:$8733 | `Puff.gd` |
 
 The full tables (kind, address) are easy to print again with the
@@ -102,6 +102,8 @@ most).
 | 5:$84B1 | One update in the air: gravity, then walls and ceilings (below) |
 | 5:$8421 | Landing: if the place asked for (4 above the object) is in a floor, raises the object a pixel at a time until it is not (31 at most), clears "busy" and both speeds |
 | 5:$8101 | Makes a thrown object from a table at 5:$816D of (kind, across, up) |
+| 5:$85B2 | The start of a drop or a leap: sets the downward speed from a table and marks the object busy, unless a wall is 14 ahead (at 4 up when dropping or 36 up when leaping, or at 12 up), when it just stands |
+| 5:$8CE7 | Dropping: 36 more each update; lands once there is something 12 behind and 4 below |
 | 7:$F072 | The kind of map cell at an offset from the object |
 | 6:$8081 | Starts an animation; 6:$8010 steps it |
 
@@ -145,8 +147,9 @@ right, but -2 going left, because -1.25 rounds down).
   and the two at the edges share one place in the ring. Measured: scrolling
   right, the column coming in replaces the one going out once the screen
   is 8 pixels into it. Scrolling left, the column coming in on the left is
-  only taken up when it is wholly on the screen. Turning back does not
-  undo either. `OriginalEnemy.screen_moved_to` follows this.
+  only taken up once the screen has gone a pixel past it (so the leftmost,
+  half-shown column is never the one to hand), or the screen reaches
+  the room's left end. Turning back does not undo either. `OriginalEnemy.screen_moved_to` follows this.
 - Heights wrap at 256, and a room one screen tall fills only the first
   192 pixels of the ring. Above and below that the look-up finds what the
   last map shown left in memory. Measured in all of world 1's rooms after
@@ -184,12 +187,22 @@ $45 is set. The remake does not do this.
 
 ## Chance
 
-The enemy code read so far has no random number generator. Where a
-choice looks random it comes from the frame counter ($1E). The remake
-keeps a counter that goes up once a frame (`OriginalEnemy.counter`), so
-the choices are made the same way, but its value at any moment is not
-the original's: the original's counter stops during lag frames and has
-been running since power-on.
+Two things stand in for chance in the enemy code read so far.
+
+- **The frame counter ($1E).** Most choices that look random come from
+  it (which punch, whether to throw, when to fire). The remake keeps a
+  counter that goes up once a frame (`OriginalEnemy.counter`), so the
+  choices are made the same way, but its value at any moment is not the
+  original's: the original's counter stops during lag frames and has
+  been running since power-on.
+- **RAM $45.** While the game waits for the next frame it runs a small
+  loop (7:$C395) that keeps adding to this byte and mixing it with the
+  frame counter. How many times the loop runs depends on how much time
+  each frame had to spare, so the value cannot be foreseen. Kind 92
+  uses it to decide when to throw, and the puff uses it to pick an item.
+  The remake rolls its own number (`OriginalEnemy.chance`).
+
+In the side-by-side check both are taken from the recording.
 
 ## The side-by-side check
 

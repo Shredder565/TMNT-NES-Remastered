@@ -90,21 +90,22 @@ crawls there instead of rising off the screen. The remake assumes solid.
 
 ## Checked against the emulator
 
-Method in `enemy_routines.md`. Nineteen recordings across world 1's
-areas 0 to 4: standing, walking each way, pacing, pacing and jumping.
+Method in `enemy_routines.md`. Recordings in all six of world 1's
+areas: standing, walking each way, pacing, pacing and jumping.
 
 | Kind | Objects | Frames compared | Agree exactly |
 | --- | --- | --- | --- |
-| 81 | 42 | 11072 | 11072 |
-| 8D | 43 | 10786 | 10786 |
-| 86 | 29 | 6286 | 6286 |
+| 81 | 106 | 29900 | 29900 |
+| 8D | 55 | 13964 | 13964 |
+| 86 | 44 | 12535 | 12535 |
+| 96 | 38 | 21077 | 21077 |
 
 The recordings include 8D dropping off ledges (600 frames), 86 rising
 (845 frames) and swooping (2623 frames), and every kind turning at walls.
 
 Not checked, because world 1's first line-ups do not place them: kinds
-84, 96, 8E and 8F. They run the same code as 8D and 81 with other
-numbers, read from the same tables.
+84, 8E and 8F. They run the same code as 8D and 81 with other numbers,
+read from the same tables.
 
 ## What is not matched
 

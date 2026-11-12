@@ -98,3 +98,10 @@ what the original shows when the world is won (April's rescue); score;
 sound; the special weapons and the other items in
 `items_and_hits.md`; and everything listed as approximate on the enemies'
 own pages (their routines have not been read from the code yet).
+
+## Superseded in part
+
+12 November 2026: the routines of kind 91 have been read from the
+original's code (`enemy_routines.md`), and the remake now runs them by
+those rules: see `enemy_49_91.md` and `enemy_92_94.md`. What this page
+says about them is the earlier measurement and fitted pattern.

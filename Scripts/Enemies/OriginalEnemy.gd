@@ -24,6 +24,8 @@ const WALLS := [4, 0x0C, 0x0D]    ## what stops an enemy: walls and both moving 
 ## or by starting again.
 const ENDS := 0
 const LOOPS := 1
+const GOES_ON := 0x100             ## plus the number of the animation it goes on to
+const THROWN_AT_ONCE := 4          ## the original's places for things enemies throw
 const LAND_LIFT := 31             ## the most a landing raises it
 const ENDED := 255                ## the step number of an animation that has stopped
 ## How things fly and fall. One line per number the original's kinds use:
@@ -48,6 +50,10 @@ static var counter_offset := 0
 ## Set by the room scene when a ROM is installed: used to give an enemy
 ## the hit box the ROM has for the animation it is showing.
 static var levels: RomLevels
+## The original's one unpredictable number (RAM $45, stirred by an idle
+## loop for as long as each frame has time to spare). In play the remake
+## rolls its own; a side-by-side run sets `chance_byte` from the recording.
+static var chance_byte := -1
 static var _first_column := -1    ## the first of the sixteen map columns to hand; -1 = not tracked
 static var _screen_left := 0
 ## How far the screen scrolled in the turtle's last update (the original's
@@ -79,6 +85,7 @@ var anim_ticks := 0
 var picture := 0                  ## the original's picture number, shown as frame "f<number>"
 var ticks := 0                    ## updates lived
 var gone := false
+var is_thrown := false            ## true for something an enemy threw
 var _frame := 0
 var _placed := Vector2.INF
 var _art := Node2D.new()
@@ -123,6 +130,14 @@ static func for_kind(spot_kind: int) -> OriginalEnemy:
 		return LedgeWalker.new()
 	if CeilingCrawler.KINDS.has(spot_kind):
 		return CeilingCrawler.new()
+	if Lurker.KINDS.has(spot_kind):
+		return Lurker.new()
+	if Chainsaw.KINDS.has(spot_kind):
+		return Chainsaw.new()
+	if Pouncer.KINDS.has(spot_kind):
+		return Pouncer.new()
+	if Gunner.KINDS.has(spot_kind):
+		return Gunner.new()
 	return null
 
 ## Makes it the enemy of one of the ROM's enemy places. Set `view_corner`
@@ -204,6 +219,10 @@ static func counter() -> int:
 	if frame_counter >= 0:
 		return frame_counter & 255
 	return (Engine.get_physics_frames() + counter_offset) & 255
+
+## A number from 0 to 255 that nothing can foresee.
+static func chance() -> int:
+	return chance_byte & 255 if chance_byte >= 0 else randi() & 255
 
 func _physics_process(_delta: float) -> void:
 	_frame += 1
@@ -304,15 +323,16 @@ func kind_at(across: int, down: int) -> int:
 ## Keeps track of which sixteen map columns the original would have to
 ## hand. Scrolling right, the column coming in on the right replaces the
 ## one going out on the left once the screen is 8 pixels into it;
-## scrolling left, the column coming in on the left is only taken up when
-## it is wholly on the screen. The room scene calls this every frame.
+## scrolling left, the column coming in on the left is only taken up once
+## the screen has gone past it and the next one starts to show (or the
+## screen has reached the room's left end). The room scene calls this every frame.
 static func screen_moved_to(left_edge: int) -> void:
 	if _first_column < 0 or absi(left_edge - _screen_left) > 32:
 		_first_column = (left_edge + 8) >> 4
 	elif left_edge > _screen_left:
 		_first_column = maxi(_first_column, (left_edge + 8) >> 4)
 	elif left_edge < _screen_left:
-		_first_column = mini(_first_column, (left_edge + 15) >> 4)
+		_first_column = mini(_first_column, (left_edge + 16) >> 4) if left_edge > 0 else 0
 	var now := Engine.get_physics_frames()
 	if left_edge != _screen_left:
 		scroll_step = left_edge - _screen_left if absi(left_edge - _screen_left) <= 32 else 0
@@ -428,6 +448,49 @@ func land(up := -4) -> bool:
 	stop()
 	return true
 
+## The start of a drop or a leap: sets the downward speed (negative is
+## up) and marks it busy, unless a wall is 14 pixels ahead of it (at 4 up
+## when dropping or 36 up when leaping, or at 12 up), in which case it
+## just stands with no speed. Returns true if it is away.
+func launch(fall_speed: int) -> bool:
+	busy = true
+	var reach := -14 if facing_left else 14
+	speed_y = fall_speed
+	if wall_at(reach, -36 if speed_y < 0 else -4) or wall_at(reach, -12):
+		busy = false
+		stop()
+		return false
+	return true
+
+## Makes something this enemy throws, `across` pixels ahead of it and
+## `down` from its position, facing the way it faces. The original has
+## four places for thrown things, shared by every enemy on the screen,
+## and does not make one that would start in a wall (8 above its own
+## position). Returns null if none was made. The caller sets it up and
+## then gives it its first update with `tick()`, which the original does
+## in the same round as the throw.
+func throw_object(thrown: OriginalEnemy, thrown_kind: int, across: int, down: int) -> OriginalEnemy:
+	var parent := get_parent()
+	var flying := 0
+	if parent != null:
+		for other in parent.get_children():
+			if other is OriginalEnemy and other.is_thrown and not other.gone:
+				flying += 1
+	if parent == null or flying >= THROWN_AT_ONCE:
+		thrown.free()
+		return null
+	thrown.is_thrown = true
+	thrown.view_corner = view_corner
+	thrown.setup_at(thrown_kind, Vector2(whole_x() + (-across if facing_left else across), whole_y() + down), room, SpriteSet.cached("Kind%02X" % thrown_kind), target)
+	thrown.facing_left = facing_left
+	thrown.weapon_damage = weapon_damage
+	thrown.weapon_damage_low = weapon_damage_low
+	if thrown.kind_at(0, -8) == RoomData.KIND_SOLID:
+		thrown.free()
+		return null
+	parent.add_child(thrown)
+	return thrown
+
 ## --- animation ------------------------------------------------------------
 
 func set_animation(number: int) -> void:
@@ -455,6 +518,11 @@ func _animate() -> void:
 		picture = pictures[anim_step]
 	elif entry[2] == ENDS:
 		anim_step = ENDED
+	elif entry[2] >= GOES_ON:
+		animation = entry[2] - GOES_ON
+		anim_ticks = _animations().get(animation, [1, [], LOOPS])[0]
+		anim_step = 0
+		_fit_box_to_animation()
 	else:
 		anim_step = 0
 

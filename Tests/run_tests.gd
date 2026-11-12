@@ -1128,6 +1128,125 @@ func _ready() -> void:
 	check(o_swooped and absf(o_lowest - 112.2) < 0.5 and o_hanger.whole_y() == 40 and o_hanger.mode == CeilingCrawler.Mode.CRAWL, "with the turtle under 40 pixels away it swoops, stopped by the floor, and climbs back to the ceiling (%.1f)" % o_lowest)
 	o_hanger.free()
 	OriginalEnemy.scroll_step = 0
+	# Kind 49: waits, comes out, walks and throws, goes back in.
+	var o_thrown_out := func() -> Array:
+		var found := []
+		for child in get_children():
+			if child is OriginalEnemy and child.is_thrown and not child.gone:
+				found.append(child)
+		return found
+	var o_spot_for := func(spot_kind: int, at: Vector2) -> EnemySpot:
+		var made := EnemySpot.new()
+		made.kind = spot_kind
+		made.position = at
+		made.hit_points = 30
+		made.touch_damage = 10
+		return made
+	OriginalEnemy.frame_counter = 0x10
+	OriginalEnemy.chance_byte = 1
+	o_prey.position = Vector2(200, 176)
+	var o_lurker := Lurker.new()
+	o_lurker.setup(o_spot_for.call(0x49, Vector2(110, 179)), o_court, null, o_prey)
+	add_child(o_lurker)
+	o_lurker.set_physics_process(false)
+	o_lurker.tick()
+	check(not o_lurker.busy and o_lurker.animation == Lurker.WAITING, "kind 49 waits while the turtle is 80 pixels or more away")
+	o_prey.position.x = 160.0
+	o_lurker.tick()
+	check(o_lurker.busy and o_lurker.animation == Lurker.COMING_OUT, "with him 32 to 79 pixels away it comes out")
+	var o_out_after := 1
+	while o_lurker.mode != Lurker.Mode.OUT and o_out_after < 60:
+		o_lurker.tick()
+		o_out_after += 1
+	o_lurker.tick()
+	check(o_out_after == 25 and o_lurker.speed_x == 256 and o_lurker.animation == Lurker.WALKING, "coming out takes 24 updates; then it walks at him at 1 pixel an update (%d)" % o_out_after)
+	o_prey.position.x = 230.0
+	for i in 31:
+		o_lurker.tick()
+	var o_missiles: Array = o_thrown_out.call()
+	check(o_missiles.size() == 1 and o_missiles[0].kind == 0x4A and o_missiles[0].speed_x == 832 and o_missiles[0].position.y == o_lurker.position.y - 16.0 and o_lurker.animation == Lurker.THROWING, "on its 32nd update out it throws kind 4A, from 16 above it, at 3.25 pixels an update")
+	o_missiles[0].free()
+	o_prey.position.x = o_lurker.position.x + 10.0
+	for i in 12:
+		o_lurker.tick()
+	check(o_lurker.mode == Lurker.Mode.GO_IN and o_lurker.speed_x == 0, "with the turtle under 16 pixels away it goes back in")
+	for i in 30:
+		o_lurker.tick()
+	check(not o_lurker.busy and o_lurker.animation == Lurker.WAITING, "and waits again")
+	o_lurker.free()
+	# Kind 91: walks 31 updates, swings, walks; stands while it blinks.
+	var o_saw := Chainsaw.new()
+	o_saw.setup(o_spot_for.call(0x91, Vector2(100, 179)), o_court, null, o_prey)
+	add_child(o_saw)
+	o_saw.set_physics_process(false)
+	o_saw.tick()
+	check(o_saw.speed_x == 448 and o_saw.animation == Chainsaw.WALKING, "kind 91 walks the way it faces at 1.75 pixels an update")
+	for i in 31:
+		o_saw.tick()
+	check(o_saw.busy and o_saw.speed_x == 0 and o_saw.animation == Chainsaw.SWING_A and o_saw.position.x == 100.0 + 31 * 1.75, "on its 32nd update it stops and swings its saw")
+	var o_swing := 0
+	while o_saw.busy and o_swing < 80:
+		o_saw.tick()
+		o_swing += 1
+	check(o_swing == 32, "the swing holds it for 32 more updates (%d)" % o_swing)
+	o_saw.take_hit(7)
+	o_saw.tick()
+	check(o_saw.animation == Chainsaw.HURT and o_saw.speed_x == 0 and o_saw.health == 23, "hit, it stands still while it blinks")
+	for i in 24:
+		o_saw.tick()
+	check(not o_saw.blinking and o_saw.speed_x == 448, "and walks on when the blink is over")
+	o_saw.free()
+	# Kind 92 and what it throws, kind 93.
+	o_prey.position = Vector2(220, 176)
+	var o_pouncer := Pouncer.new()
+	o_pouncer.setup(o_spot_for.call(0x92, Vector2(100, 179)), o_court, null, o_prey)
+	add_child(o_pouncer)
+	o_pouncer.set_physics_process(false)
+	o_pouncer.tick()
+	check(o_pouncer.speed_x == 448 and not o_pouncer.busy, "kind 92 walks at the turtle at 1.75 pixels an update")
+	OriginalEnemy.chance_byte = 64
+	o_pouncer.tick()
+	var o_rangs: Array = o_thrown_out.call()
+	check(o_rangs.size() == 1 and o_rangs[0].kind == 0x93 and o_rangs[0].speed_x == 1024 - 16 and o_pouncer.speed_x == 0 and o_pouncer.animation == Pouncer.THROWING, "one update in 64, by chance, it stops and throws kind 93 at 4 pixels an update")
+	OriginalEnemy.chance_byte = 1
+	var o_rang: Boomerang = o_rangs[0]
+	var o_furthest := 0.0
+	o_pouncer.set_physics_process(false)
+	var o_thrower_x: float = o_pouncer.position.x
+	while not o_rang.gone and o_rang.ticks < 400:
+		o_rang.tick()
+		o_furthest = maxf(o_furthest, o_rang.position.x - o_thrower_x)
+	check(o_rang.gone and absf(o_furthest - 126.0) < 2.0 and absf(o_rang.position.x - o_thrower_x) < 4.0, "kind 93 slows, turns and comes back, and is gone when it reaches the thrower (it went %.1f out)" % o_furthest)
+	var o_leapt := false
+	var o_leap_from := 0.0
+	for i in 120:
+		o_pouncer.tick()
+		if o_pouncer.busy and not o_leapt:
+			o_leapt = true
+			o_leap_from = o_prey.position.x - o_pouncer.position.x
+	check(o_leapt and o_leap_from < 40.0 and o_leap_from >= 36.0, "from less than 40 pixels away it leaps (%.2f)" % o_leap_from)
+	o_pouncer.free()
+	# Kind 94 and what it fires, kind 95.
+	o_prey.position = Vector2(220, 176)
+	var o_gunner := Gunner.new()
+	o_gunner.setup(o_spot_for.call(0x94, Vector2(100, 180)), o_court, null, o_prey)
+	add_child(o_gunner)
+	o_gunner.set_physics_process(false)
+	OriginalEnemy.frame_counter = 0x20
+	o_gunner.tick()
+	check(o_gunner.speed_x == 352 and o_thrown_out.call().is_empty(), "kind 94 walks the way it faces at 1.375 pixels an update while bit 5 of the frame counter is set")
+	OriginalEnemy.frame_counter = 0x10
+	for i in 6:
+		o_gunner.tick()
+	var o_shots: Array = o_thrown_out.call()
+	check(o_shots.size() == 4 and o_gunner.speed_x == 0 and o_shots[0].kind == 0x95 and o_shots[0].speed_x == 640 and o_shots[0].position.y == 163.0, "with the turtle within 32 pixels of its height it stands and fires kind 95, one an update, four at most")
+	o_prey.position.y = 100.0
+	o_gunner.tick()
+	check(o_gunner.speed_x == 352, "with him higher than that it walks on")
+	for o_shot: Missile in o_shots:
+		o_shot.free()
+	o_gunner.free()
+	OriginalEnemy.chance_byte = -1
 	# The frames enemies are updated on, and the sixteen map columns to hand.
 	OriginalEnemy.frame_counter = 0x11
 	var o_idle: Soldier = o_make_soldier.call(Vector2(100, 179))
@@ -1141,10 +1260,15 @@ func _ready() -> void:
 	var o_early: int = OriginalEnemy._first_column
 	OriginalEnemy.screen_moved_to(8)
 	var o_late: int = OriginalEnemy._first_column
-	OriginalEnemy.screen_moved_to(3)
+	OriginalEnemy.screen_moved_to(17)
 	check(o_early == 0 and o_late == 1 and OriginalEnemy._first_column == 1, "scrolling right, the map column coming in replaces the one going out 8 pixels in; scrolling back does not undo it")
+	OriginalEnemy.screen_moved_to(24)
+	OriginalEnemy.screen_moved_to(16)
+	var o_at_edge: int = OriginalEnemy._first_column
+	OriginalEnemy.screen_moved_to(15)
+	var o_past_edge: int = OriginalEnemy._first_column
 	OriginalEnemy.screen_moved_to(0)
-	check(OriginalEnemy._first_column == 0, "scrolling left, a column is taken up once it is wholly on the screen")
+	check(o_at_edge == 2 and o_past_edge == 1 and OriginalEnemy._first_column == 0, "scrolling left, a column is taken up once the screen has gone past it, or is at the room's left end")
 	OriginalEnemy._first_column = -1
 	OriginalEnemy.frame_counter = -1
 	o_prey.free()

@@ -5,12 +5,14 @@ extends Node
 ## each enemy is taken over as the recording first shows it and then left
 ## to the remake's rules. Every later frame is compared exactly.
 
+const CHANCE_BACK := 1    ## the unpredictable number an update sees is the one the frame before left
 const START_FRAME := 44   ## the room is still coming in before this: objects exist but stand frozen
 const FIELDS := ["x", "y", "vx", "vy", "anim", "step", "aticks", "pic", "left", "blink", "busy"]
 
 var makers := {}        # kind -> Callable(state) -> OriginalEnemy
 var totals := {}
 var only_kinds: Array = []
+var slots := {}
 
 func _signed(v: int) -> int:
 	return v - 65536 if v >= 32768 else v
@@ -34,11 +36,14 @@ func _ready() -> void:
 		var t: Array = totals[kind]
 		print("  kind %s: %d frames compared, %d agree exactly (%.2f%%), %d objects" % [kind, t[0], t[1], 100.0 * t[1] / maxi(t[0], 1), t[2]])
 	OriginalEnemy.frame_counter = -1
+	OriginalEnemy.chance_byte = -1
 	get_tree().quit()
 
 func _make(kind: int) -> OriginalEnemy:
 	match kind:
 		0x99: return Star.new()
+		0x4A, 0x95: return Missile.new()
+		0x93: return Boomerang.new()
 	if only_kinds.is_empty() or only_kinds.has(kind):
 		return OriginalEnemy.for_kind(kind)
 	return null
@@ -49,6 +54,17 @@ func _adopt_kind(e: OriginalEnemy, s: Dictionary) -> void:
 	if e is Soldier:
 		e.mode = [Soldier.Mode.GROUND, Soldier.Mode.JUMP, Soldier.Mode.DROP, Soldier.Mode.POSE][s.mode] if s.mode < 4 else Soldier.Mode.GROUND
 		e.stun_ticks = s.t6
+	elif e is Lurker:
+		e.mode = [Lurker.Mode.COME_OUT, Lurker.Mode.OUT, Lurker.Mode.DROP, Lurker.Mode.THROW, Lurker.Mode.GO_IN][clampi(s.mode - 0x17, 0, 4)]
+		e.timer = s.t6
+	elif e is Chainsaw:
+		e.mode = Chainsaw.Mode.DROP if s.mode == 6 else Chainsaw.Mode.SWING
+		e.timer = s.t6
+	elif e is Pouncer:
+		e.mode = Pouncer.Mode.DROP if s.mode == 6 else Pouncer.Mode.LEAP
+	elif e is Boomerang:
+		e.grace = s.t6
+		e.thrower = slots.get(str(s.t64))
 	elif e is LedgeWalker:
 		e.falling = s.mode == 0x8E
 	elif e is CeilingCrawler:
@@ -100,6 +116,7 @@ func _run(name: String, run: Dictionary, levels: RomLevels, verbose: bool) -> vo
 	var hits: Array = run.get("hits", [])
 	var hit_kind := int(run.get("hit_kind", 0))
 	var by_slot := {}        # slot -> enemy
+	slots = by_slot
 	var stats := {}          # slot key -> [compared, equal, first mismatch text, kind]
 	var free_stars: Array = []
 	var prev_c := -1
@@ -114,6 +131,7 @@ func _run(name: String, run: Dictionary, levels: RomLevels, verbose: bool) -> vo
 		cam[1] = int(row.camy)
 		OriginalEnemy.screen_moved_to(cam[0])
 		OriginalEnemy.scroll_step = int(row.get("sc", 0))
+		OriginalEnemy.chance_byte = int(rows[maxi(f - CHANCE_BACK, 0)].get("r", 0))
 		turtle.position = Vector2(cam[0] + int(row.t[0]), cam[1] + int(row.t[2]) + 20)
 		if hits.has(float(f)):
 			for slot: String in by_slot:

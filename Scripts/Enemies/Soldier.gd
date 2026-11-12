@@ -24,7 +24,6 @@ const THROW_UNTIL := 0xC0         ## it throws while the frame counter is below 
 const PUNCH_FROM := 0x60          ## frame counter at or above this: the long punch, else the short one
 const STAR_KIND := 0x99
 const STAR_UP := 36               ## a star starts this far above the soldier's position
-const STARS_AT_ONCE := 4          ## the original keeps four places for them
 
 const WALK := 0x90
 const KICK_HIGH := 0x91           ## the four attacks; the first two only with a special weapon chosen
@@ -151,24 +150,9 @@ func _dropping() -> void:
 	if something_behind(12, 6):
 		land()
 
-## A star starts 36 above the soldier. There are only four places for
-## stars, and one that would start inside a wall is not made.
+## A star starts 36 above the soldier, if one of the four places for
+## thrown things is free and it would not start inside a wall.
 func _throw_star() -> void:
-	var parent := get_parent()
-	if parent == null:
-		return
-	var flying := 0
-	for other in parent.get_children():
-		if other is Star and not other.gone:
-			flying += 1
-	if flying >= STARS_AT_ONCE:
-		return
-	var star := Star.new()
-	star.setup_at(STAR_KIND, Vector2(whole_x(), whole_y() - STAR_UP), room, SpriteSet.cached("Kind%02X" % STAR_KIND), target)
-	star.view_corner = view_corner
-	star.facing_left = facing_left
-	if star.kind_at(0, -8) == RoomData.KIND_SOLID:
-		star.free()
-		return
-	parent.add_child(star)
-	star.tick()   # a new star gets its first update in the same round as the throw
+	var star := throw_object(Star.new(), STAR_KIND, 0, -STAR_UP)
+	if star != null:
+		star.tick()
