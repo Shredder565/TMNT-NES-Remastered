@@ -74,8 +74,8 @@ Different from the original:
 - On the GAME OVER screen the marker is a plain square and is moved with
   Up or Down (the remake has no Select button); the words use the Start
   screen's letter tiles, which have the same letter numbers.
-- END starts the remake's game again at world 1; the original goes to
-  its title screen, which the remake does not have.
+- END goes to the title in both (see `title_screen.md`); the remake
+  shows the notice again first.
 - What the original does about a captured turtle later (rescuing him)
   was not looked at.
 - No sounds.

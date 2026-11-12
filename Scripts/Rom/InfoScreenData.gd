@@ -84,31 +84,66 @@ func word_at(bank: int, address: int) -> int:
 ## times, or $80 + a count and that many tiles. $7F starts another block
 ## and $FF ends the layout.
 func layout() -> Dictionary:
+	return screen_layout(3, LAYOUT_ENTRY)
+
+## Any of the ROM's screen layouts: entry `entry` of the table at 7:$E3CE,
+## whose data is in program bank `bank`. Cells the layout does not write
+## are tile 0.
+func screen_layout(bank: int, entry: int) -> Dictionary:
 	var cells := PackedByteArray()
 	cells.resize(0x400)
-	var address := word_at(7, T_LAYOUTS + LAYOUT_ENTRY * 2)
-	var at := word_at(3, address)
+	var address := word_at(7, T_LAYOUTS + entry * 2)
+	var at := word_at(bank, address)
 	address += 2
 	var guard := 0
 	while guard < 4096:
 		guard += 1
-		var code := byte_at(3, address)
+		var code := byte_at(bank, address)
 		if code == 0xFF:
 			break
 		if code == 0x7F:
-			at = word_at(3, address + 1)
+			at = word_at(bank, address + 1)
 			address += 3
 		elif code >= 0x80:
 			for i in code & 0x7F:
-				_put(cells, at, byte_at(3, address + 1 + i))
+				_put(cells, at, byte_at(bank, address + 1 + i))
 				at += 1
 			address += 1 + (code & 0x7F)
 		else:
 			for i in code:
-				_put(cells, at, byte_at(3, address + 1))
+				_put(cells, at, byte_at(bank, address + 1))
 				at += 1
 			address += 2
 	return { "tiles": cells.slice(0, COLS * ROWS), "colours": cells.slice(COLS * ROWS, 0x400) }
+
+## The screens before play (Research/title_screen.md): the notice, entry
+## $13 with its data in bank 0, and the title, entry 1 with its data in
+## bank 1. Both use graphics page $0F and colour patch $21.
+const NOTICE_ENTRY := 0x13
+const NOTICE_BANK := 0
+const TITLE_ENTRY := 1
+const TITLE_BANK := 1
+const TITLE_PAGE := 0x0F
+const TITLE_PATCH := 0x21
+const PUSH_START_STRING := 0
+
+## The 32 colour numbers of the title and the notice: all backdrop, with
+## the patch's colours written in from its starting place, skipping every
+## fourth place (which stays the backdrop).
+func title_colours() -> PackedByteArray:
+	var out := PackedByteArray()
+	out.resize(32)
+	out.fill(0x0F)
+	var patch := colour_patch(TITLE_PATCH)
+	var at := int(patch.at)
+	for value: int in patch.values:
+		if at % 4 == 0:
+			at += 1
+		if at >= 32:
+			break
+		out[at] = value
+		at += 1
+	return out
 
 func _put(cells: PackedByteArray, at: int, value: int) -> void:
 	var index := at - SCREEN_START

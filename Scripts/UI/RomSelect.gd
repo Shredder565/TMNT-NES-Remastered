@@ -88,4 +88,4 @@ func handle_rom(path: String) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if ready_to_continue and (event.is_action_pressed("pause") or event.is_action_pressed("ui_accept")):
-		Game.go_to(Game.SCENE_TEST_ROOM)
+		Game.go_to(Game.SCENE_TITLE)

@@ -1075,7 +1075,7 @@ func _on_start_screen_closed() -> void:
 ## start. END, or no continues left: the game begins again.
 func _on_game_over_chosen(carry_on: bool) -> void:
 	if not carry_on:
-		Game.go_to(Game.SCENE_TEST_ROOM)
+		Game.go_to(Game.SCENE_TITLE)   # END: back to the title, as the original
 		return
 	turtle_energy = [TURTLE_ENERGY, TURTLE_ENERGY, TURTLE_ENERGY, TURTLE_ENERGY]
 	current_turtle = 0

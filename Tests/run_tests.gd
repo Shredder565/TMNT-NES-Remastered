@@ -75,7 +75,7 @@ func _ready() -> void:
 	check(highest_tile < ripper.tile_count(), "every tile number is inside the ROM's graphics")
 
 	print("Scenes")
-	for path: String in ["res://Scenes/Boot.tscn", "res://Scenes/UI/RomSelect.tscn",
+	for path: String in ["res://Scenes/Boot.tscn", "res://Scenes/UI/RomSelect.tscn", "res://Scenes/UI/Title.tscn",
 			"res://Scenes/Tools/ChrViewer.tscn", "res://Scenes/Player/Turtle.tscn", "res://Scenes/Levels/TestRoom.tscn"]:
 		var scene: PackedScene = load(path)
 		check(scene != null and scene.can_instantiate(), "loads " + path)
@@ -1841,6 +1841,7 @@ func _ready() -> void:
 	await _test_four_turtles()
 	await _test_doors_as_shown()
 	await _test_losing_a_turtle()
+	await _test_title_screen()
 
 	print("ROM screen")
 	var rom_path := "user://_test_fake.nes"
@@ -2436,6 +2437,69 @@ func RoomScene_hold_frames() -> int:
 	return 16 + 7
 
 # ============================ Losing a turtle ============================
+func _test_title_screen() -> void:
+	print("Title screen")
+	check(Game.SCENE_TITLE == "res://Scenes/UI/Title.tscn" and ResourceLoader.exists(Game.SCENE_TITLE), "the title is a scene of its own")
+	var title: Node = load(Game.SCENE_TITLE).instantiate()
+	title.leave_when_done = false
+	add_child(title)
+	title.set_physics_process(false)
+	if title.data == null:
+		check(title.phase == title.Phase.TITLE, "without a ROM: straight to a plain title")
+	else:
+		check(title.phase == title.Phase.NOTICE, "with a ROM: the notice comes first")
+		var notice: Image = title.picture()
+		var lit := 0
+		for y in 240:
+			for x in 256:
+				if notice.get_pixel(x, y) != notice.get_pixel(0, 0):
+					lit += 1
+		check(lit > 2000, "the notice is drawn from the ROM's layout (%d lit pixels)" % lit)
+		var clear := true
+		for y in 240:
+			for x in 8:
+				clear = clear and notice.get_pixel(x, y) == notice.get_pixel(0, 0)
+		check(clear, "the left 8 pixels stay blank")
+		for i in title.NOTICE_FRAMES - 1:
+			title.tick()
+		check(title.phase == title.Phase.NOTICE, "the notice stays for 255 frames")
+		title.tick()
+		check(title.phase == title.Phase.TITLE, "and gives way to the title on the 256th")
+		title.show_phase(title.Phase.NOTICE)
+		title.press_start()
+		check(title.phase == title.Phase.TITLE, "Start skips the notice")
+		check(title.data.title_colours().slice(0, 12) == PackedByteArray([0x0F, 0x01, 0x16, 0x30, 0x0F, 0x01, 0x16, 0x2A, 0x0F, 0x16, 0x27, 0x10]), "the title's colours come from the ROM's colour patch $21")
+		var words: Array = title.data.string_writes(InfoScreenData.PUSH_START_STRING)
+		check(words.size() == 10 and int(words[0][0]) == 0x22CB, "PUSH START is ten tiles from row 22, column 11")
+		check(title.tile_at(11, 22) == int(words[0][1]) and title.tile_at(11, 22) != 0, "and is on the title")
+	for i in 600:
+		title.tick()
+	check(title.phase == title.Phase.TITLE and not title.finished, "the title waits for Start")
+	title.press_start()
+	check(title.phase == title.Phase.BLINK, "Start on the title begins the blink")
+	var changes := 0
+	var shown: bool = title.push_start_shown
+	var first_off := -1
+	for i in title.BLINK_FRAMES - 1:
+		title.tick()
+		if title.push_start_shown != shown:
+			shown = title.push_start_shown
+			changes += 1
+			if first_off < 0:
+				first_off = i + 1
+		if i == 3 and title.data != null:
+			check(title.tile_at(11, 22) == 0, "PUSH START is wiped from the picture while off")
+	check(first_off == 1 and changes == 16, "PUSH START goes off at once and changes every 8 frames (%d changes)" % changes)
+	check(title.push_start_shown and not title.finished, "it is showing at the end of the blink")
+	title.tick()
+	check(title.finished, "the game begins 128 frames after Start")
+	title.queue_free()
+	var boot_code := FileAccess.get_file_as_string("res://Scripts/Boot.gd")
+	check(boot_code.contains("SCENE_TITLE"), "the game opens on the title when a ROM is in place")
+	var room_code := FileAccess.get_file_as_string("res://Scripts/Levels/RoomScene.gd")
+	var end_at := room_code.find("func _on_game_over_chosen")
+	check(room_code.substr(end_at, 200).contains("SCENE_TITLE"), "END at GAME OVER goes to the title")
+
 func _test_losing_a_turtle() -> void:
 	print("Losing a turtle")
 	# GAME OVER on its own: the words, then the choice, or straight to the end.

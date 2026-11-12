@@ -13,6 +13,8 @@ const ROM_PATH := "user://baserom.nes"
 const ROM_ASSETS_PATH := "user://rom_assets"
 
 const SCENE_ROM_SELECT := "res://Scenes/UI/RomSelect.tscn"
+## The notice and the title, as the original shows them before play.
+const SCENE_TITLE := "res://Scenes/UI/Title.tscn"
 ## The playable map scene. With a ROM it opens on the first overworld.
 const SCENE_TEST_ROOM := "res://Scenes/Levels/Area1Sewer.tscn"
 ## The grey-block practice room from the first builds (press F2 in the sewer).
