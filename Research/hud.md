@@ -132,7 +132,8 @@ the scroll at once.
 
 - The odd band on lines 0 to 3 of a room, and the wrong-row lines at
   the top of the overworld, are not copied (black, and the right map).
-- The score and best score always read 0000000: the remake keeps none.
-- Special weapons, their counts, the third box's contents and the
-  world 2 clock are not there.
+- The score and best score are kept and shown since 12 November 2026
+  (`score.md`, which also has the boxes' rules read from the code).
+- The world 2 clock is not there; the special weapon's box and count and
+  the third box's are drawn when the game gives them to the strip.
 - One energy block does not flicker on the overworld.

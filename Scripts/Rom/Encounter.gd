@@ -11,6 +11,7 @@ var column := 0                ## 0: the camera must be at the room's left end.
 var position := Vector2.ZERO   ## where a boss appears, in room pixels
 var offset := Vector2.ZERO     ## the same as stored: X from the held screen's left edge
 var slot := 0                  ## the entry's slot byte, as stored
+var points := 0                ## what beating it adds to the score (from the slot byte)
 var is_boss := false           ## the entry names a line-up of its own (bosses do)
 var kind := -1                 ## the object kind, where it could be worked out
 var hit_points := 1

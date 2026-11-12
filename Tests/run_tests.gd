@@ -1914,6 +1914,8 @@ func _ready() -> void:
 	await _test_losing_a_turtle()
 	await _test_title_screen()
 	await _test_screen_layout()
+	# --- the second screens agent's sections ---
+	await _test_score()
 
 	print("ROM screen")
 	var rom_path := "user://_test_fake.nes"
@@ -2797,3 +2799,95 @@ func _test_losing_a_turtle() -> void:
 	check(caught_screen.tile_at(3, 17) == 0x10 + 12 and caught_screen.tile_at(3, 19) == 0x10 + 6, "Michelangelo's long name takes the first line and GOT CAUGHT starts the second")
 	caught_screen.free()
 	sewer.free()
+
+# ============================ Score (Research/score.md) ============================
+func _test_score() -> void:
+	print("Score")
+	var best_before := Game.high_score
+	Game.high_score = 0
+	var scene = load("res://Scenes/Levels/Area1Sewer.tscn").instantiate()
+	scene.start_on_overworld = false
+	scene.door_wipe = false
+	add_child(scene)
+	scene.set_physics_process(false)
+	scene.add_score(300)
+	scene.add_score(800)
+	check(scene.score == 1100 and scene.high_score == 1100 and Game.high_score == 1100, "points add up, and the best score follows the score")
+	scene.set_score(20000000)
+	check(scene.score == 9999990, "the score stops at six digits and a nought")
+	scene.set_score(500)
+	check(scene.score == 500 and scene.high_score == 9999990, "a lower score leaves the best score alone")
+	Game.high_score = 0
+	scene.high_score = 0
+	scene.set_score(0)
+	var levels: RomLevels = scene.levels
+	if levels == null:
+		print("  skip  no verified ROM is installed, so the ROM's points table is not exercised")
+		scene.free()
+		Game.high_score = best_before
+		return
+	var by_slot: Array[int] = []
+	for slot_byte: int in [0x80, 0x89, 0x92, 0x9B, 0xA4, 0xAD]:
+		by_slot.append(levels.points_for(slot_byte))
+	check(by_slot == [100, 200, 300, 800, 900, 1000], "the six slots of a line-up give 100, 200, 300, 800, 900 and 1000 (%s)" % [by_slot])
+	check(levels.points_for(0) == 0, "a thing with no slot byte gives nothing")
+	var first_boss: Encounter = null
+	var last_boss: Encounter = null
+	for entry: Encounter in levels.room(0, 1).encounters:
+		if entry.is_boss:
+			first_boss = entry
+	for entry: Encounter in levels.room(0, 5).encounters:
+		if entry.is_boss:
+			last_boss = entry
+	check(first_boss != null and first_boss.points == 4000 and last_boss != null and last_boss.points == 5000, "world 1's bosses give 4000 and 5000, as measured")
+	var held: Encounter = levels.room(0, 0).encounters[0]
+	check(not held.is_boss and held.points == 800, "the first sewer's held fight brings in a soldier worth 800")
+	# Beating a placed enemy gives its slot's points, once.
+	scene.enemies_follow_camera = false
+	scene.load_area(0, 0)
+	var soldier: Node2D = null
+	var flier: Node2D = null
+	for spot: EnemySpot in scene.room.enemy_spots:
+		var made: Variant = scene._spot_enemies.get(spot)
+		if made == null:
+			continue
+		if spot.kind == 0x98 and soldier == null:
+			soldier = made
+		elif spot.kind == 0x81 and flier == null:
+			flier = made
+	check(soldier != null and flier != null, "the first sewer has a soldier (kind 98) and a flier (kind 81) to beat")
+	if soldier != null and flier != null:
+		flier.take_hit(1)
+		check(scene.score == 0, "a hit that does not beat an enemy gives nothing")
+		flier.take_hit(1000)
+		check(scene.score == 200, "beating kind 81 there gives 200 (measured), got %d" % scene.score)
+		soldier.take_hit(1000)
+		check(scene.score == 1000, "and kind 98 gives 800 more, got %d" % scene.score)
+		check(scene.hud_strip.score == 1000 and scene.hud_strip.high_score == 1000, "the strip is told")
+		var digits: Array[int] = []
+		for col in range(4, 11):
+			digits.append(scene.hud_strip.tile_at(col, 0))
+		check(digits == [10, 10, 10, 1, 10, 10, 10] and scene.hud_strip.tile_at(7, 2) == 1, "and shows 0001000 after Pts. and after HI")
+	# Something an enemy threw, beaten in the air: the table's first row.
+	var star := Star.new()
+	check(scene.points_for_beating(star) == 100, "a thrown thing that is beaten gives 100")
+	star.free()
+	# The special weapon's box and count on the strip (inputs only until the weapons are kept).
+	var strip: HudStrip = scene.hud_strip
+	strip.show_special(2, 23)
+	check(strip.tile_at(24, 0) == 0x54 and strip.tile_at(24, 1) == 0x55 and strip.tile_at(25, 0) == 0x56 and strip.tile_at(25, 1) == 0x57, "special weapon 2 fills its box with tiles 54 to 57")
+	check(strip.tile_at(24, 2) == 2 and strip.tile_at(25, 2) == 3, "with the count, 23, under it")
+	strip.show_special(1, 5, true)
+	check(strip.tile_at(24, 0) == 0 and strip.tile_at(25, 1) == 0 and strip.tile_at(24, 2) == 10 and strip.tile_at(25, 2) == 5, "blanked (the blink while it is in use) the box is empty and the count, 05, stays")
+	strip.show_special(0, 0)
+	check(strip.tile_at(24, 0) == 0x3C and strip.tile_at(24, 2) == 0, "with none the box is the empty one and there is no count")
+	# CONTINUE starts the score again and keeps the best score.
+	scene._on_game_over_chosen(true)
+	check(scene.score == 0 and scene.high_score == 1000 and Game.high_score == 1000, "CONTINUE puts the score back to 0; the best score stays")
+	scene.free()
+	var again = load("res://Scenes/Levels/Area1Sewer.tscn").instantiate()
+	add_child(again)
+	again.set_physics_process(false)
+	check(again.score == 0 and again.high_score == 1000, "a new game starts at 0 with the best score kept")
+	again.free()
+	Game.high_score = best_before

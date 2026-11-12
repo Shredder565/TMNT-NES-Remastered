@@ -5,6 +5,7 @@ extends RefCounted
 
 var position := Vector2.ZERO   ## the object's own position value, in room pixels
 var slot := 0                  ## which of the room's enemy kinds stands here (0 to 5)
+var points := 0                ## what beating the enemy made here adds to the score (it goes by the slot, not the kind)
 var kinds := PackedInt32Array()  ## the kind number for each of the room's 4 enemy line-ups
 var kind := -1                 ## the kind in the first line-up (the one a new game uses)
 var hit_points := 1            ## that kind's starting hit points
@@ -17,6 +18,7 @@ func moved_to(where: Vector2) -> EnemySpot:
 	var copy := EnemySpot.new()
 	copy.position = where
 	copy.slot = slot
+	copy.points = points
 	copy.kinds = kinds
 	copy.kind = kind
 	copy.hit_points = hit_points

@@ -2,8 +2,10 @@ class_name HudStrip
 extends TextureRect
 ## The strip under a room's picture, as the original draws it
 ## (Research/hud.md): "Pts." and the score, the playing turtle's energy as
-## eight tiles, his weapon's box, the empty box for a special weapon, and
-## "HI" with the best score; a boss's energy goes under the turtle's.
+## eight tiles, his weapon's box, the box for his special weapon with how
+## many he has under it, and "HI" with the best score; a boss's energy goes
+## under the turtle's. The boxes are read from the original's code (bank 0,
+## $82E8) and measured for all four turtles (Research/score.md).
 ## It is made of tiles from the room's own graphics page in the room's
 ## first colour group, so it needs the ROM; without one RoomScene keeps
 ## its plain bar and text.
@@ -26,6 +28,8 @@ const BAR_HALF := 0x31
 const BAR_EMPTY := 0x32
 const WEAPON_BOX := 0x40       ## four tiles per turtle from here: left column top, bottom, then right column
 const EMPTY_BOX := 0x3C        ## the same order
+const SPECIAL_BOX := 0x4C      ## plus 4 for each special weapon number (1 to 4): its four tiles, the same order
+const THIRD_ITEM_BOX := 0x34   ## the four tiles of the third box's item, when any is held
 const BAR_TILES := 8
 const ENERGY_PER_TILE := 16
 const SCORE_DIGITS := 7
@@ -39,6 +43,8 @@ const SPECIAL_AT := Vector2i(24, 0)
 const THIRD_AT := Vector2i(27, 0)
 const HI_AT := Vector2i(1, 2)
 const HI_SCORE_AT := Vector2i(4, 2)
+const SPECIAL_COUNT_AT := Vector2i(24, 2)   ## two digits under the special weapon's box
+const THIRD_COUNT_AT := Vector2i(27, 2)
 const BOSS_BAR_AT := Vector2i(12, 2)
 const ROWS := 5                ## rows of tiles the strip reaches (the last ones are empty)
 
@@ -50,7 +56,11 @@ var energy := 128
 var score := 0
 var high_score := 0
 var boss_energy := -1          ## under 0: no boss, no second bar
-var third_box := false         ## worlds 3 and 4 show one more empty box (measured in one room of each)
+var third_box := false         ## worlds 3 and 4 show one more box (code: the table at bank 0, $8402)
+var special := 0               ## the playing turtle's special weapon number, 0 for none
+var special_count := 0         ## how many of it he has (shown as two digits when not 0)
+var special_blanked := false   ## while the special weapon is the one in use its box blinks: true on the frames it is blank
+var third_count := 0           ## how many of the third box's item are held
 
 func _init() -> void:
 	position = Vector2(0, FIRST_LINE)
@@ -77,6 +87,30 @@ func show_boss(new_energy: int) -> void:
 		return
 	boss_energy = new_energy
 	refresh()
+
+## The special weapon's box: which weapon (0 for none), how many, and
+## whether the box is blanked just now (it blinks while that weapon is the
+## one in use: blank for 8 frames in every 16).
+func show_special(number: int, count: int, blanked := false) -> void:
+	if number == special and count == special_count and blanked == special_blanked:
+		return
+	special = number
+	special_count = count
+	special_blanked = blanked
+	refresh()
+
+func show_third(count: int) -> void:
+	if count == third_count:
+		return
+	third_count = count
+	refresh()
+
+## A count as the original writes it: two digits, nought being tile 10.
+static func count_tiles(count: int) -> PackedByteArray:
+	var value := clampi(count, 0, 99)
+	var tens := value / 10
+	var units := value % 10
+	return PackedByteArray([tens if tens != 0 else DIGIT_ZERO, units if units != 0 else DIGIT_ZERO])
 
 func show_scores(new_score: int, new_high: int) -> void:
 	if new_score == score and new_high == high_score:
@@ -120,9 +154,16 @@ func tiles() -> PackedByteArray:
 	_put(cells, SCORE_AT, digit_tiles(score))
 	_put(cells, BAR_AT, bar_tiles(energy))
 	_put_box(cells, WEAPON_AT, WEAPON_BOX + 4 * clampi(turtle, 0, 3))
-	_put_box(cells, SPECIAL_AT, EMPTY_BOX)
+	if special == 0:
+		_put_box(cells, SPECIAL_AT, EMPTY_BOX)
+	elif not special_blanked:
+		_put_box(cells, SPECIAL_AT, SPECIAL_BOX + 4 * special)
+	if special_count > 0:
+		_put(cells, SPECIAL_COUNT_AT, count_tiles(special_count))
 	if third_box:
-		_put_box(cells, THIRD_AT, EMPTY_BOX)
+		_put_box(cells, THIRD_AT, THIRD_ITEM_BOX if third_count > 0 else EMPTY_BOX)
+		if third_count > 0:
+			_put(cells, THIRD_COUNT_AT, count_tiles(third_count))
 	_put(cells, HI_AT, WORD_HI)
 	_put(cells, HI_SCORE_AT, digit_tiles(high_score))
 	if boss_energy >= 0:

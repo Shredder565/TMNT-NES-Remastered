@@ -64,6 +64,10 @@ const DEFAULT_PAD_AXES := {
 const STICK_DEADZONE := 0.5       ## how far the stick must be pushed to count
 const ANY_CONTROLLER := -1        ## listen to every controller plugged in
 
+## The best score since the program was started. The original keeps its
+## own until the console is switched off (Research/score.md).
+var high_score := 0
+
 func _ready() -> void:
 	_register_input_actions()
 	# The build number is in the window's title, since the original's

@@ -56,6 +56,7 @@ const T_TOUCH_DAMAGE := 0x8B05    ## per kind: energy the turtle loses on touchi
 const T_ENCOUNTERS := 0x9E6D      ## per world -> per area: list of (row, column, x, y, slot[, $Fn]), ends $FF
 const T_ENCOUNTER_LINEUPS := 0x9E5F ## per $Fn code: the line-up that entry's kind comes from
 const ENCOUNTER_BYTES := 5
+const T_POINTS := 0x9C03          ## per points number: two bytes of decimal digits (tens and hundreds, then thousands and ten thousands)
 ## Hit boxes (bank 6): a list of (half width, half height) pairs, and four
 ## tables giving the pair to use for each animation number.
 const T_BOX_SIZES := 0x8A43
@@ -206,6 +207,7 @@ func _encounters(address: int, lineup: int) -> Array[Encounter]:
 			entry.row * SCREEN_BLOCKS.y * 32 + _byte(6, address + 3))
 		entry.offset = Vector2(_byte(6, address + 2), entry.row * SCREEN_BLOCKS.y * 32 + _byte(6, address + 3))
 		entry.slot = _byte(6, address + 4)
+		entry.points = points_for(entry.slot)
 		address += ENCOUNTER_BYTES
 		var code := _byte(6, address)
 		if code >= 0xF0 and code != 0xFF:
@@ -338,6 +340,7 @@ func _enemy_spots(screen_table: int, data: RoomData, lineups: PackedInt32Array) 
 				spot.kinds = PackedInt32Array([third, third, third, third])
 			else:
 				spot.slot = third & 7
+				spot.points = points_for(third)
 				for lineup in lineups:
 					spot.kinds.append(_kind_in_slot(lineup, spot.slot))
 			spot.kind = spot.kinds[0]
@@ -351,6 +354,18 @@ func _enemy_spots(screen_table: int, data: RoomData, lineups: PackedInt32Array) 
 			address += ENEMY_SPOT_BYTES
 			read += 1
 	return spots
+
+## The points beating an enemy gives (Research/score.md). They do not go by
+## its kind but by its place in the line-up: four bits of the slot byte it
+## was made from pick a pair of bytes holding decimal digits, and the score
+## shown ends in one more nought.
+func points_for(slot_byte: int) -> int:
+	if slot_byte == 0:
+		return 0   # an object whose slot byte is 0 gives nothing
+	var at := T_POINTS + ((slot_byte & 0x78) >> 3) * 2
+	var low := _byte(6, at)
+	var high := _byte(6, at + 1)
+	return ((high >> 4) * 1000 + (high & 15) * 100 + (low >> 4) * 10 + (low & 15)) * 10
 
 func _kind_in_slot(lineup: int, slot: int) -> int:
 	if lineup < 0 or lineup >= ENEMY_LINEUPS:

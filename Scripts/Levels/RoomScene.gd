@@ -153,8 +153,13 @@ var boss_bar: Control                ## the boss's energy, under the turtle's
 var hud_strip: HudStrip
 var overworld_energy: OverworldEnergyBar
 var show_help_text := false
+## The score (Research/score.md). Only beating something adds to it: the
+## points go by the slot the enemy was made from, not its kind.
+const SCORE_LIMIT := 9999990         ## six decimal digits and a fixed nought
+const THROWN_SLOT_BYTE := 0x80       ## what a thrown thing carries as its slot byte (measured for kinds 99 and 4A)
 var score := 0
-var high_score := 0
+var high_score := 0                  ## the best since the program started (kept in Game)
+var _points := {}                    ## enemy (its instance number) -> what beating it gives
 var _hud_ripper: ChrRipper
 var _top_bar: ColorRect
 var _left_edge: ColorRect
@@ -236,6 +241,9 @@ func _ready() -> void:
 	items = Node2D.new()
 	items.name = "Items"
 	add_child(items)
+	enemies.child_entered_tree.connect(_on_thing_entered.bind(enemies))
+	items.child_entered_tree.connect(_on_thing_entered.bind(items))
+	high_score = Game.high_score
 	walker = OverworldTurtle.new()
 	walker.bandana_color = turtle.bandana_color
 	walker.door_reached.connect(use_door)
@@ -394,6 +402,7 @@ func _lay_out_screen() -> void:
 		hud_strip.third_box = world == 2 or world == 3
 		hud_strip.use(_hud_ripper, room.chr_page, room.palettes[0] if not room.palettes.is_empty() else [])
 		hud_strip.show_turtle(current_turtle, turtle.health)
+		hud_strip.show_scores(score, high_score)
 	if as_original and room.top_down:
 		walker.camera.top_level = true
 		walker.camera.anchor_mode = Camera2D.ANCHOR_MODE_FIXED_TOP_LEFT
@@ -491,6 +500,7 @@ func _place_enemies() -> void:
 		enemies.remove_child(child)
 		child.queue_free()
 	_spot_enemies.clear()
+	_points.clear()
 	if _row_way == 0:
 		_settle_row()
 	_camera_corner = _view_corner()
@@ -843,6 +853,46 @@ func _on_boss_defeated(kind: int) -> void:
 	if levels != null and levels.has_overworld(cleared + 1):
 		load_overworld(cleared + 1)
 
+## --- the score (Research/score.md) ---
+
+## A beaten enemy leaves a puff beside itself the moment it is beaten: that
+## is where the points are given. What gives how much: a placed enemy, the
+## points of the slot it was made from; a boss or a held fight's enemy,
+## those of its entry in the encounter table; a thrown thing that can be
+## hit, the first row of the table.
+func _on_thing_entered(thing: Node, group: Node2D) -> void:
+	if not (thing is Puff):
+		return
+	for other in group.get_children():
+		if other == thing or other is Puff or not ("health" in other):
+			continue
+		if other.position == thing.position and int(other.get("health")) <= 0:
+			add_score(points_for_beating(other))
+			_points.erase(other.get_instance_id())
+			return
+
+func points_for_beating(enemy: Node) -> int:
+	if levels == null:
+		return 0
+	if _points.has(enemy.get_instance_id()):
+		return int(_points[enemy.get_instance_id()])
+	if enemy is Boss and room != null:
+		for entry in room.encounters:
+			if entry.is_boss and entry.kind == int(enemy.get("kind")):
+				return entry.points
+	return levels.points_for(THROWN_SLOT_BYTE)
+
+## Adds to the score; the best score follows it up.
+func add_score(points: int) -> void:
+	set_score(score + points)
+
+func set_score(new_score: int) -> void:
+	score = clampi(new_score, 0, SCORE_LIMIT)
+	high_score = maxi(maxi(high_score, Game.high_score), score)
+	Game.high_score = high_score
+	if hud_strip != null:
+		hud_strip.show_scores(score, high_score)
+
 ## How many of the original's six places for placed enemies are taken:
 ## everything on the map but what enemies have thrown. A beaten enemy's
 ## puff still holds its place.
@@ -920,6 +970,9 @@ func _make_enemy_at(spot: EnemySpot, scrolled_in: bool) -> void:
 		enemy = _make_stand_in(spot)
 	enemy.set("weapon_damage", damage.x)
 	enemy.set("weapon_damage_low", damage.y)
+	_points[enemy.get_instance_id()] = spot.points
+	if hold != null and spot.kind == hold.kind and spot.position == fight_corner + hold.offset:
+		_points[enemy.get_instance_id()] = hold.points   # the one a held fight brings in: its entry's own slot byte
 	if enemy.get_parent() == null:
 		enemies.add_child(enemy)
 	if not room.top_down:
@@ -1352,6 +1405,7 @@ func _on_game_over_chosen(carry_on: bool) -> void:
 		return
 	turtle_energy = [TURTLE_ENERGY, TURTLE_ENERGY, TURTLE_ENERGY, TURTLE_ENERGY]
 	current_turtle = 0
+	set_score(0)   # CONTINUE starts the score again; the best score stays
 	_show_turtle_look()
 	if levels != null:
 		turtle.weapon_swings = [levels.weapon_swing(0, 0), levels.weapon_swing(0, 1), levels.weapon_swing(0, 2)]
