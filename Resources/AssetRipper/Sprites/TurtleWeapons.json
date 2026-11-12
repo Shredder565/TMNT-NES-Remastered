@@ -1,0 +1,495 @@
+{
+ "about": "Which ROM tiles make up the four turtles' weapons, by the original's picture number (1 to 7 Leonardo's swords, 10 to 16 Donatello's staff, 17 to 23 Michelangelo's nunchaku, 24 to 30 Raphael's sai). Tile numbers and positions only; no graphics. Positions are in pixels from the weapon's own position value, facing right.",
+ "tile_height": 16,
+ "palettes": {
+  "1": [
+   15,
+   2,
+   22,
+   49
+  ]
+ },
+ "animations": {},
+ "frames": {
+  "w1": [
+   {
+    "x": -4,
+    "y": 0,
+    "index": 146,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": true
+   },
+   {
+    "x": -4,
+    "y": -16,
+    "index": 148,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": true
+   }
+  ],
+  "w2": [
+   {
+    "x": -8,
+    "y": -8,
+    "index": 154,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -8,
+    "index": 156,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "w3": [
+   {
+    "x": -8,
+    "y": -8,
+    "index": 150,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -8,
+    "index": 152,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "w4": [
+   {
+    "x": 0,
+    "y": -8,
+    "index": 154,
+    "palette": 1,
+    "flip_h": true,
+    "flip_v": true
+   },
+   {
+    "x": -8,
+    "y": -8,
+    "index": 156,
+    "palette": 1,
+    "flip_h": true,
+    "flip_v": true
+   }
+  ],
+  "w5": [
+   {
+    "x": -4,
+    "y": 0,
+    "index": 148,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": -16,
+    "index": 146,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "w6": [
+   {
+    "x": 0,
+    "y": -8,
+    "index": 98,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -8,
+    "index": 96,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "w7": [
+   {
+    "x": -4,
+    "y": -8,
+    "index": 158,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "w10": [
+   {
+    "x": -13,
+    "y": -17,
+    "index": 252,
+    "palette": 1,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -4,
+    "index": 252,
+    "palette": 1,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 8,
+    "y": 4,
+    "index": 252,
+    "palette": 1,
+    "flip_h": true,
+    "flip_v": false
+   }
+  ],
+  "w11": [
+   {
+    "x": -4,
+    "y": -4,
+    "index": 100,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": -20,
+    "index": 100,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": 4,
+    "index": 100,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "w12": [
+   {
+    "x": 11,
+    "y": -8,
+    "index": 102,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -19,
+    "y": -8,
+    "index": 102,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -11,
+    "y": -8,
+    "index": 102,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "w13": [
+   {
+    "x": 8,
+    "y": -8,
+    "index": 102,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -16,
+    "y": -8,
+    "index": 102,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -8,
+    "index": 102,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -8,
+    "index": 102,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "w14": [
+   {
+    "x": 11,
+    "y": -8,
+    "index": 102,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -20,
+    "y": -8,
+    "index": 102,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -12,
+    "y": -8,
+    "index": 102,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 3,
+    "y": -8,
+    "index": 102,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "w15": [
+   {
+    "x": 12,
+    "y": -24,
+    "index": 252,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -17,
+    "y": 5,
+    "index": 252,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 4,
+    "y": -16,
+    "index": 252,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "w16": [
+   {
+    "x": -4,
+    "y": -24,
+    "index": 100,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": 8,
+    "index": 100,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": -8,
+    "index": 100,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "w17": [
+   {
+    "x": -4,
+    "y": -8,
+    "index": 112,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "w18": [
+   {
+    "x": -4,
+    "y": -8,
+    "index": 92,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "w19": [
+   {
+    "x": -4,
+    "y": -8,
+    "index": 94,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "w20": [
+   {
+    "x": -4,
+    "y": -8,
+    "index": 94,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": true
+   }
+  ],
+  "w21": [
+   {
+    "x": 0,
+    "y": -8,
+    "index": 110,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -8,
+    "index": 108,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "w22": [
+   {
+    "x": 0,
+    "y": -8,
+    "index": 110,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": true
+   },
+   {
+    "x": -8,
+    "y": -8,
+    "index": 108,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": true
+   }
+  ],
+  "w23": [
+   {
+    "x": 0,
+    "y": -8,
+    "index": 108,
+    "palette": 1,
+    "flip_h": true,
+    "flip_v": true
+   },
+   {
+    "x": -8,
+    "y": -8,
+    "index": 110,
+    "palette": 1,
+    "flip_h": true,
+    "flip_v": true
+   }
+  ],
+  "w24": [
+   {
+    "x": -4,
+    "y": -8,
+    "index": 118,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "w25": [
+   {
+    "x": -4,
+    "y": -8,
+    "index": 118,
+    "palette": 1,
+    "flip_h": true,
+    "flip_v": false
+   }
+  ],
+  "w26": [
+   {
+    "x": -4,
+    "y": -8,
+    "index": 114,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "w27": [
+   {
+    "x": -4,
+    "y": -8,
+    "index": 116,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "w28": [
+   {
+    "x": -4,
+    "y": -8,
+    "index": 118,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": true
+   }
+  ],
+  "w29": [
+   {
+    "x": -4,
+    "y": -8,
+    "index": 114,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": true
+   }
+  ],
+  "w30": [
+   {
+    "x": -4,
+    "y": -8,
+    "index": 116,
+    "palette": 1,
+    "flip_h": true,
+    "flip_v": false
+   }
+  ]
+ }
+}

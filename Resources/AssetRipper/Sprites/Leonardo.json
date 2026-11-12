@@ -83,6 +83,13 @@
    ],
    "ticks": 2,
    "loop": false
+  },
+  "hurt": {
+   "frames": [
+    "hurt"
+   ],
+   "ticks": 1,
+   "loop": true
   }
  },
  "frames": {
@@ -764,6 +771,32 @@
     "x": 0,
     "y": -32,
     "index": 16
+   }
+  ],
+  "hurt": [
+   {
+    "x": -8,
+    "y": -32,
+    "index": 70,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -32,
+    "index": 72,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -5,
+    "y": -16,
+    "index": 74,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
    }
   ]
  }

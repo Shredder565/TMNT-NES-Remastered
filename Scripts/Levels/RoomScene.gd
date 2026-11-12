@@ -318,15 +318,17 @@ func _show_turtle_look() -> void:
 	var colour: Color = StartScreen.PLACEHOLDER_COLOURS[current_turtle]
 	var big: SpriteSet = null
 	var small: SpriteSet = null
+	var swings: SpriteSet = null
 	if start_screen.data != null:
 		var number := start_screen.data.bandana(current_turtle)
 		colour = NesPalette.color(number)
 		big = SpriteSet.cached_with_colour("Leonardo", "0", 2, number)
+		swings = SpriteSet.cached_with_colour("TurtleSwings", "0", 2, number)
 		small = SpriteSet.cached_with_colour("LeonardoOverworld", "0", 2, number)
 	elif levels != null:
 		big = SpriteSet.cached("Leonardo")
 		small = SpriteSet.cached("LeonardoOverworld")
-	turtle.set_look(TURTLE_NAMES[current_turtle], colour, big)
+	turtle.set_look(TURTLE_NAMES[current_turtle], colour, big, swings, SpriteSet.cached("TurtleWeapons") if swings != null else null)
 	if levels != null:
 		walker.swings = [levels.overworld_swing(current_turtle, 0), levels.overworld_swing(current_turtle, 1),
 			levels.overworld_swing(current_turtle, 2), levels.overworld_swing(current_turtle, 3)]

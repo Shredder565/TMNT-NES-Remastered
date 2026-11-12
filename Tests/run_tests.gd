@@ -58,7 +58,7 @@ func _ready() -> void:
 	print("Sprite maps")
 	var map: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://Resources/AssetRipper/Sprites/Leonardo.json"))
 	var sprite_set := SpriteSet.build(map, ripper)
-	check(sprite_set.textures.size() == 18, "Leonardo's map builds 18 frames")
+	check(sprite_set.textures.size() == 19, "Leonardo's map builds 19 frames")
 	check(sprite_set.textures["stand"].get_size() == Vector2(16, 48), "standing frame is 16x48 pixels")
 	check(sprite_set.offsets["stand"] == Vector2(-8, -48), "standing frame sits on the feet point")
 	var all_found := true
@@ -1797,6 +1797,7 @@ func _ready() -> void:
 	await _test_start_screen()
 	await _test_overworld_animation()
 	await _test_overworld_combat()
+	await _test_four_turtles()
 
 	print("ROM screen")
 	var rom_path := "user://_test_fake.nes"
@@ -2234,3 +2235,89 @@ func _test_overworld_combat() -> void:
 	sewer._overworld_fight()
 	check(leo.health == 872 and small.attack_tick < 0 and roller.health == 41, "touching him then, it takes 128 off his energy and stops his attack")
 	sewer.free()
+
+# ============================ The four turtles ============================
+func _test_four_turtles() -> void:
+	print("The four turtles in rooms")
+	var levels := RomLevels.open_installed()
+	if levels == null:
+		print("  skip  no verified ROM is installed, so the turtles' own swings are not exercised")
+		return
+	var leo_swing := levels.weapon_swing(0, 1)
+	check(leo_swing.pictures == PackedInt32Array([9, 11, 35, 90, 9]) and leo_swing.weapon_pictures == PackedInt32Array([0, 2, 3, 4, 0]) and leo_swing.updates == 2, "Leonardo's forward swing: 5 steps of 2 updates, pictures 9, 11, 35, 90, 9, the sword out on the middle three")
+	check(levels.weapon_swing(1, 1).updates == 1 and levels.weapon_swing(1, 1).pictures.size() == 10 and levels.weapon_swing(2, 1).updates == 1 and levels.weapon_swing(2, 1).pictures.size() == 8, "Raphael's is 10 steps of 1 update and Michelangelo's 8")
+	check(levels.weapon_swing(3, 1).updates == 5 and levels.weapon_swing(3, 1).pictures == PackedInt32Array([9, 34, 35, 9]) and levels.weapon_swing(3, 0).updates == 2, "Donatello's is 4 steps of 5 updates forward, and 2 updates a step upward")
+	var swings_map: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://Resources/AssetRipper/Sprites/TurtleSwings.json"))
+	var weapons_map: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://Resources/AssetRipper/Sprites/TurtleWeapons.json"))
+	var all_there := true
+	for t in 4:
+		for direction in 3:
+			var swing := levels.weapon_swing(t, direction)
+			for picture: int in swing.pictures:
+				all_there = all_there and swings_map.frames.has("p%d" % picture)
+			for picture: int in swing.weapon_pictures:
+				all_there = all_there and (picture == 0 or weapons_map.frames.has("w%d" % picture))
+			all_there = all_there and swing.places.size() == swing.pictures.size() - 2
+	check(all_there, "the sprite maps hold every body and weapon picture the twelve swings use, and each swing has a place for every step but its first and last")
+
+	var sewer = load("res://Scenes/Levels/Area1Sewer.tscn").instantiate()
+	sewer.start_on_overworld = false
+	add_child(sewer)
+	sewer.set_show_enemies(false)
+	var leo: Turtle = sewer.turtle
+	for i in 6:
+		await get_tree().physics_frame
+	# How long each forward swing holds him, and when the weapon is out.
+	var lengths: Array[int] = []
+	var first_out: Array[int] = []
+	for t in 4:
+		sewer.set_turtle(t)
+		leo.attack_direction = 1
+		var swing: Dictionary = leo.weapon_swings[1]
+		lengths.append((swing.places.size() + 2) * int(swing.updates) - 1)
+		leo.attack_tick = 0
+		var tick := 0
+		while leo._swing_stage() < 0 and tick < 20:
+			tick += 1
+			leo.attack_tick = tick
+		first_out.append(tick)
+		leo.attack_tick = -1
+	check(lengths == [9, 9, 7, 19] and first_out == [1, 0, 0, 4], "forward swings last 9, 9, 7 and 19 updates; the weapon is out after 1, 0, 0 and 4 (%s, %s)" % [lengths, first_out])
+	check(leo.swing_sprites != null and leo.weapon_sprites != null and leo.weapon_sprites.textures.has("w13") and leo.swing_sprites.textures.has("p34"), "the turtle is given the swing and weapon pictures")
+
+	# Reach, as swept in the original with a foot soldier level with him
+	# (Research/turtles.md): the furthest places behind and ahead that are hit.
+	var measured := [[-22, 42], [-10, 30], [-14, 40], [-24, 56]]
+	for t in 4:
+		sewer.set_turtle(t)
+		leo.facing = 1
+		leo.art.scale.x = 1
+		leo.weapon_hitbox.scale.x = 1
+		leo.position = Vector2(136, 176)
+		var reach := []
+		for across: int in [measured[t][0] - 2, measured[t][0], measured[t][1], measured[t][1] + 2]:
+			var dummy := OriginalEnemy.for_kind(0x98)
+			dummy.setup_at(0x98, leo.position + Vector2(across, -20), sewer.room, null, leo)
+			sewer.enemies.add_child(dummy)
+			dummy.health = 4000
+			dummy.animation = 0x90
+			dummy._fit_box_to_animation()
+			dummy.set_physics_process(false)
+			leo.invulnerable_timer = 5.0
+			for i in 4:
+				await get_tree().physics_frame
+			Input.action_press("attack")
+			for i in 4:
+				await get_tree().physics_frame
+			Input.action_release("attack")
+			for i in 46:
+				await get_tree().physics_frame
+			reach.append(dummy.health != 4000)
+			dummy.free()
+		leo.invulnerable_timer = 0.0
+		check(reach == [false, true, true, false], "%s's forward swing reaches a soldier from %d behind him to %d ahead, as in the original (%s)" % [RoomScene_names()[t], -measured[t][0], measured[t][1], reach])
+	sewer.set_turtle(0)
+	sewer.free()
+
+func RoomScene_names() -> Array:
+	return ["Leonardo", "Raphael", "Michelangelo", "Donatello"]

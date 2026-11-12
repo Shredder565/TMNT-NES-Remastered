@@ -41,6 +41,7 @@ const SCROLL_LEFT_OF := 96.0      ## moving left, the screen scrolls while he is
 const SCROLL_RIGHT_FROM := 160.0  ## moving right, from this on
 const SCREEN_LEFT := 20.0         ## he is kept between these two on the screen
 const SCREEN_RIGHT := 236.0
+const SPRITE_FEET_BELOW := 24.0   ## the original's pictures are drawn with his feet this far below his position value
 const CENTRE_ABOVE_FEET := 20.0   ## the original measures his boxes and his weapon from his middle
 const MAX_FALL_SPEED := 2559    ## the original holds the whole pixels of his fall at 9
 
@@ -58,6 +59,8 @@ var attack_tick := -1                  ## updates since the swing began, -1 when
 var attack_length := 6                 ## 3 frames of 2 updates each, as in the original
 var attack_direction := 1              ## 0 up, 1 forward, 2 down
 ## From the ROM, set by the room scene when one is installed:
+var swing_sprites: SpriteSet           ## his body's pictures while swinging, by the original's picture number
+var weapon_sprites: SpriteSet          ## the weapons' pictures, by the original's picture number
 var weapon_swings: Array = []          ## per direction: { places: where the weapon is each frame, half: its box }
 var body_boxes := {}                   ## "stand", "crouch", "ball" -> half the size of his own hit box
 var anim := "stand"
@@ -87,6 +90,7 @@ var _frame := 0
 var _jump_pressed := false             ## remembered until the next update
 var _attack_pressed := false
 var _hurt_ticks := 0
+var _weapon_picture := Sprite2D.new()  ## the weapon, drawn where the original has it on each step of a swing
 var power_ticks := 0                   ## updates of the power item left (kind 0B), 0 when not in use
 
 @onready var art: Node2D = $Art
@@ -116,11 +120,17 @@ func _ready() -> void:
 ## Becomes another of the four turtles to look at: his name, his bandana's
 ## colour (for the placeholder art) and his pictures (null keeps the
 ## placeholder art).
-func set_look(new_name: String, colour: Color, pictures: SpriteSet) -> void:
+func set_look(new_name: String, colour: Color, pictures: SpriteSet, swing_pictures: SpriteSet = null, weapon_pictures: SpriteSet = null) -> void:
 	turtle_name = new_name
 	bandana_color = colour
 	bandana_art.color = colour
 	sprites = pictures
+	swing_sprites = swing_pictures
+	weapon_sprites = weapon_pictures
+	if _weapon_picture.get_parent() == null:
+		_weapon_picture.centered = false
+		_weapon_picture.visible = false
+		art.add_child(_weapon_picture)
 	body_art.visible = sprites == null
 	bandana_art.visible = sprites == null
 	rom_sprite.visible = sprites != null
@@ -209,6 +219,8 @@ func _update_art() -> void:
 		wanted = "climb"
 	elif attack_tick >= 0 and (weapon_swings.is_empty() or _swing_stage() >= 0):
 		wanted = ["attack_up", "attack", "attack_crouch"][attack_direction]
+	elif state == State.HURT and sprites != null and sprites.animations.has("hurt"):
+		wanted = "hurt"
 	elif state == State.HURT or state == State.DEAD or not on_floor():
 		wanted = "jump"
 	elif state == State.CROUCH:
@@ -233,6 +245,22 @@ func _update_art() -> void:
 	if sprites.textures.has(frame):
 		rom_sprite.texture = sprites.textures[frame]
 		rom_sprite.position = sprites.offsets[frame]
+	_weapon_picture.visible = false
+	if attack_tick >= 0 and swing_sprites != null and not weapon_swings.is_empty() and weapon_swings[attack_direction].has("pictures"):
+		# A swing by the ROM's own lists (each turtle has his own): his body's
+		# picture for this step, and the weapon's where the table puts it.
+		var swing: Dictionary = weapon_swings[attack_direction]
+		var step := mini(_swing_stage() + 1 if _swing_stage() >= 0 else (0 if attack_tick < int(swing.updates) else swing.pictures.size() - 1), swing.pictures.size() - 1)
+		var body := "p%d" % swing.pictures[step]
+		if swing_sprites.textures.has(body):
+			rom_sprite.texture = swing_sprites.textures[body]
+			rom_sprite.position = swing_sprites.offsets[body]
+		var weapon := "w%d" % (swing.weapon_pictures[step] if step < swing.weapon_pictures.size() else 0)
+		if _swing_stage() >= 0 and weapon_sprites != null and weapon_sprites.textures.has(weapon):
+			var place: Vector2 = swing.places[_swing_stage()]
+			_weapon_picture.texture = weapon_sprites.textures[weapon]
+			_weapon_picture.position = place + weapon_sprites.offsets[weapon] + Vector2(0, -SPRITE_FEET_BELOW)
+			_weapon_picture.visible = true
 
 ## On a ladder, by the original's rules (bank 4, $A24D; checked in the
 ## emulator). Points are from his feet, at his middle unless said.
@@ -389,7 +417,11 @@ func _control() -> void:
 				attack_direction = 0
 			elif Input.is_action_pressed("move_down"):
 				attack_direction = 2
-			attack_length = weapon_swings[attack_direction].places.size() * 2 + 3
+			# Its length: the first update, each frame's updates, and the last
+			# frame's worth at his middle (Leonardo: 2 updates a frame, so
+			# places * 2 + 3; the others' lists give 1 or 5 updates a frame).
+			var swing: Dictionary = weapon_swings[attack_direction]
+			attack_length = (swing.places.size() + 2) * int(swing.get("updates", 2)) - 1
 			_set_attacking(true)
 			_place_weapon()
 
@@ -574,7 +606,7 @@ func _place_weapon() -> void:
 	var place := Vector2.ZERO
 	# Measured: the crouching swing's first frame keeps the weapon at his
 	# middle whatever the table says.
-	if stage >= 0 and not (attack_direction == 2 and stage == 0):
+	if stage >= 0 and not (attack_direction == 2 and stage == 0) and _weapon_shown(stage):
 		place = places[stage]
 	var half: Vector2 = swing.half
 	var rectangle := weapon_shape.shape as RectangleShape2D
@@ -589,10 +621,19 @@ func _place_weapon() -> void:
 ## last two, when the weapon is at his middle and he stands as usual.
 ## Measured in the emulator: one update, then two for each frame, then two.
 func _swing_stage() -> int:
-	if attack_tick < 1 or weapon_swings.is_empty():
+	if attack_tick < 0 or weapon_swings.is_empty():
 		return -1
-	var stage := (attack_tick - 1) / 2
-	return stage if stage < weapon_swings[attack_direction].places.size() else -1
+	# Two updates a frame for Leonardo; the ROM's animation gives each
+	# turtle's own number (Raphael and Michelangelo 1, Donatello 5 forward).
+	var updates := int(weapon_swings[attack_direction].get("updates", 2))
+	var stage := (attack_tick + 1) / updates - 1
+	return stage if stage >= 0 and stage < weapon_swings[attack_direction].places.size() else -1
+
+## Does the weapon's own animation show a picture on this frame of the
+## swing? (Leonardo's crouching swing has none on its first frame.)
+func _weapon_shown(stage: int) -> bool:
+	var pictures: Variant = weapon_swings[attack_direction].get("weapon_pictures")
+	return pictures == null or stage + 1 >= (pictures as PackedInt32Array).size() or pictures[stage + 1] != 0
 
 ## His own hit box, as the ROM has it: centred on his middle (20 above his
 ## feet), smaller while he spins through the air, and lower when he crouches.

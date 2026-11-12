@@ -424,7 +424,13 @@ func weapon_swing(turtle_index: int, direction: int) -> Dictionary:
 		var down := _byte(7, address + 1)
 		places.append(Vector2(across - 256 if across > 127 else across, down - 256 if down > 127 else down))
 		address += 2
-	return { "places": places, "half": Vector2(box_half_size(0, animation)) }
+	# Also the swing's steps, from the animation lists: his picture number
+	# and the weapon's for each (0: the weapon is not on show), and how many
+	# updates a step lasts (Research/turtles.md).
+	var body_animation := animation - WEAPON_ANIMATION_STEP
+	return { "places": places, "half": Vector2(box_half_size(0, animation)),
+		"pictures": animation_pictures(body_animation), "weapon_pictures": animation_pictures(animation),
+		"updates": animation_updates(body_animation) }
 
 ## An object kind's starting hit points.
 func hit_points(kind: int) -> int:
