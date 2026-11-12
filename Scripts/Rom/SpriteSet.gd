@@ -18,6 +18,15 @@ static func cached(character: String) -> SpriteSet:
 		_cache[character] = load_for(character)
 	return _cache[character]
 
+## A character's pictures with one colour of one palette changed, built
+## once per colour. The four turtles share their body pictures; only the
+## bandana's colour number differs (Research/start_screen.md).
+static func cached_with_colour(character: String, palette: String, entry: int, number: int) -> SpriteSet:
+	var key := "%s/%s/%d/%d" % [character, palette, entry, number]
+	if not _cache.has(key):
+		_cache[key] = load_for(character, {palette: {entry: number}})
+	return _cache[key]
+
 ## The box (in pixels from the character's own position) that holds every
 ## frame of an animation.
 func bounds(animation: String) -> Rect2:
@@ -33,7 +42,8 @@ func bounds(animation: String) -> Rect2:
 
 ## Returns null when no ROM has been supplied or the map is missing, so the
 ## caller can fall back to placeholder art.
-static func load_for(character: String) -> SpriteSet:
+## `colour_changes` is { palette name: { entry: colour number } }.
+static func load_for(character: String, colour_changes := {}) -> SpriteSet:
 	var map_path := MAPS_FOLDER + character + ".json"
 	if not FileAccess.file_exists(Game.ROM_PATH) or not FileAccess.file_exists(map_path):
 		return null
@@ -43,6 +53,10 @@ static func load_for(character: String) -> SpriteSet:
 	var map: Variant = JSON.parse_string(FileAccess.get_file_as_string(map_path))
 	if typeof(map) != TYPE_DICTIONARY:
 		return null
+	for palette: String in colour_changes:
+		if (map.get("palettes", {}) as Dictionary).has(palette):
+			for entry: int in colour_changes[palette]:
+				map["palettes"][palette][entry] = colour_changes[palette][entry]
 	return build(map, ChrRipper.new(info.chr_rom))
 
 static func build(map: Dictionary, ripper: ChrRipper) -> SpriteSet:

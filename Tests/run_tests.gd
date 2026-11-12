@@ -1396,6 +1396,10 @@ func _ready() -> void:
 		check(sewer.area == 5, "and the other caves' inner doors lead to their own back rooms")
 	sewer.free()
 
+	# --- Start screen and Overworld animation: sections kept in their own functions below ---
+	await _test_start_screen()
+	await _test_overworld_animation()
+
 	print("ROM screen")
 	var rom_path := "user://_test_fake.nes"
 	var f := FileAccess.open(rom_path, FileAccess.WRITE)
@@ -1420,3 +1424,199 @@ func _ready() -> void:
 
 	print("FAILED: %d" % failures if failures > 0 else "ALL TESTS PASSED")
 	get_tree().quit(1 if failures > 0 else 0)
+
+# ============================ Start screen ============================
+func _test_start_screen() -> void:
+	print("Start screen")
+	check(InfoScreenData.bar_tiles(128) == PackedByteArray([0x30, 0x30, 0x30, 0x30]) and InfoScreenData.bar_tiles(0) == PackedByteArray([0x32, 0x32, 0x32, 0x32]), "a full energy bar is four full tiles, an empty one four empty tiles")
+	check(InfoScreenData.bar_tiles(100) == PackedByteArray([0x30, 0x30, 0x30, 0x31]) and InfoScreenData.bar_tiles(121) == PackedByteArray([0x30, 0x30, 0x30, 0x30]) and InfoScreenData.bar_tiles(16) == PackedByteArray([0x31, 0x32, 0x32, 0x32]), "part-used tiles round as the original does (100: three and a half; 121: four; 16: a half)")
+	check(InfoScreenData.count_tiles(7) == PackedByteArray([0x0A, 7]) and InfoScreenData.count_tiles(40) == PackedByteArray([4, 0x0A]), "counts are two digit tiles, zero being tile 10")
+
+	# The plain version (no ROM): the same choices and controls.
+	var plain := StartScreen.new()
+	plain.pause_game = false
+	add_child(plain)
+	var chosen: Array[int] = []
+	var closed_count: Array[int] = [0]
+	plain.turtle_chosen.connect(func(t: int) -> void: chosen.append(t))
+	plain.closed.connect(func() -> void: closed_count[0] += 1)
+	plain.open({"world": 0, "energies": [128, 0, 64, 128], "turtle": 0})
+	check(plain.is_open() and plain.phase == StartScreen.Phase.BUILDING, "opening starts the screen being put together")
+	plain.move_selection(1)
+	check(plain.selected == 0, "nothing can be chosen until it is on show")
+	for i in StartScreen.BUILD_FRAMES:
+		plain.tick()
+	check(plain.phase == StartScreen.Phase.SHOWN, "it is on show %d frames after Start" % StartScreen.BUILD_FRAMES)
+	plain.move_selection(1)
+	check(plain.selected == 2, "Down goes to the next turtle, passing over a captured one")
+	plain.move_selection(1)
+	plain.move_selection(1)
+	check(plain.selected == 0, "and wraps round from the last to the first")
+	plain.move_selection(-1)
+	check(plain.selected == 3, "Up goes the other way")
+	plain.request_close()
+	check(chosen == [3] and plain.is_open(), "Start chooses that turtle; the game stays held a little longer")
+	for i in StartScreen.LEAVE_FRAMES_OVERWORLD + StartScreen.HOLD_FRAMES:
+		plain.tick()
+	check(not plain.is_open() and closed_count[0] == 1, "and is let go %d frames after Start on the overworld" % (StartScreen.LEAVE_FRAMES_OVERWORLD + StartScreen.HOLD_FRAMES))
+	plain.open({"world": 0, "inside": true, "energies": [0, 128, 128, 128], "turtle": 0})
+	check(plain.selected == 1, "a captured turtle is never the one chosen at the start")
+	for i in StartScreen.BUILD_FRAMES:
+		plain.tick()
+	plain.request_close()
+	for i in StartScreen.LEAVE_FRAMES_ROOM + StartScreen.HOLD_FRAMES:
+		plain.tick()
+	check(not plain.is_open(), "in a room it is let go after %d frames" % (StartScreen.LEAVE_FRAMES_ROOM + StartScreen.HOLD_FRAMES))
+	plain.free()
+
+	# In the game: Start opens it, the game stands still, the chosen turtle carries on.
+	var sewer = load("res://Scenes/Levels/Area1Sewer.tscn").instantiate()
+	sewer.start_on_overworld = false
+	add_child(sewer)
+	var leo: Turtle = sewer.turtle
+	check(InputMap.action_get_events("pause").size() >= 2, "the pause action (Enter, controller Start) is the one that opens it")
+	leo.health = 50
+	sewer.open_start_screen()
+	var screen: StartScreen = sewer.start_screen
+	check(screen.is_open() and get_tree().paused, "Start in a room opens the screen and stops the game")
+	check(screen.energies[0] == 50 and screen.inside, "it is told the turtle's energy and that he is in a room")
+	for i in StartScreen.BUILD_FRAMES:
+		screen.tick()
+	screen.move_selection(1)
+	screen.request_close()
+	check(sewer.current_turtle == 1 and leo.turtle_name == "Raphael" and leo.health == 128, "choosing Raphael makes him the one who plays, with his own energy")
+	check(sewer.hud.text.begins_with("Raphael"), "the HUD names him")
+	for i in StartScreen.LEAVE_FRAMES_ROOM + StartScreen.HOLD_FRAMES:
+		screen.tick()
+	check(not screen.is_open() and not get_tree().paused, "the game runs again once the screen is gone")
+	sewer.set_turtle(0)
+	check(leo.health == 50 and leo.turtle_name == "Leonardo", "going back to Leonardo brings his energy back")
+
+	var levels := RomLevels.open_installed()
+	if levels == null or screen.data == null:
+		print("  skip  no verified ROM is installed, so the ROM's Start screen is not exercised")
+		sewer.free()
+		return
+	var data: InfoScreenData = screen.data
+	var start: Dictionary = data.layout()
+	check(start.tiles.size() == 960 and start.colours.size() == 64, "the ROM's layout fills 30 rows of 32 tiles and 64 colour bytes")
+	var bandanas: Array[int] = []
+	for t in 4:
+		bandanas.append(data.bandana(t))
+	check(bandanas == [0x12, 0x16, 0x27, 0x14], "the four bandana colour numbers are blue, red, orange and purple")
+	check(data.marker_place(0, Vector2(160, 296)) == Vector2i(68, 82), "the map marker for the world 1 start is where the original draws it")
+	check(leo.sprites != null and sewer.walker.sprites != null, "both turtles are drawn from the ROM with the chosen bandana")
+	sewer.set_turtle(3)
+	var foe_damage := levels.weapon_damage(3)
+	var all_match := true
+	for foe in sewer.enemies.get_children():
+		if "weapon_damage" in foe:
+			all_match = all_match and foe.weapon_damage == foe_damage.x and foe.weapon_damage_low == foe_damage.y
+	check(all_match and sewer.enemies.get_child_count() > 0, "the enemies on show take Donatello's weapon damage from the ROM's row for him")
+	check(leo.weapon_swings.size() == 3 and leo.weapon_swings[1].places == levels.weapon_swing(3, 1).places, "and his swings are the ROM's for him")
+	sewer.set_turtle(0)
+
+	var rom_screen := StartScreen.new()
+	rom_screen.pause_game = false
+	add_child(rom_screen)
+	rom_screen.use_installed_rom()
+	var map := levels.overworld(0)
+	rom_screen.open({"world": 0, "spot": Vector2(160, 296), "energies": [128, 64, 0, 16], "turtle": 0, "pick": 3, "sprite_colours": [map.palettes[6], map.palettes[7]]})
+	check(rom_screen.tile_at(21, 1) == 1, "the heading shows area 1")
+	check(rom_screen.tile_at(24, 6) == 0x30 and rom_screen.tile_at(27, 6) == 0x30, "Leonardo's bar is full")
+	check(rom_screen.tile_at(24, 10) == 0x30 and rom_screen.tile_at(25, 10) == 0x30 and rom_screen.tile_at(26, 10) == 0x32, "Raphael's shows half")
+	check(rom_screen.tile_at(21, 12) == data.byte_at(3, InfoScreenData.T_CAPTURED_TILES) and rom_screen.tile_at(21, 12) != start.tiles[12 * 32 + 21], "a captured turtle's face is covered")
+	check(rom_screen.tile_at(6, 5) != start.tiles[5 * 32 + 6], "the area's small map is drawn into its frame")
+	check(rom_screen.colour_bytes[13] == 0xAA and rom_screen.colour_bytes[21] == 0x55, "the chosen turtle's row is lit and the others are dim")
+	for i in StartScreen.BUILD_FRAMES:
+		rom_screen.tick()
+	var before_typing := rom_screen.tile_at(3, 17)
+	for i in StartScreen.TYPE_FRAMES:
+		rom_screen.tick()
+	check(before_typing == 0x0F and rom_screen.tile_at(3, 17) != 0x0F and not rom_screen.message_done, "the message is typed a letter every %d frames" % StartScreen.TYPE_FRAMES)
+	rom_screen.finish_message()
+	check(rom_screen.message_done and rom_screen.tile_at(7, 23) != 0x0F and rom_screen.tile_at(7, 25) != 0x0F, "and ends with the speaker's closing words on two lines")
+	rom_screen.move_selection(1)
+	check(rom_screen.selected == 1 and rom_screen.colour_bytes[13] == 0x55 and rom_screen.colour_bytes[21] == 0xAA and rom_screen.colours[0x0B] == 0x16, "Down lights Raphael's row in his colour")
+	rom_screen.move_selection(1)
+	check(rom_screen.selected == 3, "the captured turtle is passed over")
+	var picture: Image = rom_screen.snapshot()
+	check(picture.get_size() == Vector2i(256, 240) and same(picture.get_pixel(0, 100), Color.BLACK) and same(picture.get_pixel(40, 5), Color.BLACK), "the picture starts 12 lines down and its left 8 pixels are blank, as in the original")
+	check(same(picture.get_pixel(44, 60), NesPalette.color(0x01)), "the map's frame is filled with the screen's blue")
+	rom_screen.free()
+	sewer.free()
+
+# ========================= Overworld animation =========================
+func _test_overworld_animation() -> void:
+	print("Overworld animation")
+	# The walk's count: starts again on stopping or turning between across, up and down.
+	var field := RoomData.from_text(PackedStringArray([
+		"################",
+		"#..............#",
+		"#..............#",
+		"#..............#",
+		"#..............#",
+		"#..............#",
+		"#..............#",
+		"################",
+	]), "Field")
+	field.top_down = true
+	var walker := OverworldTurtle.new()
+	add_child(walker)
+	walker.set_physics_process(false)
+	walker.room = field
+	walker.position = Vector2(40, 32)
+	for i in 9:
+		walker.step(Vector2i.RIGHT)
+	check(walker._steps == 9 and walker.position == Vector2(58, 32), "the walk counts its updates")
+	walker.step(Vector2i.LEFT)
+	check(walker._steps == 10, "turning from right to left does not start the walk again")
+	walker.step(Vector2i.UP)
+	check(walker._steps == 1, "turning to go up does")
+	walker.stand()
+	walker.step(Vector2i.UP)
+	check(walker._steps == 1, "and so does stopping")
+	walker.position = Vector2(12, 12)
+	for i in 5:
+		walker.step(Vector2i.LEFT)
+	check(walker.position == Vector2(12, 12) and walker._steps == 5, "against a wall he walks on the spot")
+	walker.free()
+
+	var levels := RomLevels.open_installed()
+	if levels == null:
+		print("  skip  no verified ROM is installed, so the ROM's overworld pictures are not exercised")
+		return
+	var sewer = load("res://Scenes/Levels/Area1Sewer.tscn").instantiate()
+	add_child(sewer)
+	sewer.set_show_enemies(false)
+	var small: OverworldTurtle = sewer.walker
+	small.set_physics_process(false)
+	# What the original showed, update by update (picture numbers as it keeps them at $0400).
+	var seen: Array[String] = []
+	for i in 33:
+		small.step(Vector2i.RIGHT)
+		if i in [0, 6, 7, 14, 15, 22, 23, 30, 31]:
+			seen.append(small.picture_name)
+	check(seen == ["f148", "f148", "f149", "f149", "f148", "f148", "f147", "f147", "f148"], "walking right shows pictures 148, 149, 148, 147: the first for 7 updates, the rest for 8")
+	small.stand()
+	check(small.picture_name == "f148", "standing shows the first of them")
+	var ups: Array[String] = []
+	var downs: Array[String] = []
+	for i in 32:
+		small.step(Vector2i.UP)
+		if i % 8 == 7:
+			ups.append(small.picture_name)
+	small.stand()
+	for i in 32:
+		small.step(Vector2i.DOWN)
+		if i % 8 == 7:
+			downs.append(small.picture_name)
+	check(ups == ["f152", "f151", "f150", "f151"] and downs == ["f146", "f145", "f144", "f145"], "up shows 151, 152, 151, 150 and down 145, 146, 145, 144")
+	var all_drawn := true
+	for frame: String in ["f144", "f145", "f146", "f147", "f148", "f149", "f150", "f151", "f152"]:
+		all_drawn = all_drawn and small.sprites.textures.has(frame)
+	check(all_drawn, "all nine overworld pictures are built from the ROM")
+	sewer.set_turtle(2)
+	check(small.sprites != null and small.bandana_color == NesPalette.color(0x27), "the overworld turtle wears the chosen turtle's colour (orange for Michelangelo)")
+	sewer.set_turtle(0)
+	sewer.free()

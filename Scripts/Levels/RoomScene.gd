@@ -81,6 +81,8 @@ const HOLD_ENTER_FRAMES := 16       ## clear screen to the extra enemy coming in
 const HOLD_LEAVE_FRAMES := 64       ## that enemy beaten to the screen being freed
 const TURTLE_ENERGY := 128           ## the original's full energy; the bar shows it as 8 blocks
 const ENERGY_BLOCKS := 8
+## The four turtles, in the original's order (its number 0 to 3).
+const TURTLE_NAMES := ["Leonardo", "Raphael", "Michelangelo", "Donatello"]
 
 @export var world := 0
 @export var area := 0
@@ -116,6 +118,10 @@ var clear_message_seconds := 3.0     ## how long "WORLD n CLEAR" stays up
 ## (areas 2, 3 and 4), chosen afresh each game.
 var technodrome_cave := 2
 var _wait_for_up_release := false    ## no second door until Up is let go
+var current_turtle := 0              ## who is playing: 0 Leonardo, 1 Raphael, 2 Michelangelo, 3 Donatello
+var turtle_energy: Array = [TURTLE_ENERGY, TURTLE_ENERGY, TURTLE_ENERGY, TURTLE_ENERGY]
+var start_screen: StartScreen        ## the Start (information) screen
+var overworld_spot := Vector2.ZERO   ## where he last stood on the overworld: the Start screen's map marks it
 
 @onready var background: Sprite2D = $Background
 @onready var solids: Node2D = $Solids
@@ -156,6 +162,11 @@ func _ready() -> void:
 	walker.bandana_color = turtle.bandana_color
 	walker.door_reached.connect(enter_door)
 	add_child(walker)
+	start_screen = StartScreen.new()
+	start_screen.use_installed_rom()
+	start_screen.turtle_chosen.connect(set_turtle)
+	add_child(start_screen)
+	_show_turtle_look()
 	technodrome_cave = randi_range(2, 4)
 	if start_on_overworld and levels != null and levels.has_overworld(world):
 		load_overworld(world)
@@ -226,8 +237,71 @@ func show_room(new_room: RoomData) -> void:
 	_place_items()
 	_boss_camera_x = _view_corner().x
 	_wait_for_up_release = true
+	if room.top_down:
+		overworld_spot = walker.position
+	_show_hud_text()
+
+## The two lines of help under the picture.
+func _show_hud_text() -> void:
 	var door_hint := "walk into a door" if room.top_down else "Up at a door"
 	hud.text = "%s   %s\n%s  F3/F4 area  F7 map  F6 fly  F8 foes  b%d" % [turtle.turtle_name, room.name, door_hint, Game.BUILD]
+
+## Opens the Start screen (Research/start_screen.md). The original refuses
+## while the playing turtle has no energy left; the remake also waits out
+## its own "world clear" message.
+func open_start_screen() -> void:
+	if start_screen.is_open() or _clearing or room == null or turtle.state == Turtle.State.DEAD:
+		return
+	turtle_energy[current_turtle] = turtle.health
+	if room.top_down:
+		overworld_spot = walker.position
+	var leftovers: Array = room.palettes.slice(6, 8) if room.palettes.size() >= 8 else []
+	start_screen.open({
+		"world": world, "area": area, "inside": not room.top_down,
+		"held_fight": hold != null, "spot": overworld_spot,
+		"energies": turtle_energy, "turtle": current_turtle, "sprite_colours": leftovers,
+	})
+
+## Makes another turtle the one who plays: his name, his energy, what his
+## weapon does (the ROM's damage row and swing boxes for him) and his
+## bandana's colour. The Start screen calls this when it is left.
+func set_turtle(index: int) -> void:
+	index = clampi(index, 0, TURTLE_NAMES.size() - 1)
+	if index == current_turtle:
+		return
+	turtle_energy[current_turtle] = turtle.health
+	current_turtle = index
+	turtle.health = int(turtle_energy[index])
+	turtle.health_changed.emit(turtle.health, turtle.max_health)
+	if levels != null:
+		turtle.weapon_swings = [levels.weapon_swing(index, 0), levels.weapon_swing(index, 1), levels.weapon_swing(index, 2)]
+		var damage := levels.weapon_damage(index)
+		for group: Node in [enemies, items]:
+			for thing in group.get_children():
+				if "weapon_damage" in thing:
+					thing.set("weapon_damage", damage.x)
+					thing.set("weapon_damage_low", damage.y)
+	_show_turtle_look()
+	if room != null:
+		_show_hud_text()
+
+## Dresses both turtles (the big one and the overworld one) as the one who
+## is playing. The four share their body pictures; with a ROM the bandana
+## takes the colour number the ROM keeps for him.
+func _show_turtle_look() -> void:
+	var colour: Color = StartScreen.PLACEHOLDER_COLOURS[current_turtle]
+	var big: SpriteSet = null
+	var small: SpriteSet = null
+	if start_screen.data != null:
+		var number := start_screen.data.bandana(current_turtle)
+		colour = NesPalette.color(number)
+		big = SpriteSet.cached_with_colour("Leonardo", "0", 2, number)
+		small = SpriteSet.cached_with_colour("LeonardoOverworld", "0", 2, number)
+	elif levels != null:
+		big = SpriteSet.cached("Leonardo")
+		small = SpriteSet.cached("LeonardoOverworld")
+	turtle.set_look(TURTLE_NAMES[current_turtle], colour, big)
+	walker.set_look(colour, small)
 
 ## Fills the map with its enemies. In a room they follow the camera as in
 ## the original: only the places on screen get an enemy now, and the rest
@@ -334,7 +408,7 @@ func _start_fight(entry: Encounter, key: Vector2i) -> void:
 	boss.health = entry.hit_points
 	boss.full_health = entry.hit_points
 	boss.touch_damage = entry.touch_damage
-	var damage := levels.weapon_damage(0)
+	var damage := levels.weapon_damage(current_turtle)
 	boss.weapon_damage = damage.x
 	boss.weapon_damage_low = damage.y
 	boss.defeated.connect(_on_boss_defeated.bind(entry.kind))
@@ -430,7 +504,7 @@ func _on_boss_defeated(kind: int) -> void:
 
 ## Makes the enemy for one of the ROM's enemy places.
 func _make_enemy(spot: EnemySpot) -> void:
-	var damage := levels.weapon_damage(0) if levels != null else Vector2i.ONE  # 0 = Leonardo
+	var damage := levels.weapon_damage(current_turtle) if levels != null else Vector2i.ONE
 	var enemy: Node2D
 	var pictures := SpriteSet.cached("Kind%02X" % spot.kind) if spot.kind >= 0 else null
 	if room.top_down:
@@ -572,6 +646,8 @@ func _door_reach() -> float:
 func enter_door(door: Door) -> void:
 	if levels == null:
 		return
+	if room != null and room.top_down and door.to_room:
+		overworld_spot = walker.position   # the Start screen's map keeps marking this spot
 	if not door.to_room:
 		load_overworld(door.to_area)
 		walker.position = door.arrive
@@ -700,7 +776,9 @@ func step_area(direction: int) -> void:
 	load_area(w, a)
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("open_chr_viewer"):
+	if event.is_action_pressed("pause"):
+		open_start_screen()
+	elif event.is_action_pressed("open_chr_viewer"):
 		Game.go_to(Game.SCENE_CHR_VIEWER)
 	elif event.is_action_pressed("switch_room"):
 		Game.go_to(Game.SCENE_PRACTICE_ROOM)

@@ -1,9 +1,15 @@
 class_name OverworldTurtle
 extends Node2D
 ## The small turtle that walks around the top-down overworld map.
-## With a ROM he is drawn from Leonardo's own overworld sprites
-## (Resources/AssetRipper/Sprites/LeonardoOverworld.json); without one he is
-## a green block with the bandana on the side he faces.
+## With a ROM he is drawn from the turtles' own overworld sprites
+## (Resources/AssetRipper/Sprites/LeonardoOverworld.json, shared by all four
+## with the bandana's colour changed); without one he is a green block with
+## the bandana on the side he faces.
+##
+## His walk (Research/overworld.md): each direction has a standing picture
+## and two strides, shown as stand, stride, stand, other stride, 8 updates
+## each. The count starts again whenever he stops or turns between across,
+## up and down; turning from left to right or back does not restart it.
 ##
 ## Movement copies the original (see Research/doors.md):
 ## - One update every 2 frames, 2 pixels per update, no diagonals.
@@ -31,7 +37,9 @@ var camera: Camera2D
 var rest_frames := 0            ## frames left to stand still (just came through a door)
 var sprites: SpriteSet          ## null without a ROM
 var _frame := 0
-var _steps := 0                 ## steps taken, which drives the walking animation
+var _steps := 0                 ## updates walked in the current animation, which picks its picture
+var _animation := ""            ## the walk being shown: "right" (also left), "up" or "down"; "" standing
+var picture_name := ""          ## the frame on show, e.g. "f148" (the original's picture number 148)
 var _picture := Sprite2D.new()
 
 func _init() -> void:
@@ -61,13 +69,38 @@ func _physics_process(_delta: float) -> void:
 	elif down != 0:
 		step(Vector2i(0, down))
 	else:
-		_show_picture(false)
+		stand()
+
+## Stops walking: the standing picture of the way he faces.
+func stand() -> void:
+	_animation = ""
+	_steps = 0
+	_show_picture(false)
+
+## Becomes another of the four turtles to look at (null pictures keep the
+## placeholder block).
+func set_look(colour: Color, pictures: SpriteSet) -> void:
+	bandana_color = colour
+	sprites = pictures
+	_show_picture(_animation != "")
+	queue_redraw()
+
+func _animation_for(direction: Vector2i) -> String:
+	if direction == Vector2i.UP:
+		return "up"
+	if direction == Vector2i.DOWN:
+		return "down"
+	return "right"
 
 ## One step in a direction, if the way is clear.
 func step(direction: Vector2i) -> void:
 	if room == null:
 		return
 	facing = direction
+	var wanted := _animation_for(direction)
+	if wanted != _animation:
+		_animation = wanted
+		_steps = 0
 	_steps += 1
 	_show_picture(true)
 	queue_redraw()
@@ -89,12 +122,8 @@ func _show_picture(walking: bool) -> void:
 	_picture.visible = sprites != null
 	if sprites == null:
 		return
-	var animation := "right"
-	if facing == Vector2i.UP:
-		animation = "up"
-	elif facing == Vector2i.DOWN:
-		animation = "down"
-	var frame := sprites.frame_at(animation, _steps if walking else 0)
+	var frame := sprites.frame_at(_animation_for(facing), _steps if walking else 0)
+	picture_name = frame
 	if not sprites.textures.has(frame):
 		return
 	_picture.texture = sprites.textures[frame]

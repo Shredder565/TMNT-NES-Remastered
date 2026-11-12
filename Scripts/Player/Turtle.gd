@@ -112,6 +112,19 @@ func _ready() -> void:
 	_update_art()
 	health_changed.emit(health, max_health)
 
+## Becomes another of the four turtles to look at: his name, his bandana's
+## colour (for the placeholder art) and his pictures (null keeps the
+## placeholder art).
+func set_look(new_name: String, colour: Color, pictures: SpriteSet) -> void:
+	turtle_name = new_name
+	bandana_color = colour
+	bandana_art.color = colour
+	sprites = pictures
+	body_art.visible = sprites == null
+	bandana_art.visible = sprites == null
+	rom_sprite.visible = sprites != null
+	_update_art()
+
 func _physics_process(delta: float) -> void:
 	# Button presses can land on either frame, so remember them for the update.
 	if Input.is_action_just_pressed("jump"):

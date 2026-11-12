@@ -1,11 +1,11 @@
 {
- "about": "Which ROM tiles make up Leonardo on the overworld map. Tile numbers and positions only; no graphics. Positions are in pixels from his position value (his middle). 'right' is mirrored for walking left.",
+ "about": "Which ROM tiles make up a turtle on the overworld map (the four share these; only the bandana's colour number differs). Tile numbers and positions only; no graphics. Positions are in pixels from his position value (his middle). 'right' is mirrored for walking left. Each direction has a standing picture and two strides; the walk shows stand, stride, stand, other stride (Research/overworld.md).",
  "tile_height": 16,
  "palettes": {
   "0": [
    15,
    9,
-   22,
+   18,
    42
   ]
  },
@@ -13,7 +13,9 @@
   "right": {
    "frames": [
     "f148",
-    "f149"
+    "f149",
+    "f148",
+    "f147"
    ],
    "ticks": 8,
    "loop": true
@@ -21,7 +23,9 @@
   "up": {
    "frames": [
     "f151",
-    "f152"
+    "f152",
+    "f151",
+    "f150"
    ],
    "ticks": 8,
    "loop": true
@@ -29,26 +33,54 @@
   "down": {
    "frames": [
     "f145",
-    "f146"
+    "f146",
+    "f145",
+    "f144"
    ],
    "ticks": 8,
    "loop": true
   }
  },
  "frames": {
-  "f145": [
+  "f144": [
    {
-    "x": -8,
-    "y": -8,
-    "index": 4104,
+    "x": -4,
+    "y": -23,
+    "index": 4098,
     "palette": 0,
     "flip_h": false,
     "flip_v": false
    },
    {
+    "x": -8,
+    "y": -7,
+    "index": 4100,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -7,
+    "index": 4102,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f145": [
+   {
     "x": -4,
     "y": -24,
     "index": 4098,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -8,
+    "index": 4104,
     "palette": 0,
     "flip_h": false,
     "flip_v": false
@@ -64,17 +96,17 @@
   ],
   "f146": [
    {
-    "x": -8,
-    "y": -7,
-    "index": 4100,
+    "x": -4,
+    "y": -23,
+    "index": 4098,
     "palette": 0,
     "flip_h": false,
     "flip_v": false
    },
    {
-    "x": -4,
-    "y": -23,
-    "index": 4098,
+    "x": -8,
+    "y": -7,
+    "index": 4102,
     "palette": 0,
     "flip_h": true,
     "flip_v": false
@@ -82,7 +114,25 @@
    {
     "x": 0,
     "y": -7,
-    "index": 4102,
+    "index": 4100,
+    "palette": 0,
+    "flip_h": true,
+    "flip_v": false
+   }
+  ],
+  "f147": [
+   {
+    "x": -8,
+    "y": -7,
+    "index": 4106,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -7,
+    "index": 4108,
     "palette": 0,
     "flip_h": false,
     "flip_v": false
@@ -124,6 +174,24 @@
     "flip_v": false
    }
   ],
+  "f150": [
+   {
+    "x": -8,
+    "y": -8,
+    "index": 4118,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -8,
+    "index": 4120,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
   "f151": [
    {
     "x": -8,
@@ -154,17 +222,17 @@
    {
     "x": -8,
     "y": -8,
-    "index": 4118,
+    "index": 4120,
     "palette": 0,
-    "flip_h": false,
+    "flip_h": true,
     "flip_v": false
    },
    {
     "x": 0,
     "y": -8,
-    "index": 4120,
+    "index": 4118,
     "palette": 0,
-    "flip_h": false,
+    "flip_h": true,
     "flip_v": false
    }
   ]
