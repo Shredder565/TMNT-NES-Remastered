@@ -13,30 +13,60 @@ func _ready() -> void:
 	var out := {}
 	for key: String in runs:
 		var run: Dictionary = runs[key]
-		sewer.load_area(0, int(run.area))
-		var leo = sewer.turtle
-		leo.max_health = 1000000
-		leo.health = 1000000
-		leo.position = Vector2(run.start[0], run.start[1])
-		for a in ["move_left", "move_right", "jump"]:
-			Input.action_release(a)
-		for i in 100:
-			await get_tree().physics_frame
-		var trace := []
-		for f in 1000:
-			var k := _keys(int(run.kind), f)
-			var side := "move_right" if k[0] else "move_left"
-			Input.action_press(side)
-			if k[1]:
-				Input.action_press("jump")
-			else:
-				Input.action_release("jump")
-			await get_tree().physics_frame
-			trace.append([leo.position.x, leo.position.y, sewer.area, 0 if sewer.room.top_down else 1])
-			if sewer.area != int(run.area) or sewer.room.top_down:
-				break
-		out[key] = trace
+		# The original updates its objects every second frame; which of the two
+		# a recording began on is not known, so both are tried and the one
+		# that follows the original longer is kept.
+		var best := []
+		var best_score := -1
+		for offset in 2:
+			var trace: Array = await _run(sewer, run, offset)
+			var score := 0
+			var theirs: Array = run.trace
+			while score < mini(trace.size(), theirs.size()) and absf(trace[score][0] - theirs[score][0]) < 0.6 and absf(trace[score][1] - theirs[score][1]) < 0.6:
+				score += 1
+			if score > best_score:
+				best_score = score
+				best = trace
+		out[key] = best
 	var file := FileAccess.open("/home/claude/work/play_remake.json", FileAccess.WRITE)
 	file.store_string(JSON.stringify(out))
 	file.close()
 	get_tree().quit()
+
+func _run(sewer, run: Dictionary, offset: int) -> Array:
+	sewer.load_area(0, int(run.area))
+	var leo = sewer.turtle
+	leo.max_health = 1000000
+	leo.health = 1000000
+	leo.position = Vector2(run.start[0], run.start[1])
+	leo.speed = Vector2i.ZERO
+	leo.grounded = true
+	leo._was_grounded = true
+	for a in ["move_left", "move_right", "jump"]:
+		Input.action_release(a)
+	for i in 100:
+		await get_tree().physics_frame
+	leo.position = Vector2(run.start[0], run.start[1])   # exactly where the original stood, fractions and all
+	leo._frame = offset   # which of the two frames his updates fall on
+	leo.grounded = true
+	leo._was_grounded = true
+	var trace := []
+	var lag: Array = run.get("lag", [])
+	for f in 1000:
+		# The original drops a frame now and then while it scrolls (it is
+		# busy loading map); the remake does not, so those frames are sat out.
+		if lag.has(float(f)) and not trace.is_empty():
+			trace.append(trace[-1])
+			continue
+		var k := _keys(int(run.kind), f)
+		var side := "move_right" if k[0] else "move_left"
+		Input.action_press(side)
+		if k[1]:
+			Input.action_press("jump")
+		else:
+			Input.action_release("jump")
+		await get_tree().physics_frame
+		trace.append([leo.position.x, leo.position.y, sewer.area, 0 if sewer.room.top_down else 1])
+		if sewer.area != int(run.area) or sewer.room.top_down:
+			break
+	return trace

@@ -26,7 +26,7 @@ Items are objects with low kind numbers. Touching one removes it.
 | --- | --- | --- |
 | 03 | A slice of pizza | Energy 48 became 80: +32 |
 | 01 | A whole pizza | Energy 48 became 128: full |
-| 0B | Not recognised | Nothing changed in energy, the special weapons or their counts |
+| 0B | Not recognised | Nothing I was watching changed. Read from code since: it is the power item (`Research/items_and_hits.md`) |
 
 I could not find the table that places items in the ROM (three byte
 orders were tried), so the remake lists world 1's five items by hand in
@@ -95,6 +95,6 @@ which is the same thing as the turtle being left of X 128.
 The overworld's enemies (kinds 40, 9A, 9B) do not move and cannot be
 fought; kind AA; the turtle being captured and the others taking over;
 what the original shows when the world is won (April's rescue); score;
-sound; what `turtle_collision.md` lists as still different in how the
-turtle moves; and everything listed as approximate on the enemies' own
-pages.
+sound; the special weapons and the other items in
+`items_and_hits.md`; and everything listed as approximate on the enemies'
+own pages (their routines have not been read from the code yet).

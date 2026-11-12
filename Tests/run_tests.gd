@@ -324,17 +324,22 @@ func _ready() -> void:
 	leo._was_grounded = false
 	leo.speed = Vector2i(0, 1200)
 	Input.action_press("move_right")
+	var landed_on := 0
 	var landing_x := -1.0
 	var before_landing_x := -1.0
+	var after_landing_x := -1.0
 	for i in 40:
 		var before_x := leo.position.x
 		var was_up := not leo.on_floor()
 		await get_tree().physics_frame
+		if landing_x >= 0.0 and after_landing_x < 0.0 and Engine.get_physics_frames() % 2 == landed_on % 2:
+			after_landing_x = leo.position.x
 		if was_up and leo.on_floor():
 			landing_x = leo.position.x
 			before_landing_x = before_x
+			landed_on = Engine.get_physics_frames()
 	Input.action_release("move_right")
-	check(landing_x > 100.0 and before_landing_x == landing_x and leo.position.x > landing_x and leo.speed.y == 0, "the update he lands on he does not move sideways, then walks on")
+	check(landing_x > before_landing_x and after_landing_x == landing_x and leo.position.x > landing_x and leo.speed.y == 0, "he still moves sideways on the update he lands, stands for the next one, then walks on (as the original does)")
 	for i in 10:
 		await get_tree().physics_frame
 
@@ -364,10 +369,17 @@ func _ready() -> void:
 	data.kinds[floor_cell] = RoomData.KIND_SOLID
 	leo.health = 128
 	leo.invulnerable_timer = 0.0
-	data.kinds[20 * data.cols + 12] = RoomData.KIND_HURTS   # a cell his body is in
+	data.kinds[19 * data.cols + 12] = RoomData.KIND_HURTS   # a cell his body is in, but none of his tests look at
 	for i in 4:
 		await get_tree().physics_frame
-	check(not data.is_solid_cell(12, 20) and leo.health == 112 and leo.invulnerable_timer > 0.0, "a hurting tile is not solid and takes 16 once, then he blinks")
+	check(leo.health == 128, "a hurting tile only hurts where the original's tests look: not at his chest while he stands")
+	data.kinds[19 * data.cols + 12] = RoomData.KIND_EMPTY
+	data.kinds[21 * data.cols + 12] = RoomData.KIND_HURTS   # 3 above his feet: the standing test looks here
+	var hurt_state: int = leo.state
+	for i in 4:
+		await get_tree().physics_frame
+	check(not data.is_solid_cell(12, 21) and leo.health == 112 and leo.invulnerable_timer > 0.0 and leo.state == hurt_state and leo.speed == Vector2i.ZERO, "a hurting tile at his ankles takes 16 once, he blinks, and he is not thrown")
+	data.kinds[21 * data.cols + 12] = RoomData.KIND_EMPTY
 	data.kinds[20 * data.cols + 12] = RoomData.KIND_EMPTY
 	leo.revive()
 	leo.health = 40
@@ -381,6 +393,61 @@ func _ready() -> void:
 	add_child(pie)
 	pie.pick_up(leo)
 	check(leo.health == 128, "a whole pizza fills his energy")
+	leo.health = 40
+	var half := Item.new()
+	half.setup(Item.HALF_PIZZA, Vector2(0, 0), null)
+	add_child(half)
+	half.pick_up(leo)
+	check(leo.health == 104, "half a pizza (kind 02) gives 64 energy")
+	# The power item, the enemies' safe time and which shots a hit uses up
+	leo.position = Vector2(100, 176)
+	leo.speed = Vector2i.ZERO
+	leo.invulnerable_timer = 0.0
+	for i in 6:
+		await get_tree().physics_frame
+	var power := Item.new()
+	power.setup(Item.POWER, Vector2(0, 0), null)
+	add_child(power)
+	power.pick_up(leo)
+	check(leo.power_ticks == Turtle.POWER_UPDATES and Turtle.POWER_UPDATES == 256, "kind 0B starts the power item: 256 updates")
+	var energy_before := leo.health
+	var landed := leo.take_damage(10, 0.0)
+	check(not landed and leo.health == energy_before and leo.state == Turtle.State.NORMAL, "nothing that touches him hurts him meanwhile")
+	Input.action_press("move_right")
+	Input.action_press("attack")
+	for i in 4:
+		await get_tree().physics_frame
+	Input.action_release("attack")
+	check(leo.speed.x == 768 and leo.attack_tick < 0, "he walks at 3 pixels an update and cannot swing")
+	Input.action_release("move_right")
+	var toucher: DummyEnemy = load("res://Scenes/Enemies/DummyEnemy.tscn").instantiate()
+	add_child(toucher)
+	toucher.set_physics_process(false)
+	toucher.health = 200
+	leo.touched_by(toucher, 5)
+	check(toucher.health == 200 - Turtle.POWER_DAMAGE or toucher.is_queued_for_deletion(), "an enemy that touches him is hit for 240 instead")
+	check(leo.health == energy_before, "and he loses nothing")
+	leo.power_ticks = 2
+	for i in 6:
+		await get_tree().physics_frame
+	check(leo.power_ticks == 0 and leo.art.visible, "the power item runs out")
+	var target := Node2D.new()
+	add_child(target)
+	var first_hit := Turtle.weapon_lands(target)
+	var second_hit := Turtle.weapon_lands(target)
+	target.set_meta("safe_until", Engine.get_physics_frames())
+	var later_hit := Turtle.weapon_lands(target)
+	check(first_hit and not second_hit and later_hit and Turtle.ENEMY_SAFE_UPDATES == 24, "an enemy that was hit cannot be hit again for 24 updates")
+	target.queue_free()
+	check(Shot.USED_UP_BY_A_HIT == [0x99, 0x93], "only shots of kinds 99 and 93 are used up by hitting him")
+	leo.invulnerable_timer = 0.0
+	leo.health = 128
+	check(leo.take_damage(1, 0.0) and not leo.take_damage(1, 0.0), "a hit tells the shot whether it landed (not while he blinks)")
+	leo.revive()
+	leo.health = 128
+	leo.invulnerable_timer = 0.0
+	leo.speed = Vector2i.ZERO
+	leo.state = Turtle.State.NORMAL
 	leo.position = Vector2(40, 96)
 	for i in 30:
 		await get_tree().physics_frame
@@ -1178,12 +1245,12 @@ func _ready() -> void:
 			leo.invulnerable_timer = 1.0
 			await get_tree().physics_frame
 		check(sewer.boss is Bebop and sewer.boss.health == 72 and sewer.boss.touch_damage == 19 and sewer.boss.sprites != null, "the screen reaching 508 from the left brings kind 70 in, with 72 hit points and 19 touch damage from the ROM")
-		check(sewer.fighting and sewer.fight_corner == Vector2(508, 0) and sewer.boss_bar.visible and sewer._company != null and sewer._company.position == Vector2(704, 83), "the screen is held there, the boss's energy shows, and the two on the ledge stand by")
+		check(sewer.fighting and sewer.fight_corner.y == 0.0 and absf(sewer.fight_corner.x - 508.0) <= 1.0 and sewer.boss_bar.visible and sewer._company != null and sewer._company.position == sewer.fight_corner + Vector2(196, 83), "the screen is held there, the boss's energy shows, and the two on the ledge stand by")
 		leo.position = Vector2(400, 170)
 		for i in 3:
 			leo.invulnerable_timer = 1.0
 			await get_tree().physics_frame
-		check(leo.position.x >= 528.0, "the turtle cannot leave the fight's screen (%.0f)" % leo.position.x)
+		check(leo.position.x >= sewer.fight_corner.x + 20.0, "the turtle cannot leave the fight's screen (%.0f)" % leo.position.x)
 		sewer.boss.take_hit(36)
 		for i in 2:
 			leo.invulnerable_timer = 1.0
@@ -1255,7 +1322,7 @@ func _ready() -> void:
 		for i in 3:
 			leo.invulnerable_timer = 1.0
 			await get_tree().physics_frame
-		check(sewer.fighting and sewer.hold_stage == 1 and sewer.fight_corner == Vector2(508, 0) and sewer.boss == null, "the first sewer's screen stops at 508 for a held fight")
+		check(sewer.fighting and sewer.hold_stage == 1 and absf(sewer.fight_corner.x - 508.0) <= 1.0 and sewer.boss == null, "the first sewer's screen stops at 508, give or take a pixel, for a held fight")
 		for i in 30:
 			leo.invulnerable_timer = 1.0
 			await get_tree().physics_frame

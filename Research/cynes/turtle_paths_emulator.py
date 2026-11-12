@@ -19,8 +19,10 @@ for ar in range(6):
             n[0x500]=60; n[0x77]=0x80; clear(n)
             e.run(1,script(kind,f))
             sx=n[0x4F]|n[0x50]<<8; sy=n[0x51]|n[0x52]<<8
-            tr.append((sx+n[0x480]+n[0x490]/256.0,sy+n[0x460]+20+n[0x470]/256.0,n[0x5D],n[0x5C],sx,n[0x5E]))
+            tr.append((sx+n[0x480]+n[0x490]/256.0,sy+n[0x460]+20+n[0x470]/256.0,n[0x5D],n[0x5C],sx,n[0x5E],n[0x1E]))
             if n[0x5D]!=ar or n[0x5C]!=1: break
         out['%d_%d'%(ar,kind)]=dict(area=ar,kind=kind,spot=spot,start=start,trace=tr)
         print(ar,kind,'start',start,'frames',len(tr),'end',[round(v) for v in tr[-1]])
+for k in out:
+    t=out[k]['trace']; out[k]['lag']=[f for f in range(1,len(t)) if t[f][6]==t[f-1][6]]
 json.dump(out,open('/home/claude/work/play_emu.json','w'))

@@ -19,6 +19,9 @@ const KINDS := {
 	0x19: { "speed": 1280, "offset": Vector2(5, -20) },            # the bullet of the world 1 boss, kind 71
 }
 const TICK_FRAMES := 2
+## Only these are gone once they have hit him (the list at bank 6, $9910);
+## every other shot flies on through.
+const USED_UP_BY_A_HIT := [0x99, 0x93]
 const GIVE_UP_DISTANCE := 200.0   ## guess: gone once this far from the turtle (off the screen)
 
 static var damage_of := {}        ## kind -> energy lost on touch; 1 when not filled in
@@ -89,9 +92,8 @@ func _physics_process(_delta: float) -> void:
 		tick()
 	for body in get_overlapping_bodies():
 		if body is Turtle:
-			body.take_damage(damage, global_position.x)
-			if life_ticks == 0:
-				queue_free()   # guess: a flying shot is used up by a hit
+			if body.take_damage(damage, global_position.x) and USED_UP_BY_A_HIT.has(kind):
+				queue_free()
 				return
 
 ## One game update.

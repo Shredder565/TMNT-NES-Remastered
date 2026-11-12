@@ -98,9 +98,13 @@ its energy shows under the turtle's. Three more places stop the screen
 until the enemies there are beaten. Beating the last boss opens world 2's
 overworld.
 
-How the turtle meets walls, ledges and ceilings follows the original's own
-rules, read from its code and checked in a side-by-side run
-(`Research/turtle_collision.md`).
+How the turtle meets walls, ledges and ceilings, and how the screen
+scrolls, follow the original's own rules, read from its code. In eighteen
+scripted runs through world 1's rooms the turtle's path now matches the
+original's exactly, to the fraction of a pixel
+(`Research/turtle_collision.md`, `Research/scrolling.md`). Items, the
+enemies' safe time after a hit and hurting tiles are in
+`Research/items_and_hits.md`.
 
 What is still missing from world 1 is listed at the end of
 `Research/world1.md`.

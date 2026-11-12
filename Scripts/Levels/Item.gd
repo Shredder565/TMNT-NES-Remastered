@@ -3,13 +3,17 @@ extends Area2D
 ## Something lying in a room for the turtle to pick up.
 ##
 ## What each kind gives was found by touching it in the emulator
-## (Research/world1.md): a slice of pizza gives 32 energy, a whole pizza
-## fills it. Kind 0B was picked up without any change I could see.
+## (Research/world1.md) and then read from the ROM's own item routine
+## (bank 6, $965C; Research/items_and_hits.md): a whole pizza fills his
+## energy, half a pizza gives 64, a slice 32, and kind 0B makes him
+## untouchable for a while.
 
 const SLICE := 0x03
 const WHOLE_PIZZA := 0x01
-const UNKNOWN_0B := 0x0B
+const HALF_PIZZA := 0x02
+const POWER := 0x0B
 const SLICE_ENERGY := 32
+const HALF_ENERGY := 64
 
 var kind := SLICE
 var sprites: SpriteSet
@@ -51,6 +55,10 @@ func _on_body_entered(body: Node) -> void:
 func pick_up(turtle: Turtle) -> void:
 	if kind == SLICE:
 		turtle.heal(SLICE_ENERGY)
+	elif kind == HALF_PIZZA:
+		turtle.heal(HALF_ENERGY)
 	elif kind == WHOLE_PIZZA:
 		turtle.heal(turtle.max_health)
+	elif kind == POWER:
+		turtle.start_power()
 	queue_free()

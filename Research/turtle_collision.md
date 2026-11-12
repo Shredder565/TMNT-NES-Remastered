@@ -96,42 +96,60 @@ Godot's own collision.
 | Falling past a ledge with feet 1 or 2 pixels below its top | Goes in and is put on top | Blocked by its side, falls |
 | Landing | When 3 pixels into the floor; raised onto it; pushed out of a wall | At first contact |
 | Walking off a ledge's end | Both feet (6 each side) must be past it | Dropped when the box left the ledge |
-| The update he lands on | No sideways movement | Walked on |
+| The update he lands on | Still moves sideways; stands still for the next one | Walked on |
 | Jump from a standstill with a direction held | First update goes straight up | Moved sideways at once |
-| Jump pressed during the update he lands on | Ignored | Jumped |
 | Fastest fall | Under 10 pixels an update | 12 |
 | Room ends (measured, not read) | Kept 20 pixels from the screen's left and right ends | Could walk to the wall |
 
-The remake's mover is `Turtle._move_in_room`. The practice room (F2) has
-no tile map and still uses Godot's collision.
+The remake's mover is `Turtle._move_in_room` (the move) and
+`Turtle._test_room` (the tests). The practice room (F2) has no tile map
+and still uses Godot's collision.
 
-**One thing copied from measurement, not code.** Walking off a ledge, the
-original starts to drop about two updates later than the rules above say
-(measured at four ledge ends; a fifth dropped at once). I could not see
-why in the code. The remake waits two updates.
+## The order of one update (read from code, update 27)
+
+Bank 4, $9851 to $9966, then the turtle's own routine:
+
+1. He is moved by the speeds the last update left (or the screen is asked
+   to scroll instead: `Research/scrolling.md`).
+2. His routine runs. In the air: gravity first. Then the buttons set his
+   sideways speed. Then the map is tested where he now is, and a speed is
+   set to nought where something is in the way.
+
+So a wall stops him on the update after he reaches it, and a landing shows
+on the same update as the fall that reached the floor: he is moved into
+it, found there, and raised, all before the picture is drawn. On that
+update he has still moved sideways; his speeds are then nought, so he
+stands for one update, and the next one walks.
+
+Walking off a ledge: the update that finds nothing under him only changes
+his state (state 6). The next update changes it again to "in the air"
+with no fall speed. Gravity starts the update after. Update 26 copied
+this as a measured two-update wait without knowing why; it is this, and
+the remake now waits the one update the code does.
+
+## Which tiles stop which test (read from code, the tables at 4:$A6EC)
+
+| Test | Stopped by |
+| --- | --- |
+| Walking into something | Kind 4 only. The side of a moving floor does not stop a walk |
+| In the air: head, sides | Kinds 4, 0C, 0D |
+| Landing | Kinds 4, 0C, 0D, 0F, and the top of a ladder |
+| Pushed out of a wall on landing | Kind 4 only, on the side he is still moving towards. If the wall has just stopped him his speed is nought and the test looks to his right |
+| Under his feet, walking | His right foot first. Only if that finds kind 0 does his left foot get a say |
+
+A hurting tile (kind 1) hurts only when one of these tests looks at it:
+see `Research/items_and_hits.md`.
 
 ## How close it is now
 
-Four of the eighteen runs match within 6 pixels for all 1000 frames, and
-four more for over 800. Heights now agree to a hundredth of a pixel
-where the paths agree. Counting every frame, 60% are within 6 pixels (48%
-with update 23's fitted rules).
+Update 27: all eighteen runs match the original **exactly**, to the
+fraction of a pixel, on every frame compared (11365 frames). Two things
+about the comparison itself had to be put right first:
 
-Known reasons the paths still part:
+- The original drops a frame now and then while it scrolls (33 times in
+  one 1000-frame run). The replay now sits those frames out.
+- A run is only compared up to where the original holds the screen for a
+  fight: the replay runs without enemies, so the remake holds nothing.
 
-- **Sub-pixel X while the screen scrolls.** When the screen starts to
-  scroll the original's turtle falls about half a pixel behind the
-  remake's. I have not read the scrolling code. Half a pixel is enough to
-  decide whether he clips the corner of a block.
-- **Lag.** Now and then the original skips an update altogether (once in
-  the recordings of room 4). The remake never does.
-- **Stuck in a corner.** Once, jumping into the corner of a wall and a
-  ceiling, the original hung in the air for as long as the recording
-  lasted. Not copied, and not understood.
-- Two runs differ because the original started a fight there (see
-  `encounters.md`) and the remake had enemies switched off.
-
-Update 26 added the weapon, hit boxes, moving floors and doors: see
-`hit_boxes.md`. Not ported yet from the turtle's code: how the hurting
-tiles are tested point by point, the special weapons, and swimming (0F). The overworld
-turtle has its own code, not read yet.
+Earlier figures, for the record: 48% of frames within 6 pixels with
+update 23's fitted rules, 60% with update 24.

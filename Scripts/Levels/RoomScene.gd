@@ -216,6 +216,11 @@ func show_room(new_room: RoomData) -> void:
 	camera.limit_bottom = room.size_pixels().y + 48   # room, then the HUD strip
 	camera.make_current()
 	camera.reset_smoothing()
+	turtle.scroll_locked = false
+	turtle.scroll_max = 0.0 if room.top_down else maxf(room.size_pixels().x - VIEW_SIZE.x, 0.0)
+	turtle.scroll_x = -1000.0   # forces the screen to be placed afresh around him
+	turtle.sync_screen()
+	_place_camera()
 	_place_enemies()
 	_place_items()
 	_boss_camera_x = _view_corner().x
@@ -281,8 +286,14 @@ func _check_boss() -> void:
 		if entry.column == 0:
 			if corner.x > 0.0:
 				continue
-		elif absf(corner.x - before) > 64.0 or minf(corner.x, before) > wanted + 1.0 or maxf(corner.x, before) < wanted - 1.0:
-			continue   # the camera has to scroll onto that spot, from either side
+		else:
+			# The camera must be on that spot, give or take a pixel. It
+			# scrolls at most 4 pixels at a time, so a step that small
+			# across the spot counts too.
+			var on_it := absf(corner.x - wanted) <= 1.0
+			var stepped_over := absf(corner.x - before) <= 4.0 and minf(corner.x, before) < wanted and maxf(corner.x, before) > wanted
+			if not on_it and not stepped_over:
+				continue
 		if entry.is_boss:
 			_start_fight(entry, key)
 		else:
@@ -298,8 +309,10 @@ func _start_hold(entry: Encounter, index: int) -> void:
 	_hold_screen(Vector2(entry.camera_x(), entry.row * VIEW_SIZE.y))
 
 func _hold_screen(corner: Vector2) -> void:
-	fight_corner = corner
+	turtle.sync_screen()
+	fight_corner = Vector2(floorf(turtle.scroll_x), corner.y)   # the screen stops where it is
 	fighting = true
+	turtle.scroll_locked = true
 	var camera: Camera2D = turtle.get_node("Camera2D")
 	camera.limit_left = int(fight_corner.x)
 	camera.limit_right = int(fight_corner.x) + VIEW_SIZE.x
@@ -356,6 +369,7 @@ func _end_fight() -> void:
 		boss_bar.hide()
 	hold = null
 	hold_stage = 0
+	turtle.scroll_locked = false
 	if not fighting:
 		return
 	fighting = false
@@ -368,8 +382,6 @@ func _end_fight() -> void:
 ## fight: once the screen is clear of enemies, one more comes in after 16
 ## frames, and 64 frames after that one is beaten the screen is freed.
 func _run_fight() -> void:
-	var left := _view_corner().x
-	turtle.position.x = clampf(turtle.position.x, left + SCREEN_LEFT, left + SCREEN_RIGHT)
 	if not fighting:
 		return
 	if boss != null and is_instance_valid(boss):
@@ -481,12 +493,12 @@ func _make_stand_in(spot: EnemySpot) -> DummyEnemy:
 func _view_corner() -> Vector2:
 	if room == null or room.top_down:
 		return Vector2.ZERO
-	if fighting:
-		return fight_corner
+	turtle.sync_screen()
 	var size := room.size_pixels()
-	return Vector2(
-		clampf(turtle.position.x - VIEW_SIZE.x / 2.0, 0.0, maxf(size.x - VIEW_SIZE.x, 0.0)),
-		clampf(turtle.position.y - 24.0 - 120.0, 0.0, maxf(size.y - VIEW_SIZE.y, 0.0)))
+	var down := clampf(turtle.position.y - 24.0 - 120.0, 0.0, maxf(size.y - VIEW_SIZE.y, 0.0))
+	if fighting:
+		down = fight_corner.y
+	return Vector2(floorf(turtle.scroll_x), down)
 
 ## The original makes an enemy when the screen's edge reaches its place
 ## (8 pixels inside either edge), again every time that happens, and removes
@@ -540,11 +552,7 @@ func _apply_floor_kinds() -> void:
 			# unless a wall is on that side (9 ahead at 7 and 24 up, 6 ahead at 32 up).
 			var way := 1.0 if under == RoomData.KIND_MOVING_FLOOR else -1.0
 			if not (room.solid_at(x + way * 9.0, y - 7.0) or room.solid_at(x + way * 9.0, y - 24.0) or room.solid_at(x + way * 6.0, y - 32.0)):
-				turtle.position.x += way * RoomData.MOVING_FLOOR_SPEED / 256.0 / Turtle.TICK_FRAMES
-	for up in range(4, 45, 8):   # every cell his body is in
-		if room.kind_at_pixel(feet.x, feet.y - up) == RoomData.KIND_HURTS:
-			turtle.take_damage(RoomData.HURT_DAMAGE)
-			break
+				turtle.move_across(way * RoomData.MOVING_FLOOR_SPEED / 256.0 / Turtle.TICK_FRAMES)
 
 ## The bar shows the turtle's energy as 8 blocks, a part-used block still lit.
 func _show_energy(energy: int, full: int) -> void:
@@ -631,6 +639,7 @@ func _physics_process(_delta: float) -> void:
 	if flying:
 		var mover: Node2D = walker if room.top_down else turtle
 		mover.position += Input.get_vector("move_left", "move_right", "move_up", "move_down") * 4.0
+		_place_camera()
 		if not room.top_down and show_enemies and enemies_follow_camera:
 			_follow_camera()
 		return
@@ -645,10 +654,20 @@ func _physics_process(_delta: float) -> void:
 		enter_door(door)
 		return
 	_apply_floor_kinds()
+	_place_camera()
 	_check_boss()
 	_run_fight()
 	if show_enemies and enemies_follow_camera:
 		_follow_camera()
+
+## Shows the part of the room the original would: the screen's left edge
+## is where the turtle's scroll number says, not centred on him.
+func _place_camera() -> void:
+	if room == null or room.top_down:
+		return
+	turtle.sync_screen()
+	var camera: Camera2D = turtle.get_node("Camera2D")
+	camera.position.x = floorf(turtle.scroll_x) + VIEW_SIZE.x / 2.0 - turtle.position.x
 
 func set_flying(on: bool) -> void:
 	flying = on

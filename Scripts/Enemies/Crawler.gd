@@ -148,7 +148,7 @@ func _physics_process(_delta: float) -> void:
 	# Hurt any turtle we are touching. The turtle ignores this while blinking.
 	for body in get_overlapping_bodies():
 		if body is Turtle:
-			body.take_damage(touch_damage, global_position.x)
+			body.touched_by(self, touch_damage)
 
 ## One game update.
 func tick() -> void:
@@ -197,7 +197,7 @@ func _show_frame() -> void:
 
 func _on_weapon_entered(area: Area2D) -> void:
 	# The turtle's weapon is the only Area2D named WeaponHitbox.
-	if area.name == "WeaponHitbox":
+	if area.name == "WeaponHitbox" and Turtle.weapon_lands(self):
 		var turtle := area.get_parent() as Turtle
 		var weakened := turtle != null and turtle.health * 2 < turtle.max_health
 		take_hit(weapon_damage_low if weakened else weapon_damage)

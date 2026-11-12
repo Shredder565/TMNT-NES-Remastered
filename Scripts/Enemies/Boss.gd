@@ -72,7 +72,7 @@ func _physics_process(_delta: float) -> void:
 		_show_frame()
 	for body in get_overlapping_bodies():
 		if body is Turtle:
-			body.take_damage(touch_damage, global_position.x)
+			body.touched_by(self, touch_damage)
 
 ## One game update. Each boss writes its own.
 func tick() -> void:
@@ -104,7 +104,7 @@ func _show_frame() -> void:
 		_picture.position = sprites.offsets[frame]
 
 func _on_weapon_entered(area: Area2D) -> void:
-	if area.name == "WeaponHitbox":
+	if area.name == "WeaponHitbox" and Turtle.weapon_lands(self):
 		var turtle := area.get_parent() as Turtle
 		var weakened := turtle != null and turtle.health * 2 < turtle.max_health
 		take_hit(weapon_damage_low if weakened else weapon_damage)
