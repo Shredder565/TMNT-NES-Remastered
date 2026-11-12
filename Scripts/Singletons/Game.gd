@@ -38,6 +38,7 @@ const DEFAULT_KEYS := {
 	"toggle_fly": [KEY_F6],
 	"go_overworld": [KEY_F7],
 	"toggle_enemies": [KEY_F8],
+	"toggle_help": [KEY_F9],
 }
 
 ## Action name -> controller buttons, on from the start with no setup.

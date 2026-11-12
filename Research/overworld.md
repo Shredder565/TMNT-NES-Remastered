@@ -78,10 +78,8 @@ camera (16, 176), turtle at (128, 120) on it).
 
 The remake keeps this as a number (`RoomScene.overworld_screen`), which
 matched the original's camera on every frame of all four enemy
-recordings. It is used for the enemies. What the remake shows is still
-its own centred view with the HUD strip below it, which is not how the
-original lays the overworld out (its HUD overlaps the map); that was not
-part of this work.
+recordings. It is used for the enemies and, since the fifth pass, it is
+also what the remake shows: all 240 lines, as the original (`hud.md`).
 
 ## Enemies coming and going (measured; code 5:$8077)
 
@@ -336,9 +334,6 @@ ladders (assumed the same); sounds.
 - No sounds.
 - Kind 9C (it chases the turtle, code 5:$87F8) and kinds 42 and AC stand
   still. None is placed in world 1.
-- The remake's view of the overworld is centred on the turtle with the
-  HUD below; the original's is 240 lines tall, scrolls by the marks
-  above and has its HUD over the map.
 - The rollers' faster speeds are in, but nothing drives a van yet.
 - Whether a roller comes in facing left when the turtle is to its left
   was not seen (guess: it faces him, like the soldier).
