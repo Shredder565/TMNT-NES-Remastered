@@ -106,6 +106,12 @@ const WIPE_HOLD_FRAMES := 16         ## everything stands still this long once t
 const WIPE_APPEAR_ROOM := 7          ## then the turtle appears, this many frames later in a room, on a ladder
 const WIPE_APPEAR_ROOM_STANDING := 4 ## ...or this many when the door leaves him standing (a doorway; 3 in one recording)
 const WIPE_APPEAR_OVERWORLD := 1
+## When a world begins (measured at world 2's start after April's words)
+## the map is drawn in the same way, but the turtle appears 4 frames later
+## than after a door, and the eight energy sprites are on show meanwhile,
+## all empty, from the fifth frame.
+const WIPE_APPEAR_WORLD_BEGIN := 5
+const WIPE_WORLD_BEGIN_ENERGY_FROM := 5
 ## Losing a turtle (measured): frames from the blow to the Start screen
 ## (or GAME OVER), and how long the overworld's flattened picture shows.
 const CAPTURE_SCREEN_FRAMES := 147
@@ -175,10 +181,28 @@ var hold_stage := 0                  ## 1: clear the screen. 2: beat the enemy t
 var _hold_frames := 0
 var _holds_done := {}                ## this room's held fights already fought (by number)
 var _boss_done := {}                 ## (world, area) -> true once that room's boss has appeared
-var _clearing := false               ## true while the "world clear" message is up
+var _clearing := false               ## true from the last boss's fall until the next world is on show
+## The end of world 1 (Research/world_end.md; measured frame by frame and
+## read from bank 6, $9DD1 and $A070): the buttons go dead when the last
+## boss falls; once nothing is left on the screen and 64 frames more have
+## passed the turtle walks to April by himself, a pixel every second
+## frame; she stands up; 250 frames later the room goes dark and the
+## Start screen comes up with April's words; when they are typed out the
+## next world begins.
+enum EndStage { NONE, WAIT, WALK, FREED, MESSAGE }
+const END_WAIT_FRAMES := 64          ## from the screen being clear to the walk (measured: 82 frames from the blow, 18 of them the puff)
+const END_FREED_FRAMES := 252        ## from her standing up to the dark (250 until the program moves on, and 2 more on show)
+const END_FLOOR_MIDDLE := 140        ## his middle, down the screen, while he walks
+const END_STOP_GAP := 16             ## he stops when less than this far right of her
+const END_STAND_AT := 50             ## and is then put this far across the screen
+const END_WALK_PICTURES := ["walk1", "stand", "walk2", "stand"]   ## 8 frames each
+const APRIL_AT := Vector2(26, 166)   ## where she sits on the fight's screen (object slot 15)
+const MUTED_ACTIONS := ["move_left", "move_right", "move_up", "move_down", "jump", "attack", "pause"]
+var end_stage := EndStage.NONE
+var _end_frames := 0
+var april: Sprite2D                  ## April in the last room, while the fight and the scene after it last
 var _boss_key := Vector2i(-1, -1)    ## the room the living boss belongs to
 var _boss_camera_x := 0.0            ## where the camera was a frame ago
-var clear_message_seconds := 3.0     ## how long "WORLD n CLEAR" stays up
 ## World 5 hides the Technodrome behind the inner door of one of three caves
 ## (areas 2, 3 and 4), chosen afresh each game.
 var technodrome_cave := 2
@@ -197,6 +221,7 @@ var _after_capture := false          ## the Start screen on show was forced by a
 var door_wipe := true                ## false: doors change sides at once (tests, study keys)
 var _wipe_frame := -1                ## frames into a door's change of sides, -1 when none is on show
 var _wipe_rows := 0
+var _wipe_world_begin := false       ## the wipe on show is a world beginning, not a door
 var _wipe_cover: ColorRect
 var frame_clock := 0                 ## counts frames on the overworld as the original's frame counter does (one byte)
 var _overworld_frame := 0            ## frames on the overworld
@@ -261,6 +286,7 @@ func _ready() -> void:
 	start_screen.use_installed_rom()
 	start_screen.turtle_chosen.connect(set_turtle)
 	start_screen.closed.connect(_on_start_screen_closed)
+	start_screen.event_finished.connect(_on_event_finished)
 	add_child(start_screen)
 	game_over = GameOverScreen.new()
 	game_over.use_installed_rom()
@@ -295,6 +321,11 @@ func load_overworld(new_world: int) -> void:
 
 func show_room(new_room: RoomData) -> void:
 	room = new_room
+	if end_stage != EndStage.NONE:
+		# The room was changed under the scene after the last boss (a study key).
+		end_stage = EndStage.NONE
+		_clearing = false
+		turtle.set_physics_process(not flying)
 	var ripper: ChrRipper = null
 	if levels != null:
 		if _hud_ripper == null:
@@ -554,7 +585,11 @@ func _overworld_corner() -> Vector2:
 	var spot := walker.position.floor()
 	var step := spot - _overworld_last
 	if step.length() > 16.0:
-		overworld_screen = spot - OVERWORLD_START_ON_SCREEN   # he was put here: the start, the fly key
+		# He was put here: the start, the fly key.
+		if room.start_camera != Vector2.INF and spot == room.start.floor():
+			overworld_screen = room.start_camera
+		else:
+			overworld_screen = spot - OVERWORLD_START_ON_SCREEN
 	else:
 		var before := _overworld_last - overworld_screen
 		if (step.x > 0.0 and before.x >= OVERWORLD_SCROLL_RIGHT) or (step.x < 0.0 and before.x <= OVERWORLD_SCROLL_LEFT):
@@ -835,23 +870,167 @@ func _run_fight() -> void:
 		_end_fight()
 
 ## Beating the first boss frees the screen, and those who stood by are
-## gone. Beating the last one ends the world: the original then starts the
-## next world on its overworld. (What it shows in between is not done.)
+## gone. Beating the last one ends the world: see the scene below.
 func _on_boss_defeated(kind: int) -> void:
 	if _company != null and is_instance_valid(_company):
 		_company.queue_free()
 	_company = null
-	_end_fight()
-	if kind != WORLD_END_BOSS or _clearing:
+	if kind != WORLD_END_BOSS:
+		_end_fight()
 		return
+	if _clearing:
+		return
+	# The screen stays held, with the boss's empty bar, until the walk begins.
 	_clearing = true
+	end_stage = EndStage.WAIT
+	_end_frames = 0
+
+## --- the end of world 1 (Research/world_end.md) ---
+
+## April is in the last room from the moment the boss is (the boss makes
+## her, as object slot 15): tied up on the crate at the left of its screen.
+func _see_to_april() -> void:
+	var wanted := boss != null and is_instance_valid(boss) and int(boss.get("kind")) == WORLD_END_BOSS
+	if april != null and (not is_instance_valid(april) or april.is_queued_for_deletion()):
+		april = null
+	if wanted and april == null:
+		var pictures := SpriteSet.cached("April")
+		if pictures == null:
+			return
+		april = Sprite2D.new()
+		april.centered = false
+		april.set_meta("at", fight_corner + APRIL_AT)
+		items.add_child(april)
+		_show_april("f144", Vector2.ZERO)
+
+func _show_april(frame: String, shift: Vector2) -> void:
+	var pictures := SpriteSet.cached("April")
+	if april == null or pictures == null or not pictures.textures.has(frame):
+		return
+	var at: Vector2 = april.get_meta("at")
+	april.texture = pictures.textures[frame]
+	# The original's sprites do not get the 4-line shift its background
+	# gets; the remake moves a whole room down 4 lines, so she goes 4 up.
+	april.position = at + shift + pictures.offsets[frame] - Vector2(0, ROOM_TOP_LINE)
+
+## Is the scene after the last boss running?
+func world_ending() -> bool:
+	return end_stage != EndStage.NONE
+
+## The original clears the buttons before the turtle's routine sees them
+## while this goes on (bank 4, $9757), so he does nothing of his own.
+func _mute_buttons() -> void:
+	for action: String in MUTED_ACTIONS:
+		if InputMap.has_action(action) and Input.is_action_pressed(action):
+			Input.action_release(action)
+
+## One frame of the scene. Returns true while it has the turtle in hand.
+func _step_world_end() -> bool:
+	_end_frames += 1
+	match end_stage:
+		EndStage.WAIT:
+			_mute_buttons()
+			if _anything_left_on_screen():
+				_end_frames = 0
+			elif _end_frames >= END_WAIT_FRAMES:
+				_begin_end_walk()
+			return false
+		EndStage.WALK:
+			_mute_buttons()
+			if _end_frames % Turtle.TICK_FRAMES != 0:
+				return true
+			var across := floorf(turtle.position.x) - fight_corner.x
+			if across < APRIL_AT.x or across - APRIL_AT.x < END_STOP_GAP:
+				turtle.position.x = fight_corner.x + END_STAND_AT
+				turtle.pose("stand", -1)
+				_show_april("f145", Vector2(0, -1))
+				end_stage = EndStage.FREED
+				_end_frames = 0
+			else:
+				turtle.position.x = fight_corner.x + across - 1.0
+				turtle.pose(END_WALK_PICTURES[(_end_frames >> 3) & 3], -1)
+			return true
+		EndStage.FREED:
+			_mute_buttons()
+			if _end_frames >= END_FREED_FRAMES:
+				end_stage = EndStage.MESSAGE
+				var leftovers: Array = room.palettes.slice(6, 8) if room.palettes.size() >= 8 else []
+				turtle_energy[current_turtle] = turtle.health
+				start_screen.open({
+					"world": world, "area": area, "inside": true, "spot": overworld_spot, "event": true,
+					"energies": turtle_energy, "turtle": current_turtle, "sprite_colours": leftovers,
+				})
+			return true
+		EndStage.MESSAGE:
+			return true
+	return false
+
+## Is an enemy, a thrown thing or a puff still on the screen?
+func _anything_left_on_screen() -> bool:
+	for thing in enemies.get_children():
+		if not thing.is_queued_for_deletion():
+			return true
+	for thing in items.get_children():
+		if (thing is Puff or thing is Boss) and not thing.is_queued_for_deletion():
+			return true
+	return false
+
+## The walk begins: everything else is cleared away and he is put on the
+## floor facing left.
+func _begin_end_walk() -> void:
+	# The screen stays where the fight held it; only the boss's bar goes.
+	boss_bar.hide()
+	hud_strip.show_boss(-1)
+	for child in enemies.get_children():
+		enemies.remove_child(child)
+		child.queue_free()
+	_spot_enemies.clear()
+	end_stage = EndStage.WALK
+	_end_frames = 0
+	turtle.set_physics_process(false)
+	turtle.state = Turtle.State.NORMAL
+	turtle.speed = Vector2i.ZERO
+	turtle.attack_tick = -1
+	turtle.power_ticks = 0
+	turtle.art.visible = true
+	turtle.position = Vector2(floorf(turtle.position.x), fight_corner.y + END_FLOOR_MIDDLE + RoomData.CENTRE_TO_FEET)
+	turtle.pose("stand", -1)
+
+## April's words are done: the next world begins on its overworld, drawn
+## in as after a door.
+func _on_event_finished() -> void:
+	if end_stage != EndStage.MESSAGE:
+		return
+	_begin_next_world()
+
+func _begin_next_world() -> void:
 	var cleared := world
-	hud.text = "WORLD %d CLEAR" % (cleared + 1)
-	hud.visible = true
-	await get_tree().create_timer(clear_message_seconds).timeout
+	end_stage = EndStage.NONE
 	_clearing = false
+	_end_fight()
+	turtle.set_physics_process(not flying)
+	turtle.revive()
+	turtle.health = int(turtle_energy[current_turtle])
+	turtle.health_changed.emit(turtle.health, turtle.max_health)
+	if april != null and is_instance_valid(april):
+		april.queue_free()
+	april = null
 	if levels != null and levels.has_overworld(cleared + 1):
 		load_overworld(cleared + 1)
+		if door_wipe:
+			_start_wipe(true)
+
+## Goes straight to the next world from anywhere in the scene (tests, study).
+func finish_world_end() -> void:
+	if end_stage == EndStage.NONE:
+		return
+	if start_screen.is_open():
+		start_screen.finish_message()
+		for i in 3:
+			if start_screen.is_open():
+				start_screen.tick()
+	if end_stage != EndStage.NONE:
+		_begin_next_world()
 
 ## --- the score (Research/score.md) ---
 
@@ -1207,7 +1386,8 @@ func use_door(door: Door) -> void:
 	if door_wipe and levels != null:
 		_start_wipe()
 
-func _start_wipe() -> void:
+func _start_wipe(world_begin := false) -> void:
+	_wipe_world_begin = world_begin and room.top_down
 	_wipe_frame = 0
 	_wipe_rows = WIPE_ROWS_OVERWORLD if room.top_down else WIPE_ROWS_ROOM
 	_wipe_cover.position = Vector2(0, _picture_top())
@@ -1235,7 +1415,7 @@ func _picture_lines() -> float:
 ## 1 on the overworld; in a room 7 hanging on a ladder, 4 standing).
 func wipe_appear_frames() -> int:
 	if room.top_down:
-		return WIPE_APPEAR_OVERWORLD
+		return WIPE_APPEAR_WORLD_BEGIN if _wipe_world_begin else WIPE_APPEAR_OVERWORLD
 	return WIPE_APPEAR_ROOM if turtle.state == Turtle.State.CLIMB else WIPE_APPEAR_ROOM_STANDING
 
 ## Is a door's change of sides still being shown?
@@ -1249,12 +1429,17 @@ func _step_wipe() -> void:
 	_wipe_cover.position.y = _picture_top() + drawn
 	_wipe_cover.size.y = lines - drawn
 	_wipe_cover.visible = drawn < lines
+	if _wipe_world_begin and original_layout() and _wipe_frame == WIPE_WORLD_BEGIN_ENERGY_FROM:
+		overworld_energy.show_energy(0)
+		overworld_energy.visible = true
 	if _wipe_frame < 1 + _wipe_rows + WIPE_HOLD_FRAMES + wipe_appear_frames():
 		return
 	_wipe_frame = -1
+	_wipe_world_begin = false
 	_wipe_cover.visible = false
 	hud_strip.visible = original_layout() and not room.top_down
 	overworld_energy.visible = original_layout() and room.top_down
+	overworld_energy.show_energy(turtle.health)
 	turtle.visible = not room.top_down
 	walker.visible = room.top_down
 	turtle.process_mode = Node.PROCESS_MODE_DISABLED if room.top_down else Node.PROCESS_MODE_INHERIT
@@ -1302,6 +1487,10 @@ func _physics_process(_delta: float) -> void:
 		_step_capture()
 	if _wipe_frame >= 0:
 		_step_wipe()
+		return
+	_see_to_april()
+	if end_stage != EndStage.NONE and _step_world_end():
+		_place_camera()
 		return
 	if flying:
 		var mover: Node2D = walker if room.top_down else turtle
@@ -1422,7 +1611,7 @@ func _restart_world() -> void:
 	if levels != null and levels.has_overworld(world):
 		load_overworld(world)
 		if door_wipe:
-			_start_wipe()
+			_start_wipe(true)   # the same "begin the world" step as at a world's start
 	else:
 		load_area(world, 0 if levels != null else area)
 

@@ -1886,12 +1886,13 @@ func _ready() -> void:
 			await get_tree().physics_frame
 		check(sewer.boss != null and sewer.boss.health == 96 and sewer.boss.touch_damage == 23 and sewer.boss.sprites != null, "then it appears, with 96 hit points and 23 touch damage from the ROM")
 		check(Shot.damage_of.get(0x19) == 9, "its bullet does 9")
-		sewer.clear_message_seconds = 0.05
 		sewer.boss.take_hit(999)
-		for i in 30:
+		for i in 4:
 			leo.invulnerable_timer = 1.0
 			await get_tree().physics_frame
-		check(sewer.world == 1 and sewer.room.top_down, "beating it ends world 1 and opens world 2's overworld")
+		check(sewer.world_ending() and sewer.world == 0, "beating it starts the scene that ends world 1")
+		sewer.finish_world_end()
+		check(sewer.world == 1 and sewer.room.top_down, "and when that is over world 2's overworld opens")
 		sewer.set_show_enemies(false)
 
 		sewer.world = 4

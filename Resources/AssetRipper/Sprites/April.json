@@ -1,0 +1,144 @@
+{
+ "about": "Which ROM tiles make up April in world 1's last room: tied up on the crate while the last boss is fought (the original's picture number 144) and standing once she is freed (145). Taken from the game's sprite table in the emulator; she is object slot 15, made by the boss. Tile numbers and positions only; no graphics. Positions are in pixels from her own position value.",
+ "tile_height": 16,
+ "palettes": {
+  "2": [
+   15,
+   8,
+   36,
+   55
+  ],
+  "3": [
+   15,
+   15,
+   38,
+   55
+  ]
+ },
+ "animations": {
+  "tied": {
+   "frames": [
+    "f144"
+   ],
+   "ticks": 1,
+   "loop": true
+  },
+  "freed": {
+   "frames": [
+    "f145"
+   ],
+   "ticks": 1,
+   "loop": true
+  }
+ },
+ "frames": {
+  "f144": [
+   {
+    "x": -12,
+    "y": -41,
+    "index": 2284,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": -41,
+    "index": 2286,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -12,
+    "y": -25,
+    "index": 2288,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": -25,
+    "index": 2290,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 4,
+    "y": -25,
+    "index": 2292,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -12,
+    "y": -9,
+    "index": 2282,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": -9,
+    "index": 2282,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 4,
+    "y": -9,
+    "index": 2282,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f145": [
+   {
+    "x": -8,
+    "y": -48,
+    "index": 2284,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -48,
+    "index": 2286,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -32,
+    "index": 2294,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -32,
+    "index": 2296,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": -16,
+    "index": 2298,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ]
+ }
+}
