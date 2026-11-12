@@ -51,6 +51,9 @@ const T_SPEAKER_FOR_FIRST := 0xAE55 ## per world: who says that world's first me
 const T_SPECIAL_AREA := 0xB020     ## per world: the room that has its own message
 const T_SPECIAL_MESSAGES := 0xB026 ## those messages, by world; entry 6 is for a held fight
 const T_SPECIAL_SPEAKER := 0xAEC6
+const T_CAUGHT_NAMES := 0xB47D     ## per turtle: his name, for "<name> GOT CAUGHT. WHO FIGHTS NEXT?"
+const T_CAUGHT_WORDS := 0xB4AE     ## the rest of that message: for most names, and for the long one
+const LONG_NAME_TURTLE := 2        ## Michelangelo's name fills the line, so the rest starts on the next
 const T_PORTRAITS := 0xB43F        ## per speaker: the tiles of the face
 const T_ENDINGS := 0xB412          ## per speaker: the closing words
 const MESSAGE_START := 0x2223
@@ -309,6 +312,16 @@ func choose_message(world: int, area: int, inside: bool, held_fight: bool, any_c
 	if pick == 0:
 		return { "speaker": byte_at(3, T_SPEAKER_FOR_FIRST + world) / 2, "address": address }
 	return { "speaker": byte_at(3, address), "address": address + 1 }
+
+## The message after a capture: { "speaker", "address" } for the turtle
+## who was caught. His name is followed by the mark $FB, which goes on to
+## the shared words.
+func caught_message(world: int, turtle: int) -> Dictionary:
+	return { "speaker": byte_at(3, T_SPECIAL_SPEAKER + world) / 2, "address": word_at(3, T_CAUGHT_NAMES + turtle * 2) }
+
+## Where the shared words after the name begin.
+func caught_words_address(turtle: int) -> int:
+	return word_at(3, T_CAUGHT_WORDS + (2 if turtle == LONG_NAME_TURTLE else 0))
 
 ## The speaker's face, as writes.
 func portrait_writes(speaker: int) -> Array:

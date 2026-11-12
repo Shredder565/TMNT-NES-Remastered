@@ -153,6 +153,17 @@ func start_attack() -> void:
 	_steps = 0
 	_show_attack()
 
+## Out of energy: the flattened picture, for as long as the map scene leaves it up.
+func show_caught() -> void:
+	cancel_attack()
+	visible = true
+	_weapon.visible = false
+	if sprites != null and sprites.textures.has("f171"):
+		picture_name = "f171"
+		_picture.texture = sprites.textures["f171"]
+		_picture.flip_h = false
+		_picture.position = sprites.offsets["f171"]
+
 ## Being hurt stops an attack at once.
 func cancel_attack() -> void:
 	if attack_tick >= 0:

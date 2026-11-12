@@ -58,7 +58,7 @@ func _ready() -> void:
 	print("Sprite maps")
 	var map: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://Resources/AssetRipper/Sprites/Leonardo.json"))
 	var sprite_set := SpriteSet.build(map, ripper)
-	check(sprite_set.textures.size() == 19, "Leonardo's map builds 19 frames")
+	check(sprite_set.textures.size() == 22, "Leonardo's map builds 22 frames")
 	check(sprite_set.textures["stand"].get_size() == Vector2(16, 48), "standing frame is 16x48 pixels")
 	check(sprite_set.offsets["stand"] == Vector2(-8, -48), "standing frame sits on the feet point")
 	var all_found := true
@@ -1800,6 +1800,7 @@ func _ready() -> void:
 	await _test_overworld_combat()
 	await _test_four_turtles()
 	await _test_doors_as_shown()
+	await _test_losing_a_turtle()
 
 	print("ROM screen")
 	var rom_path := "user://_test_fake.nes"
@@ -2366,3 +2367,96 @@ func _test_doors_as_shown() -> void:
 
 func RoomScene_hold_frames() -> int:
 	return 16 + 7
+
+# ============================ Losing a turtle ============================
+func _test_losing_a_turtle() -> void:
+	print("Losing a turtle")
+	# GAME OVER on its own: the words, then the choice, or straight to the end.
+	var over := GameOverScreen.new()
+	add_child(over)
+	var answers: Array[bool] = []
+	over.chosen.connect(func(carry_on: bool) -> void: answers.append(carry_on))
+	over.open(2)
+	check(over.is_open() and get_tree().paused and over.phase == GameOverScreen.Phase.WORDS, "GAME OVER comes up and stops the game")
+	for i in GameOverScreen.WORDS_FRAMES:
+		over.tick()
+	check(over.phase == GameOverScreen.Phase.CHOICE and over.choice == 0, "after %d frames CONTINUE and END are offered, the marker on CONTINUE" % GameOverScreen.WORDS_FRAMES)
+	over.move_marker()
+	check(over.choice == 1, "the marker moves to END")
+	over.move_marker()
+	over.choose()
+	check(answers == [true] and not over.is_open() and not get_tree().paused, "Start on CONTINUE carries on")
+	over.open(0)
+	for i in GameOverScreen.WORDS_FRAMES:
+		over.tick()
+	check(answers == [true, false] and not over.is_open(), "with no continues left there is no choice: the game ends")
+	over.free()
+
+	var sewer = load("res://Scenes/Levels/Area1Sewer.tscn").instantiate()
+	sewer.start_on_overworld = false
+	sewer.door_wipe = false
+	add_child(sewer)
+	sewer.set_show_enemies(false)
+	var leo: Turtle = sewer.turtle
+	var screen: StartScreen = sewer.start_screen
+	leo.drain(1000)
+	check(leo.state == Turtle.State.DEAD and sewer.turtle_energy[0] == 0 and sewer._capture_frame == 0, "running out of energy marks the turtle captured")
+	for i in sewer.CAPTURE_SCREEN_FRAMES - 1:
+		sewer._step_capture()
+	check(not screen.is_open(), "nothing more for %d frames" % (sewer.CAPTURE_SCREEN_FRAMES - 1))
+	sewer._step_capture()
+	check(screen.is_open() and screen.caught == 0 and screen.selected == 1 and screen.energies[0] == 0 and get_tree().paused, "then the Start screen comes up by itself, with the next turtle chosen")
+	for i in StartScreen.BUILD_FRAMES:
+		screen.tick()
+	screen.move_selection(-1)
+	check(screen.selected == 3, "the captured turtle cannot be chosen")
+	screen.request_close()
+	for i in StartScreen.LEAVE_FRAMES_ROOM + StartScreen.HOLD_FRAMES:
+		screen.tick()
+	check(not screen.is_open() and sewer.current_turtle == 3 and leo.state == Turtle.State.NORMAL and leo.health == 128 and sewer.turtle_energy[0] == 0 and leo.turtle_name == "Donatello", "Start carries on with the chosen turtle; the captured one stays captured")
+	var levels := RomLevels.open_installed()
+	check(sewer.room.top_down == (levels != null), "from the world's overworld start (with a ROM)")
+	# Put back on his feet meanwhile: nothing comes up.
+	leo.drain(1000)
+	leo.revive()
+	sewer._step_capture()
+	check(sewer._capture_frame == -1 and not screen.is_open(), "a turtle put back on his feet is not captured after all")
+	# The last turtle: GAME OVER, then CONTINUE gives all four back.
+	sewer.turtle_energy = [0, 0, 0, 128]
+	leo.drain(1000)
+	for i in sewer.CAPTURE_SCREEN_FRAMES:
+		sewer._step_capture()
+	check(sewer.game_over.is_open() and not screen.is_open() and sewer.continues_left == 2, "when the last turtle is captured GAME OVER comes up, and a continue is used")
+	for i in GameOverScreen.WORDS_FRAMES:
+		sewer.game_over.tick()
+	sewer.game_over.choose()
+	check(sewer.turtle_energy == [128, 128, 128, 128] and sewer.current_turtle == 0 and leo.health == 128 and leo.state == Turtle.State.NORMAL and not get_tree().paused, "CONTINUE gives all four back with full energy, Leonardo first")
+	if levels == null or screen.data == null:
+		print("  skip  no verified ROM is installed, so the ROM's 'got caught' message is not exercised")
+		sewer.free()
+		return
+	check(leo.sprites.animations.has("caught") and sewer.walker.sprites.textures.has("f171"), "the defeat pictures are in the sprite maps (four in a room, one on the overworld)")
+	var caught_screen := StartScreen.new()
+	caught_screen.pause_game = false
+	add_child(caught_screen)
+	caught_screen.use_installed_rom()
+	caught_screen.open({"world": 0, "energies": [0, 128, 128, 128], "turtle": 0, "caught": 0})
+	for i in StartScreen.BUILD_FRAMES:
+		caught_screen.tick()
+	caught_screen.finish_message()
+	var name_tiles: Array[int] = []
+	for col in range(3, 11):
+		name_tiles.append(caught_screen.tile_at(col, 17))
+	var letters := "LEONARDO"
+	var expected: Array[int] = []
+	for i in letters.length():
+		expected.append(0x10 + letters.unicode_at(i) - 65)
+	check(name_tiles == expected and caught_screen.tile_at(13, 17) == 0x10 + 6 and caught_screen.tile_at(3, 19) == 0x10 + 2 and caught_screen.tile_at(3, 21) == 0x10 + 5, "the message reads LEONARDO  GOT / CAUGHT. WHO / FIGHTS NEXT?")
+	check(caught_screen.tile_at(21, 4) == caught_screen.data.byte_at(3, InfoScreenData.T_CAPTURED_TILES), "and his face is covered")
+	caught_screen.open({"world": 0, "energies": [128, 128, 0, 128], "turtle": 2, "caught": 2})
+	for i in StartScreen.BUILD_FRAMES:
+		caught_screen.tick()
+	caught_screen.finish_message()
+	check(caught_screen.tile_at(3, 17) == 0x10 + 12 and caught_screen.tile_at(3, 19) == 0x10 + 6, "Michelangelo's long name takes the first line and GOT CAUGHT starts the second")
+	caught_screen.free()
+	sewer.free()

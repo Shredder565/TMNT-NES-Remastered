@@ -56,6 +56,7 @@ var _text_address := 0              ## where the message being typed is in the R
 var _text_index := 0
 var _text_place := 0
 var _captured := 0
+var caught := -1                    ## the turtle just captured, when the screen was forced open by that; else -1
 
 func _init() -> void:
 	layer = 20
@@ -96,6 +97,7 @@ func is_open() -> bool:
 func open(about: Dictionary = {}) -> void:
 	world = int(about.get("world", 0))
 	inside = bool(about.get("inside", false))
+	caught = int(about.get("caught", -1))
 	energies = (about.get("energies", energies) as Array).duplicate()
 	selected = _first_fit(int(about.get("turtle", 0)), 1)
 	_captured = 0
@@ -129,6 +131,8 @@ func _build(about: Dictionary) -> void:
 	marker_at = data.marker_place(world, about.get("spot", Vector2.ZERO)) if world < 5 else Vector2i(-16, -16)
 	var pick: int = about.get("pick", randi_range(0, 3))
 	var message := data.choose_message(world, int(about.get("area", 0)), inside, bool(about.get("held_fight", false)), _captured > 0, pick)
+	if caught >= 0:
+		message = data.caught_message(world, caught)
 	_speaker = message.speaker
 	_text_address = message.address
 	_text_index = 0
@@ -273,6 +277,14 @@ func _type_one() -> void:
 	elif code == 0xFE:
 		_text_place = (data.byte_at(3, _text_address + _text_index) << 8) | data.byte_at(3, _text_address + _text_index + 1)
 		_text_index += 2
+	elif code == 0xFB and caught >= 0:
+		# After the caught turtle's name: on with the shared words, one
+		# place on, or from the second line after the long name.
+		_text_address = data.caught_words_address(caught)
+		_text_index = 0
+		_text_place += 1
+		if caught == InfoScreenData.LONG_NAME_TURTLE:
+			_text_place = (_text_place & 0xFF00) | InfoScreenData.MESSAGE_LINE_2
 	elif code == 0xFF or code == 0xFB:
 		message_done = true
 

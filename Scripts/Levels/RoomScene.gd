@@ -97,6 +97,10 @@ const WIPE_ROWS_OVERWORLD := 32      ## the original's overworld picture is tall
 const WIPE_HOLD_FRAMES := 16         ## everything stands still this long once the picture is whole
 const WIPE_APPEAR_ROOM := 7          ## then the turtle appears, this many frames later in a room
 const WIPE_APPEAR_OVERWORLD := 1
+## Losing a turtle (measured): frames from the blow to the Start screen
+## (or GAME OVER), and how long the overworld's flattened picture shows.
+const CAPTURE_SCREEN_FRAMES := 147
+const CAPTURE_OVERWORLD_PICTURE_FRAMES := 62
 const OVERWORLD_SAFE_UPDATES := 24   ## after being hurt on the overworld nothing hurts him for this long (measured)
 const OVERWORLD_SCROLL_RIGHT := 126.0
 const OVERWORLD_START_ON_SCREEN := Vector2(144, 120)   ## where he stands on it when a world begins
@@ -149,6 +153,10 @@ var overworld_spot := Vector2.ZERO   ## where he last stood on the overworld: th
 var overworld_screen := Vector2.ZERO ## the corner of the original's screen on the overworld (enemies come and go by it)
 var _overworld_last := Vector2.ZERO  ## where the overworld turtle was a frame ago
 var _overworld_turtle_half := Vector2(4, 4)   ## half the overworld turtle's box (the ROM's, when there is one)
+var game_over: GameOverScreen        ## GAME OVER, CONTINUE / END
+var continues_left := 3              ## the original starts with 3 and takes one off at every GAME OVER; at 0 the game ends
+var _capture_frame := -1             ## frames since the playing turtle ran out of energy, -1 when he has not
+var _after_capture := false          ## the Start screen on show was forced by a capture
 var door_wipe := true                ## false: doors change sides at once (tests, study keys)
 var _wipe_frame := -1                ## frames into a door's change of sides, -1 when none is on show
 var _wipe_rows := 0
@@ -209,7 +217,12 @@ func _ready() -> void:
 	start_screen = StartScreen.new()
 	start_screen.use_installed_rom()
 	start_screen.turtle_chosen.connect(set_turtle)
+	start_screen.closed.connect(_on_start_screen_closed)
 	add_child(start_screen)
+	game_over = GameOverScreen.new()
+	game_over.use_installed_rom()
+	game_over.chosen.connect(_on_game_over_chosen)
+	add_child(game_over)
 	_show_turtle_look()
 	technodrome_cave = randi_range(2, 4)
 	if start_on_overworld and levels != null and levels.has_overworld(world):
@@ -294,7 +307,7 @@ func _show_hud_text() -> void:
 ## while the playing turtle has no energy left; the remake also waits out
 ## its own "world clear" message.
 func open_start_screen() -> void:
-	if start_screen.is_open() or _clearing or wiping() or room == null or turtle.state == Turtle.State.DEAD:
+	if start_screen.is_open() or game_over.is_open() or _clearing or wiping() or room == null or turtle.state == Turtle.State.DEAD:
 		return
 	turtle_energy[current_turtle] = turtle.health
 	if room.top_down:
@@ -962,6 +975,8 @@ func _make_body(rect: Rect2i, one_way: bool) -> StaticBody2D:
 	return body
 
 func _physics_process(_delta: float) -> void:
+	if _capture_frame >= 0:
+		_step_capture()
 	if _wipe_frame >= 0:
 		_step_wipe()
 		return
@@ -1005,14 +1020,81 @@ func set_flying(on: bool) -> void:
 	walker.set_physics_process(not on)
 	turtle.speed = Vector2i.ZERO
 
+## A turtle has run out of energy (Research/losing_a_turtle.md, measured).
+## He shows his defeat pictures and is gone; 147 frames after the blow the
+## Start screen comes up by itself, with him covered and "<name> GOT
+## CAUGHT. WHO FIGHTS NEXT?". Start there carries on with the chosen
+## turtle from the world's overworld start. If he was the last, GAME OVER
+## comes up instead, then CONTINUE or END.
 func _on_turtle_died() -> void:
-	# Placeholder for the real "switch turtle / game over" flow.
-	await get_tree().create_timer(1.5).timeout
-	if room.top_down:
-		walker.position = room.start
-		walker.safe_updates = 0
-	turtle.position = room.start
+	turtle_energy[current_turtle] = 0
+	_capture_frame = 0
+	if room != null and room.top_down:
+		walker.show_caught()
+		walker.process_mode = Node.PROCESS_MODE_DISABLED
+
+func _step_capture() -> void:
+	if turtle.state != Turtle.State.DEAD:
+		_capture_frame = -1   # he was put back on his feet meanwhile (a test, a study key)
+		return
+	_capture_frame += 1
+	if room != null and room.top_down and _capture_frame == CAPTURE_OVERWORLD_PICTURE_FRAMES:
+		walker.visible = false
+	if _capture_frame < CAPTURE_SCREEN_FRAMES:
+		return
+	_capture_frame = -1
+	var caught := current_turtle
+	var anyone := false
+	for energy: int in turtle_energy:
+		anyone = anyone or energy > 0
+	if not anyone:
+		continues_left -= 1
+		game_over.open(continues_left)
+		return
+	var leftovers: Array = room.palettes.slice(6, 8) if room.palettes.size() >= 8 else []
+	_after_capture = true
+	start_screen.open({
+		"world": world, "area": area, "inside": not room.top_down, "spot": overworld_spot,
+		"energies": turtle_energy, "turtle": current_turtle, "sprite_colours": leftovers, "caught": caught,
+	})
+
+## The forced Start screen has been left: on with the chosen turtle from
+## the world's start (measured: the overworld's start, with the others'
+## energy as it was).
+func _on_start_screen_closed() -> void:
+	if not _after_capture:
+		return
+	_after_capture = false
+	_restart_world()
+
+## CONTINUE: all four turtles back with full energy, from the world's
+## start. END, or no continues left: the game begins again.
+func _on_game_over_chosen(carry_on: bool) -> void:
+	if not carry_on:
+		Game.go_to(Game.SCENE_TEST_ROOM)
+		return
+	turtle_energy = [TURTLE_ENERGY, TURTLE_ENERGY, TURTLE_ENERGY, TURTLE_ENERGY]
+	current_turtle = 0
+	_show_turtle_look()
+	if levels != null:
+		turtle.weapon_swings = [levels.weapon_swing(0, 0), levels.weapon_swing(0, 1), levels.weapon_swing(0, 2)]
+	_restart_world()
+
+## Puts the playing turtle on his feet with his own energy at the start of
+## the world: its overworld with a ROM, the stand-in room without.
+func _restart_world() -> void:
+	var energy := int(turtle_energy[current_turtle])
 	turtle.revive()
+	turtle.health = energy
+	turtle.health_changed.emit(turtle.health, turtle.max_health)
+	walker.safe_updates = 0
+	if levels != null and levels.has_overworld(world):
+		load_overworld(world)
+		if door_wipe:
+			_start_wipe()
+	else:
+		load_area(world, 0 if levels != null else area)
+
 
 ## Moves to the next or previous area, running on into the neighbouring world.
 func step_area(direction: int) -> void:

@@ -219,6 +219,8 @@ func _update_art() -> void:
 		wanted = "climb"
 	elif attack_tick >= 0 and (weapon_swings.is_empty() or _swing_stage() >= 0):
 		wanted = ["attack_up", "attack", "attack_crouch"][attack_direction]
+	elif state == State.DEAD and sprites != null and sprites.animations.has("caught"):
+		wanted = "caught"   # out of energy: four pictures of 6 updates, then he is gone (measured)
 	elif state == State.HURT and sprites != null and sprites.animations.has("hurt"):
 		wanted = "hurt"
 	elif state == State.HURT or state == State.DEAD or not on_floor():
@@ -245,6 +247,7 @@ func _update_art() -> void:
 	if sprites.textures.has(frame):
 		rom_sprite.texture = sprites.textures[frame]
 		rom_sprite.position = sprites.offsets[frame]
+	rom_sprite.visible = not (anim == "caught" and anim_tick >= sprites.length("caught"))
 	_weapon_picture.visible = false
 	if attack_tick >= 0 and swing_sprites != null and not weapon_swings.is_empty() and weapon_swings[attack_direction].has("pictures"):
 		# A swing by the ROM's own lists (each turtle has his own): his body's

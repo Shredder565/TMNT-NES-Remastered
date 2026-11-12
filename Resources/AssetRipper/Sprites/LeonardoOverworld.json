@@ -60,6 +60,13 @@
    ],
    "ticks": 1,
    "loop": true
+  },
+  "caught": {
+   "frames": [
+    "f171"
+   ],
+   "ticks": 1,
+   "loop": true
   }
  },
  "frames": {
@@ -314,6 +321,24 @@
     "x": 0,
     "y": -9,
     "index": 4130,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f171": [
+   {
+    "x": -8,
+    "y": -8,
+    "index": 4304,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -8,
+    "index": 4306,
     "palette": 0,
     "flip_h": false,
     "flip_v": false

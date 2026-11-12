@@ -90,6 +90,16 @@
    ],
    "ticks": 1,
    "loop": true
+  },
+  "caught": {
+   "frames": [
+    "hurt",
+    "caught2",
+    "caught3",
+    "caught4"
+   ],
+   "ticks": 6,
+   "loop": false
   }
  },
  "frames": {
@@ -794,6 +804,84 @@
     "x": -5,
     "y": -16,
     "index": 74,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "caught2": [
+   {
+    "x": -5,
+    "y": -24,
+    "index": 70,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 3,
+    "y": -24,
+    "index": 72,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -7,
+    "y": -8,
+    "index": 42,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 1,
+    "y": -8,
+    "index": 44,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "caught3": [
+   {
+    "x": -12,
+    "y": -16,
+    "index": 76,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": -16,
+    "index": 78,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 4,
+    "y": -16,
+    "index": 80,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "caught4": [
+   {
+    "x": -7,
+    "y": -16,
+    "index": 82,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 1,
+    "y": -16,
+    "index": 84,
     "palette": 0,
     "flip_h": false,
     "flip_v": false
