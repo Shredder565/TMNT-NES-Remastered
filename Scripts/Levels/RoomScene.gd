@@ -103,7 +103,8 @@ const OVERWORLD_VIEW := Vector2(256, 240)
 const WIPE_ROWS_ROOM := 24
 const WIPE_ROWS_OVERWORLD := 32      ## the original's overworld picture is taller; ours shows its first 24 rows
 const WIPE_HOLD_FRAMES := 16         ## everything stands still this long once the picture is whole
-const WIPE_APPEAR_ROOM := 7          ## then the turtle appears, this many frames later in a room
+const WIPE_APPEAR_ROOM := 7          ## then the turtle appears, this many frames later in a room, on a ladder
+const WIPE_APPEAR_ROOM_STANDING := 4 ## ...or this many when the door leaves him standing (a doorway; 3 in one recording)
 const WIPE_APPEAR_OVERWORLD := 1
 ## Losing a turtle (measured): frames from the blow to the Start screen
 ## (or GAME OVER), and how long the overworld's flattened picture shows.
@@ -1161,6 +1162,10 @@ func _start_wipe() -> void:
 	_wipe_cover.visible = true
 	turtle.visible = false
 	walker.visible = false
+	# The original shows nothing but the picture being drawn: no strip and
+	# no energy sprites until the turtle is back.
+	hud_strip.visible = false
+	overworld_energy.visible = false
 	for held: Node in [turtle, walker, enemies, items]:
 		held.process_mode = Node.PROCESS_MODE_DISABLED
 
@@ -1173,6 +1178,13 @@ func _picture_lines() -> float:
 		return float(VIEW_SIZE.y)
 	return 240.0 if room.top_down else float(ROOM_LINES)
 
+## Frames from the end of the hold to the turtle's being drawn (measured:
+## 1 on the overworld; in a room 7 hanging on a ladder, 4 standing).
+func wipe_appear_frames() -> int:
+	if room.top_down:
+		return WIPE_APPEAR_OVERWORLD
+	return WIPE_APPEAR_ROOM if turtle.state == Turtle.State.CLIMB else WIPE_APPEAR_ROOM_STANDING
+
 ## Is a door's change of sides still being shown?
 func wiping() -> bool:
 	return _wipe_frame >= 0
@@ -1184,11 +1196,12 @@ func _step_wipe() -> void:
 	_wipe_cover.position.y = _picture_top() + drawn
 	_wipe_cover.size.y = lines - drawn
 	_wipe_cover.visible = drawn < lines
-	var appear := WIPE_APPEAR_OVERWORLD if room.top_down else WIPE_APPEAR_ROOM
-	if _wipe_frame < 1 + _wipe_rows + WIPE_HOLD_FRAMES + appear:
+	if _wipe_frame < 1 + _wipe_rows + WIPE_HOLD_FRAMES + wipe_appear_frames():
 		return
 	_wipe_frame = -1
 	_wipe_cover.visible = false
+	hud_strip.visible = original_layout() and not room.top_down
+	overworld_energy.visible = original_layout() and room.top_down
 	turtle.visible = not room.top_down
 	walker.visible = room.top_down
 	turtle.process_mode = Node.PROCESS_MODE_DISABLED if room.top_down else Node.PROCESS_MODE_INHERIT

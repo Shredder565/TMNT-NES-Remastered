@@ -2430,35 +2430,55 @@ func _test_four_turtles() -> void:
 
 	# Reach, as swept in the original with a foot soldier level with him
 	# (Research/turtles.md): the furthest places behind and ahead that are hit.
-	var measured := [[-22, 42], [-10, 30], [-14, 40], [-24, 56]]
+	var measured := [
+		[[-22, 42], [-16, 38], [-16, 16]],
+		[[-10, 30], [-10, 22], [-10, 30]],
+		[[-14, 40], [-22, 40], [-14, 32]],
+		[[-24, 56], [-10, 24], [-8, 22]],
+	]
+	var held := ["", "move_up", "move_down"]
+	var swing_names := ["forward", "upward", "crouching"]
 	for t in 4:
 		sewer.set_turtle(t)
-		leo.facing = 1
-		leo.art.scale.x = 1
-		leo.weapon_hitbox.scale.x = 1
-		leo.position = Vector2(136, 176)
-		var reach := []
-		for across: int in [measured[t][0] - 2, measured[t][0], measured[t][1], measured[t][1] + 2]:
-			var dummy := OriginalEnemy.for_kind(0x98)
-			dummy.setup_at(0x98, leo.position + Vector2(across, -20), sewer.room, null, leo)
-			sewer.enemies.add_child(dummy)
-			dummy.health = 4000
-			dummy.animation = 0x90
-			dummy._fit_box_to_animation()
-			dummy.busy = true   # frozen: it does nothing of its own, but is still hit and touched
-			leo.invulnerable_timer = 5.0
-			for i in 4:
-				await get_tree().physics_frame
-			Input.action_press("attack")
-			for i in 4:
-				await get_tree().physics_frame
-			Input.action_release("attack")
-			for i in 46:
-				await get_tree().physics_frame
-			reach.append(dummy.health != 4000)
-			dummy.free()
-		leo.invulnerable_timer = 0.0
-		check(reach == [false, true, true, false], "%s's forward swing reaches a soldier from %d behind him to %d ahead, as in the original (%s)" % [RoomScene_names()[t], -measured[t][0], measured[t][1], reach])
+		for way in 3:
+			var edges: Array = measured[t][way]
+			var reach := []
+			for across: int in [edges[0] - 2, edges[0], edges[1], edges[1] + 2]:
+				leo.facing = 1
+				leo.art.scale.x = 1
+				leo.weapon_hitbox.scale.x = 1
+				leo.position = Vector2(136, 176)
+				var dummy := OriginalEnemy.for_kind(0x98)
+				# Raphael's crouching swing is swept with the soldier 4 lower: level
+				# with him the original still hits at the far edge and the remake
+				# does not (its weapon's box is 2 or 3 pixels lower there, see
+				# Research/turtles.md); 4 lower both agree, with the same edges.
+				var lower := 4 if t == 1 and way == 2 else 0
+				dummy.setup_at(0x98, leo.position + Vector2(across, -20 + lower), sewer.room, null, leo)
+				sewer.enemies.add_child(dummy)
+				dummy.health = 4000
+				dummy.animation = 0x90
+				dummy._fit_box_to_animation()
+				dummy.busy = true   # frozen: it does nothing of its own, but is still hit and touched
+				leo.invulnerable_timer = 5.0
+				if held[way] != "":
+					Input.action_press(held[way])
+				for i in 4:
+					await get_tree().physics_frame
+				Input.action_press("attack")
+				for i in 4:
+					await get_tree().physics_frame
+				Input.action_release("attack")
+				for i in 46:
+					await get_tree().physics_frame
+				if held[way] != "":
+					Input.action_release(held[way])
+				for i in 6:
+					await get_tree().physics_frame
+				reach.append(dummy.health != 4000)
+				dummy.free()
+			leo.invulnerable_timer = 0.0
+			check(reach == [false, true, true, false], "%s's %s swing reaches a soldier from %d behind him to %d ahead, as in the original (%s)" % [RoomScene_names()[t], swing_names[way], -edges[0], edges[1], reach])
 	sewer.set_turtle(0)
 	sewer.free()
 
@@ -2500,6 +2520,25 @@ func _test_doors_as_shown() -> void:
 	for i in 1 + 32 + 16 + 1 + 1:
 		await get_tree().physics_frame
 	check(not sewer.wiping() and small.visible and small.position == Vector2(144, 296) and not leo.visible, "50 frames later the small turtle stands by the manhole")
+	# A doorway that is not a ladder (the building in world 1, recorded): the
+	# same wipe, and he is drawn 4 frames after the hold, standing.
+	var building: Door = null
+	for door: Door in sewer.room.doors:
+		if door.to_room and door.to_area == 4:
+			building = door
+	sewer.use_door(building)
+	check(sewer.wiping() and sewer.area == 4 and leo.state != Turtle.State.CLIMB and sewer.wipe_appear_frames() == 4, "a building's door leaves him standing: he is due 4 frames after the hold")
+	check(not sewer.hud_strip.visible and not sewer.overworld_energy.visible, "the strip is not shown while the room is drawn in")
+	for i in 1 + 24 + 16 + 4 - 1:
+		await get_tree().physics_frame
+	check(sewer.wiping() and not leo.visible, "44 frames on he is still not drawn")
+	await get_tree().physics_frame
+	check(not sewer.wiping() and leo.visible and sewer.hud_strip.visible, "on the 45th he and the strip are there (the original first draws him 46 frames after the step)")
+	sewer.use_door(sewer.room.doors[0])
+	check(sewer.room.top_down and sewer.wiping() and not sewer.overworld_energy.visible, "out through the doorway: the map is drawn in as after a ladder, with no energy sprites meanwhile")
+	for i in 1 + 32 + 16 + 1:
+		await get_tree().physics_frame
+	check(not sewer.wiping() and small.visible and sewer.overworld_energy.visible, "and he stands outside 50 frames later")
 	sewer.door_wipe = false
 	sewer.use_door(sewer.room.doors[4])
 	check(not sewer.wiping() and leo.visible, "with the wipe switched off a door changes sides at once")

@@ -114,6 +114,20 @@ Compared with the emulator, pixel for pixel:
 | a whole room frame, turtle standing | the same but for the band on lines 0 to 3 |
 | a whole overworld frame, energy full and at $45 | the same but for three tiles' worth of lines 0 to 3 and the one flickering block |
 
+## A tall room, while the screen changes (checked 12 November 2026)
+
+*Measured* in world 1's area 5 (two screens high), with the turtle put at
+the bottom of the upper screen so that the screen moves down: three
+emulator frames, two during the move and one after, against the remake
+drawn at the same heights. Nothing differs on lines 4 to 239 but the
+turtle himself, so the layout holds while `_view_top` moves.
+
+One thing seen on the way (*read from code, 7:$C434 to $C453, and
+measured*): in a room the scroll the console gets is the one the game
+had a frame earlier, so the background is one frame behind the game's
+own scroll number (4 lines, during a screen change). The remake draws
+the scroll at once.
+
 ## Still different
 
 - The odd band on lines 0 to 3 of a room, and the wrong-row lines at
