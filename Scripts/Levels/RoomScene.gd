@@ -217,7 +217,7 @@ const END_STAND_AT := 50             ## and is then put this far across the scre
 const END_WALK_PHASE := 30           ## the original picks the picture by its frame counter; this is where it stood in the recording
 const END_WALK_PICTURES := ["walk1", "stand", "walk2", "stand"]   ## 8 frames each
 const APRIL_AT := Vector2(26, 166)   ## where she sits on the fight's screen (object slot 15)
-const MUTED_ACTIONS := ["move_left", "move_right", "move_up", "move_down", "jump", "attack", "pause"]
+const MUTED_ACTIONS := ["move_left", "move_right", "move_up", "move_down", "jump", "attack", "pause", "select"]
 var end_stage := EndStage.NONE
 var _end_frames := 0
 var april: Sprite2D                  ## April in the last room, while the fight and the scene after it last
@@ -235,6 +235,21 @@ var overworld_screen := Vector2.ZERO ## the corner of the original's screen on t
 var _overworld_last := Vector2.ZERO  ## where the overworld turtle was a frame ago
 var _overworld_turtle_half := Vector2(4, 4)   ## half the overworld turtle's box (the ROM's, when there is one)
 var game_over: GameOverScreen        ## GAME OVER, CONTINUE / END
+## The special weapons (Research/special_weapons.md): which one each turtle
+## has (0 none, 1 the star, 2 the triple star, 3 the boomerang, 4 the
+## scroll), how many, and whether the playing turtle's is the weapon in use
+## (the original's $73, $A8 and $5B).
+const SPECIAL_ITEM_FIRST := 0x05     ## item kinds 05 to 08 give special weapons 1 to 4
+const SPECIAL_ITEM_LAST := 0x08
+const SPECIAL_PICKED_UP := 20        ## an item gives 20, or 20 more of the same
+const SPECIAL_MOST := 99
+const SPECIAL_THROWN_AT_ONCE := 3    ## object slots 2 to 4
+const SPECIAL_CAN_THROW := [1, 2]    ## the ones the remake can throw so far
+const SPECIAL_DAMAGE_ROW := 3        ## the damage table's row for special weapon n is n + 3
+var special_kind: Array = [0, 0, 0, 0]
+var special_count: Array = [0, 0, 0, 0]
+var special_in_use := false
+var thrown: Node2D                   ## holds what the turtle has thrown
 var rescued_one := false             ## a captured turtle has been rescued (the original's $56): no captive is shown while this is set
 var continues_left := 3              ## the original starts with 3 and takes one off at every GAME OVER; at 0 the game ends
 var _capture_frame := -1             ## frames since the playing turtle ran out of energy, -1 when he has not
@@ -287,6 +302,10 @@ func _ready() -> void:
 	items = Node2D.new()
 	items.name = "Items"
 	add_child(items)
+	thrown = Node2D.new()
+	thrown.name = "Thrown"
+	add_child(thrown)
+	turtle.throw_started.connect(_on_throw_started)
 	enemies.child_entered_tree.connect(_on_thing_entered.bind(enemies))
 	items.child_entered_tree.connect(_on_thing_entered.bind(items))
 	high_score = Game.high_score
@@ -501,6 +520,7 @@ func open_start_screen() -> void:
 		"world": world, "area": area, "inside": not room.top_down,
 		"held_fight": hold != null, "spot": overworld_spot,
 		"energies": turtle_energy, "turtle": current_turtle, "sprite_colours": leftovers,
+		"weapons": special_kind, "counts": special_counts_shown(),
 	})
 
 ## Makes another turtle the one who plays: his name, his energy, what his
@@ -522,6 +542,7 @@ func set_turtle(index: int) -> void:
 				if "weapon_damage" in thing:
 					thing.set("weapon_damage", damage.x)
 					thing.set("weapon_damage_low", damage.y)
+	_show_special()
 	_show_turtle_look()
 	if room != null:
 		_show_hud_text()
@@ -734,6 +755,7 @@ func _follow_overworld(corner: Vector2) -> void:
 ## Puts the room's items out. They are there from the start and stay until
 ## picked up; leaving the room and coming back brings them back.
 func _place_items() -> void:
+	_clear_thrown()
 	for child in items.get_children():
 		items.remove_child(child)
 		child.queue_free()
@@ -763,7 +785,105 @@ func _place_items() -> void:
 			item.taken.connect(_on_captive_freed)
 		else:
 			item.setup(entry[0], entry[1], SpriteSet.cached("Kind%02X" % entry[0]))
+			item.taken.connect(_on_item_taken)
 		items.add_child(item)
+
+## --- the special weapons (Research/special_weapons.md) ---
+
+## An item has been picked up. Kinds 05 to 08 give a special weapon (bank
+## 6, $96E3): a different one from the one he has replaces it, with 20, and
+## becomes the weapon in use; the same one adds 20, to 99 at most.
+func _on_item_taken(item: Item) -> void:
+	if item.kind >= SPECIAL_ITEM_FIRST and item.kind <= SPECIAL_ITEM_LAST:
+		give_special(item.kind - SPECIAL_ITEM_FIRST + 1)
+
+func give_special(number: int) -> void:
+	if special_kind[current_turtle] == number:
+		special_count[current_turtle] = mini(int(special_count[current_turtle]) + SPECIAL_PICKED_UP, SPECIAL_MOST)
+	else:
+		special_kind[current_turtle] = number
+		special_count[current_turtle] = SPECIAL_PICKED_UP
+		special_in_use = true
+	_show_special()
+
+## Select, in a room (bank 4, $982C): changes between his own weapon and
+## his special weapon, if he has any of it.
+func press_select() -> void:
+	if room == null or room.top_down or _clearing or wiping() or start_screen.is_open() or game_over.is_open() or turtle.state == Turtle.State.DEAD:
+		return
+	special_in_use = not special_in_use and int(special_count[current_turtle]) > 0
+	_show_special()
+
+func special_counts_shown() -> Array:
+	return special_count.duplicate()
+
+## Tells the strip and the turtle how things stand. The box blinks while
+## the special weapon is the one in use: blank while bit 3 of the frame
+## count is 0.
+func _show_special() -> void:
+	if special_in_use and int(special_kind[current_turtle]) == 0:
+		special_in_use = false   # the original looks at this when a swing begins and when the Start screen is left
+	turtle.special_ready = special_in_use and SPECIAL_CAN_THROW.has(int(special_kind[current_turtle]))
+	if hud_strip != null:
+		hud_strip.show_special(int(special_kind[current_turtle]), int(special_count[current_turtle]), special_in_use and (turtle._frame & 8) == 0)
+
+## A throw has begun (bank 7, $E066). One star, or for the triple star up
+## to three (level, rising, sinking), as far as the three places for thrown
+## things allow; with no place free nothing is thrown and nothing is used
+## up. One is taken off the count; at 0 the weapon is gone.
+func _on_throw_started(crouching: bool) -> void:
+	var number := int(special_kind[current_turtle])
+	if not SPECIAL_CAN_THROW.has(number):
+		return
+	var free_places := SPECIAL_THROWN_AT_ONCE
+	for thing in thrown.get_children():
+		if not thing.is_queued_for_deletion():
+			free_places -= 1
+	if free_places <= 0:
+		return
+	var rises: Array = [0, -1, 1] if number == 2 else [0]
+	for index in mini(rises.size(), free_places):
+		var star := ThrownWeapon.new()
+		star.position = turtle.position.floor() - Vector2(0, RoomData.CENTRE_TO_FEET - (12 if crouching else 0))
+		star.direction = turtle.facing
+		star.rise = rises[index]
+		star.room = room
+		star.view_corner = _view_corner
+		star.targets = _thrown_targets
+		star.damage = weapon_damage_now
+		if levels != null:
+			star.half = Vector2(levels.box_half_size(ThrownWeapon.KIND, ThrownWeapon.ANIMATION))
+		thrown.add_child(star)
+	special_count[current_turtle] = int(special_count[current_turtle]) - 1
+	if int(special_count[current_turtle]) <= 0:
+		special_count[current_turtle] = 0
+		special_kind[current_turtle] = 0
+		special_in_use = false
+	_show_special()
+
+## What a thrown thing can hit: the enemies, and a boss.
+func _thrown_targets() -> Array:
+	var found: Array = enemies.get_children()
+	if boss != null and is_instance_valid(boss):
+		found.append(boss)
+	return found
+
+## What a hit takes off just now (bank 6, $996D): the damage table's row for
+## the playing turtle, or for his special weapon while that is the weapon
+## in use; the row's second number when his energy is under half.
+func weapon_damage_now() -> int:
+	if levels == null:
+		return 1
+	var row := current_turtle
+	if special_in_use and int(special_kind[current_turtle]) > 0:
+		row = int(special_kind[current_turtle]) + SPECIAL_DAMAGE_ROW
+	var pair := levels.weapon_damage(row)
+	return pair.y if turtle.health * 2 < turtle.max_health else pair.x
+
+func _clear_thrown() -> void:
+	for thing in thrown.get_children():
+		thrown.remove_child(thing)
+		thing.queue_free()
 
 ## Which captured turtle waits at a rescue place (bank 4, $B934), or -1 for
 ## none. None if one has been rescued already (the flag at $56). Otherwise
@@ -1078,6 +1198,7 @@ func _step_world_end() -> bool:
 				start_screen.open({
 					"world": world, "area": area, "inside": true, "spot": overworld_spot, "event": true,
 					"energies": turtle_energy, "turtle": current_turtle, "sprite_colours": leftovers,
+		"weapons": special_kind, "counts": special_counts_shown(),
 				})
 			return true
 		EndStage.MESSAGE:
@@ -1728,6 +1849,12 @@ func _physics_process(_delta: float) -> void:
 		_step_wipe()
 		return
 	_see_to_april()
+	if not room.top_down:
+		_show_special()
+		if _enemies_frame():
+			for star in thrown.get_children():
+				if star is ThrownWeapon:
+					star.update()
 	if end_stage != EndStage.NONE and _step_world_end():
 		_place_camera()
 		return
@@ -1813,7 +1940,8 @@ func _step_capture() -> void:
 	_after_capture = true
 	start_screen.open({
 		"world": world, "area": area, "inside": not room.top_down, "spot": overworld_spot,
-		"energies": turtle_energy, "turtle": current_turtle, "sprite_colours": leftovers, "caught": caught,
+		"energies": turtle_energy, "turtle": current_turtle, "sprite_colours": leftovers,
+		"weapons": special_kind, "counts": special_counts_shown(), "caught": caught,
 	})
 
 ## The forced Start screen has been left: on with the chosen turtle from
@@ -1835,6 +1963,9 @@ func _on_game_over_chosen(carry_on: bool) -> void:
 	current_turtle = 0
 	set_score(0)   # CONTINUE starts the score again; the best score stays
 	rescued_one = false
+	special_kind = [0, 0, 0, 0]
+	special_count = [0, 0, 0, 0]
+	special_in_use = false
 	_show_turtle_look()
 	if levels != null:
 		turtle.weapon_swings = [levels.weapon_swing(0, 0), levels.weapon_swing(0, 1), levels.weapon_swing(0, 2)]
@@ -1876,6 +2007,8 @@ func step_area(direction: int) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("pause"):
 		open_start_screen()
+	elif event.is_action_pressed("select"):
+		press_select()
 	elif event.is_action_pressed("open_chr_viewer"):
 		Game.go_to(Game.SCENE_CHR_VIEWER)
 	elif event.is_action_pressed("switch_room"):

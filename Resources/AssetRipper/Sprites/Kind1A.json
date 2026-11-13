@@ -1,0 +1,66 @@
+{
+ "about": "Which ROM tile makes up the thrown star (object kind 1A, special weapons 1 and 2): one tall sprite turned four ways, the original's pictures 73 to 76. Taken from the game's sprite table in the emulator. Tile numbers and positions only; no graphics. Positions are in pixels from its own position value.",
+ "tile_height": 16,
+ "palettes": {
+  "1": [
+   15,
+   2,
+   22,
+   49
+  ]
+ },
+ "animations": {
+  "walk": {
+   "frames": [
+    "f73",
+    "f74",
+    "f75",
+    "f76"
+   ],
+   "ticks": 2,
+   "loop": true
+  }
+ },
+ "frames": {
+  "f73": [
+   {
+    "x": -4,
+    "y": -8,
+    "index": 142,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f74": [
+   {
+    "x": -4,
+    "y": -8,
+    "index": 142,
+    "palette": 1,
+    "flip_h": true,
+    "flip_v": false
+   }
+  ],
+  "f75": [
+   {
+    "x": -4,
+    "y": -8,
+    "index": 142,
+    "palette": 1,
+    "flip_h": true,
+    "flip_v": true
+   }
+  ],
+  "f76": [
+   {
+    "x": -4,
+    "y": -8,
+    "index": 142,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": true
+   }
+  ]
+ }
+}

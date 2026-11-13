@@ -1,5 +1,5 @@
 {
- "about": "Which ROM tiles make up the turtles' body pictures while they swing a weapon, by the original's picture number (frame 'p35' is picture 35). The four turtles share these; only the bandana's colour number differs and each uses his own selection (the ROM's animation lists say which). Tile numbers and positions only; no graphics. Positions are in pixels from the point between his feet, facing right.",
+ "about": "Which ROM tiles make up the turtles' body pictures while they swing a weapon, by the original's picture number (frame 'p35' is picture 35). The four turtles share these; only the bandana's colour number differs and each uses his own selection (the ROM's animation lists say which). Tile numbers and positions only; no graphics. Positions are in pixels from the point between his feet, facing right. Also the four pictures only the special weapon throws use (5, 98, 21, 66).",
  "tile_height": 16,
  "palettes": {
   "0": [
@@ -1847,6 +1847,230 @@
     "palette": 0,
     "flip_h": false,
     "flip_v": false
+   }
+  ],
+  "p5": [
+   {
+    "x": -6,
+    "y": -47,
+    "index": 2,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -6,
+    "y": -31,
+    "index": 6,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 2,
+    "y": -47,
+    "index": 4,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 2,
+    "y": -31,
+    "index": 34,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -15,
+    "index": 10,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -15,
+    "index": 12,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 10,
+    "y": -34,
+    "index": 36,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": true
+   }
+  ],
+  "p98": [
+   {
+    "x": -6,
+    "y": -40,
+    "index": 2,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -6,
+    "y": -24,
+    "index": 6,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 2,
+    "y": -40,
+    "index": 4,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 2,
+    "y": -24,
+    "index": 34,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -8,
+    "index": 42,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -8,
+    "index": 44,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 10,
+    "y": -27,
+    "index": 36,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": true
+   }
+  ],
+  "p21": [
+   {
+    "x": -8,
+    "y": -44,
+    "index": 2,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -28,
+    "index": 6,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -44,
+    "index": 30,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -28,
+    "index": 32,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -12,
+    "index": 48,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -2,
+    "y": -12,
+    "index": 44,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "p66": [
+   {
+    "x": -8,
+    "y": -44,
+    "index": 2,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -28,
+    "index": 6,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -44,
+    "index": 4,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -28,
+    "index": 34,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -9,
+    "y": -12,
+    "index": 48,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -3,
+    "y": -12,
+    "index": 44,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 8,
+    "y": -31,
+    "index": 36,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": true
    }
   ]
  }

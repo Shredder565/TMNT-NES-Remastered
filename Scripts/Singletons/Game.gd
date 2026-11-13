@@ -31,6 +31,7 @@ const DEFAULT_KEYS := {
 	"jump": [KEY_Z, KEY_SPACE],
 	"attack": [KEY_X],
 	"pause": [KEY_ENTER],
+	"select": [KEY_C, KEY_BACKSPACE],
 	"open_chr_viewer": [KEY_F1],
 	"switch_room": [KEY_F2],
 	"previous_area": [KEY_F3],
@@ -43,7 +44,8 @@ const DEFAULT_KEYS := {
 
 ## Action name -> controller buttons, on from the start with no setup.
 ## The names are Godot's, which follow the Xbox layout: the d-pad moves,
-## A jumps, X or B attacks (the NES pad's A and B), Start pauses. Any
+## A jumps, X or B attacks (the NES pad's A and B), Start pauses, Back is
+## the NES pad's Select (C or Backspace on the keyboard). Any
 ## controller Godot recognises (Xbox, PlayStation, Switch) maps onto these.
 const DEFAULT_PAD_BUTTONS := {
 	"move_left": [JOY_BUTTON_DPAD_LEFT],
@@ -53,6 +55,7 @@ const DEFAULT_PAD_BUTTONS := {
 	"jump": [JOY_BUTTON_A],
 	"attack": [JOY_BUTTON_X, JOY_BUTTON_B],
 	"pause": [JOY_BUTTON_START],
+	"select": [JOY_BUTTON_BACK],
 }
 ## Action name -> [stick axis, direction]: the left stick moves too.
 const DEFAULT_PAD_AXES := {
