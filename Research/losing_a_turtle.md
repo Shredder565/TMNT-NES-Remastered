@@ -55,6 +55,57 @@ Start chooses (code 7:$CD55). CONTINUE sets all four turtles' energy to
 full and begins the same world again from its start with Leonardo; END
 goes back to the title. So there are two continues.
 
+## Rescuing a captured turtle (added 13 November 2026)
+
+Script: `Research/cynes/rescue_checks.py`.
+
+- **Where (code, measured).** Item kind 0E is the captive. It is one of
+  the things a room has at fixed places (the list at bank 4, $AB94, which
+  `RomLevels.fixed_things` reads). The whole game has four: world 3 area
+  3 (at (896, 480) in the room), world 4 area 12, world 5 area 0 and
+  world 6 area 0. Worlds 1 and 2 have none, so a turtle lost there stays
+  lost until world 3.
+- **When he is there (code 4:$B934, measured).** When the place comes up,
+  nothing is made if the flag at $56 is set (a rescue has been made
+  already). Otherwise the four turtles are gone through for one with no
+  energy, starting at a number the frame counter gives (bits 1 and 2).
+  The way it goes round has a slip: from start 2 it looks at turtles 2,
+  3, 0 and 2 again, never at turtle 1. If none is found nothing is made.
+  The one found is remembered in $57, the sprite graphics are switched
+  (set 9) and colour patch $45 + his number puts his bandana's colour in
+  sprite colour group 2. Measured in world 3's area 3: with Raphael
+  captured the captive stood there in red; with Michelangelo and
+  Donatello captured it was one of the two; with nobody captured there
+  was nothing.
+- **What he looks like (measured).** Picture 155 (animation $EB): a
+  turtle standing, tied round with rope, six 8 x 16 sprites (three tiles
+  mirrored). He does not move.
+- **Touching him (code 6:$9756, measured).** The turtle in $57 gets full
+  energy (128), the room's own sprite graphics and colours come back, $56
+  is set to 1, a sound plays, and the captive is gone, all on the frame
+  of the touch. Play goes on without a pause; the rescued turtle can be
+  chosen on the Start screen from then on.
+- **The flag (code).** $56 is cleared by a new game and by CONTINUE (they
+  wipe that part of memory), and by the routine that ends a boss fight
+  (6:$9E48) for every boss but the first and the third in its table. So
+  after one rescue no other captive is shown until then.
+
+Sprite map: `Resources/AssetRipper/Sprites/Captive.json`. In the remake
+`RoomScene._place_items` puts the captive in when the room is loaded
+(`captive_to_show`, with the original's way of going round), and
+`_on_captive_freed` gives the turtle back. A picture of the remake's room
+with the captive and one from the emulator agree in every pixel of him.
+
+Found on the way: the remake drew every item 4 lines too low (the
+original's sprites do not get the 4-line shift its background gets). A
+slice of pizza and the captive now sit where the original shows them
+(`Item.SPRITE_LINES_UP`); the item's box was left where it was.
+
+Different: the remake chooses the captive when the room is loaded, not
+when his screen comes up; the rescue flag is cleared after world 1's
+last boss and by CONTINUE only (the later bosses are not made yet); no
+sound.
+
 ## In the remake
 
 `RoomScene._on_turtle_died` and `_step_capture` count the 147 frames
@@ -71,11 +122,10 @@ Different from the original:
 
 - The defeat pictures are drawn in the turtle's own colours, not colour
   group 3.
-- On the GAME OVER screen the marker is a plain square and is moved with
-  Up or Down (the remake has no Select button); the words use the Start
-  screen's letter tiles, which have the same letter numbers.
+- On the GAME OVER screen the marker is a plain square (the original's
+  is an object picture, number $49); Select moves it, as in the original;
+  the words use the Start screen's letter tiles, which have the same
+  letter numbers.
 - END goes to the title in both (see `title_screen.md`); the remake
   shows the notice again first.
-- What the original does about a captured turtle later (rescuing him)
-  was not looked at.
 - No sounds.

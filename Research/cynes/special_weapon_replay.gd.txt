@@ -1,0 +1,42 @@
+## Copy to tmp.gd beside a tmp.tscn whose root node has this script, and run
+## with a display:
+##   xvfb-run -a godot --rendering-driver opengl3 --fixed-fps 60 res://tmp.tscn
+extends Node
+## The remake's pictures of a special weapon throw, frame by frame, for
+## comparison with the emulator's (Research/special_weapons.md).
+const OUT := "user://throw_%s_%d.png"   # compare with the emulator frames special_weapon_checks.py saves
+func _ready() -> void:
+	for run: Array in [["stand", 1, []], ["crouch", 1, ["move_down"]], ["triple", 2, []]]:
+		var room = load("res://Scenes/Levels/Area1Sewer.tscn").instantiate()
+		add_child(room)
+		room.door_wipe = false
+		room.set_show_enemies(false)
+		room.load_area(0, 0)
+		var leo = room.turtle
+		leo.position = Vector2(136, 176)
+		for i in 30:
+			await get_tree().physics_frame
+		leo.facing = -1
+		leo.art.scale.x = -1
+		room.special_kind[0] = run[1]
+		room.special_count[0] = 5
+		room.special_in_use = true
+		for action: String in run[2]:
+			Input.action_press(action)
+		for i in 21:
+			await get_tree().physics_frame
+		print(run[0], " view ", room._view_corner(), " turtle ", leo.position, " frame parity ", leo._frame % 2)
+		for t in 72:
+			if t == 10:
+				Input.action_press("attack")
+			if t == 12:
+				Input.action_release("attack")
+			await get_tree().physics_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(OUT % [run[0], t])
+		for action: String in run[2]:
+			Input.action_release(action)
+		print(run[0], " count ", room.special_count[0], " thrown ", room.thrown.get_child_count())
+		room.queue_free()
+		await get_tree().physics_frame
+	get_tree().quit()

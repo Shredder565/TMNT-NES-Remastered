@@ -10,6 +10,8 @@ extends CharacterBody2D
 signal health_changed(health: int, max_health: int)
 signal died
 signal moved   ## every frame, after he has (or has not) moved
+## A special weapon's throw has begun (the room scene makes what is thrown).
+signal throw_started(crouching: bool)
 
 enum State { NORMAL, CROUCH, HURT, DEAD, CLIMB }
 
@@ -109,6 +111,15 @@ var hold_updates := 0
 var _crouch_ticks := 0                 ## updates he has been crouching
 var _crouched_before := false          ## was he crouching at the end of the update before this one
 var _spinning := false                 ## in the high part of a held jump: his box is the small one
+## Throwing a special weapon (Research/special_weapons.md): with one in
+## use, attack starts a throw instead of a swing. It lasts 12 updates, four
+## pictures of 3; he goes on walking, jumping or falling meanwhile.
+const THROW_UPDATES := 12
+const THROW_PICTURE_UPDATES := 3
+const THROW_PICTURES := [["stand", "p11", "p5", "stand"], ["crouch", "p14", "p98", "crouch"], ["jump", "p21", "p66", "jump"]]
+var special_ready := false             ## the room scene sets this while a special weapon that can be thrown is the one in use
+var throw_tick := -1                   ## updates since the throw began, -1 when not throwing
+var throw_pose := 0                    ## 0 standing, 1 crouching, 2 with jump held
 var power_ticks := 0                   ## updates of the power item left (kind 0B), 0 when not in use
 
 @onready var art: Node2D = $Art
@@ -174,6 +185,8 @@ func _physics_process(delta: float) -> void:
 	_frame += 1
 	if _frame % TICK_FRAMES == 0:
 		_tick()
+	elif throw_tick >= 0:
+		_show_throw(1)   # the original's pictures change on the frame between his updates
 	moved.emit()   # the room puts the screen in place now, not a frame late
 
 ## One game update, in the same order as the original: move with the
@@ -297,6 +310,7 @@ func _update_art() -> void:
 			_weapon_picture.texture = weapon_sprites.textures[weapon]
 			_weapon_picture.position = place + weapon_sprites.offsets[weapon] + Vector2(0, -SPRITE_FEET_BELOW)
 			_weapon_picture.visible = true
+	_show_throw()
 
 ## Shows one named picture of his sprite map, facing the given way, for a
 ## scene that moves him itself (the walk to April at the end of world 1).
@@ -309,6 +323,21 @@ func pose(frame: String, new_facing: int) -> void:
 		rom_sprite.texture = sprites.textures[frame]
 		rom_sprite.position = sprites.offsets[frame]
 		rom_sprite.visible = true
+
+## The picture of a throw going on, over whatever else he would show.
+func _show_throw(frames_on := 0) -> void:
+	if throw_tick >= 0 and state != State.NORMAL and state != State.CROUCH:
+		throw_tick = -1   # a hit, a ladder or a capture ends it
+	if throw_tick < 0 or sprites == null:
+		return
+	var frames := throw_tick * TICK_FRAMES + frames_on
+	var frame: String = THROW_PICTURES[throw_pose][mini((frames + 1) / (THROW_PICTURE_UPDATES * TICK_FRAMES), 3)]
+	var from: SpriteSet = sprites if sprites.textures.has(frame) else swing_sprites
+	if from != null and from.textures.has(frame):
+		rom_sprite.texture = from.textures[frame]
+		rom_sprite.position = from.offsets[frame]
+		rom_sprite.visible = true
+		_weapon_picture.visible = false
 
 ## On a ladder, by the original's rules (bank 4, $A24D; checked in the
 ## emulator). Points are from his feet, at his middle unless said.
@@ -459,7 +488,28 @@ func _control() -> void:
 		jump_tick = 0
 		_spinning = false
 
+	if _throw():
+		return
 	_swing()
+
+## A special weapon's throw: begins one, or runs the one going on. Returns
+## true when the attack button is the throw's business this update. The
+## original chooses the pose from the buttons held (bank 4, $9EA5): jump
+## held, the picture of the throw in the air; else Down, the crouching one.
+func _throw() -> bool:
+	if throw_tick >= 0:
+		throw_tick += 1
+		if throw_tick < THROW_UPDATES:
+			_attack_pressed = false
+			return true
+		throw_tick = -1   # over: a press on this update can begin the next
+	if not (special_ready and _attack_pressed and attack_tick < 0 and power_ticks == 0):
+		return false
+	_attack_pressed = false
+	throw_tick = 0
+	throw_pose = 2 if Input.is_action_pressed("jump") else (1 if Input.is_action_pressed("move_down") else 0)
+	throw_started.emit(throw_pose == 1)
+	return true
 
 ## The swing: starting one when attack is pressed, and running it. The
 ## original does this while he is thrown by a hit as well (measured: a

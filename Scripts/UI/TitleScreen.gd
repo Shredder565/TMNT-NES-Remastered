@@ -121,6 +121,8 @@ func _physics_process(_delta: float) -> void:
 		return
 	if Input.is_action_just_pressed("pause"):
 		press_start()
+	elif Input.is_action_just_pressed("select") and phase == Phase.NOTICE:
+		press_start()   # Select also ends the notice (bank 7, $C59C); on the title it does nothing
 	tick()
 
 ## Start (the original also takes Select on the notice).

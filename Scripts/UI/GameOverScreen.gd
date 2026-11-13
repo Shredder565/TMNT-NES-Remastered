@@ -59,8 +59,8 @@ func _physics_process(_delta: float) -> void:
 	if phase == Phase.SHUT:
 		return
 	if phase == Phase.CHOICE:
-		if Input.is_action_just_pressed("move_down") or Input.is_action_just_pressed("move_up"):
-			move_marker()
+		if Input.is_action_just_pressed("select"):
+			move_marker()   # Select moves the marker, as in the original (bank 7, $CD9D)
 		elif Input.is_action_just_pressed("pause"):
 			choose()
 	tick()

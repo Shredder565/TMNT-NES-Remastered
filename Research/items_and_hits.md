@@ -13,11 +13,11 @@ Energy is 128 when full.
 | 01 | Whole pizza: energy to full | yes |
 | 02 | Half a pizza: +64 | yes |
 | 03 | A slice: +32 | yes |
-| 05 to 08 | The special weapons | no |
+| 05 to 08 | The special weapons 1 to 4 (`special_weapons.md`) | yes |
 | 0B | The power item, below | yes |
 | 0C | Adds 10 to the count at RAM $BF | no |
 | 0D | Adds 3 to the count at RAM $A7 | no |
-| 0E | Brings a lost turtle back | no |
+| 0E | Brings a lost turtle back (`losing_a_turtle.md`) | yes |
 
 What $BF and $A7 count has not been worked out.
 

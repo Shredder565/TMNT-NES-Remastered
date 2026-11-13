@@ -79,8 +79,8 @@ lit), then the map and the message routine are run every second frame
 message from the table at 3:$B4ED by world, spoken by April (by Splinter
 in the third world); a seventh entry is used instead when $03D4 is set
 (not looked at). The marker is not drawn and no button is read. World
-1's message is "DON'T LET THE / FOOT CLAN DE- / STROY THE DAM." and
-then April's closing words. Because the routine runs every second frame
+1's message is three short lines telling him not to let the enemy
+destroy the dam, and then April's closing words. Because the routine runs every second frame
 a step of the message takes 8 frames, not the 4 of the Start screen in
 play; the message is 64 steps (measured: 512 frames from the first
 letter to the last frame). The heading still says AREA 1 and the map is

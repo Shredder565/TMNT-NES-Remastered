@@ -72,8 +72,8 @@ and the title is plain text.
 
 - The demonstration of play after 256 idle frames is not made; the
   title simply waits.
-- Select does not skip the notice (the remake has no Select key); the
-  pause key does.
+- (Done 13 November 2026: Select ends the notice too, as in the
+  original.)
 - The first world appears at once after the blink rather than being
   wiped in.
 - No sound.

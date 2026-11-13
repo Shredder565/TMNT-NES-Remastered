@@ -1,0 +1,79 @@
+{
+ "about": "Which ROM tiles make up a captured turtle waiting to be rescued (item kind 0E, the original's picture number 155): tied up, standing. Taken from the game's sprite table in the emulator. Colour 2 of palette 2 is the captured turtle's bandana colour, which the game swaps in. Tile numbers and positions only; no graphics. Positions are in pixels from its own position value.",
+ "tile_height": 16,
+ "palettes": {
+  "1": [
+   15,
+   2,
+   22,
+   49
+  ],
+  "2": [
+   15,
+   9,
+   22,
+   42
+  ]
+ },
+ "animations": {
+  "walk": {
+   "frames": [
+    "f155"
+   ],
+   "ticks": 1,
+   "loop": true
+  }
+ },
+ "frames": {
+  "f155": [
+   {
+    "x": -8,
+    "y": -24,
+    "index": 2546,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -24,
+    "index": 2546,
+    "palette": 1,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -32,
+    "index": 2410,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -32,
+    "index": 2410,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -12,
+    "index": 2554,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -12,
+    "index": 2554,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   }
+  ]
+ }
+}
