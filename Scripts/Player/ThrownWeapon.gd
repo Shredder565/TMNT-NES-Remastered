@@ -10,7 +10,7 @@ extends Node2D
 ##   anything but empty, a doorway, a ladder or kind 7, it is gone; so it
 ##   is when it is less than 7 from the screen's left edge or 10 from its
 ##   right, or off the top or bottom of the room's picture;
-## - it shows four pictures, 2 updates each;
+## - it shows four pictures (one tile turned four ways), 2 updates each;
 ## - an enemy it meets takes the damage of the weapon in use; the star is
 ##   gone only if that beats the enemy.
 ## The room scene gives it its turn, on the enemies' frame.
@@ -20,8 +20,11 @@ const ANIMATION := 0xD7
 const SPEED := 5                 ## pixels an update
 const LOOK_UP := 8               ## the map is looked at this far above its place
 const PASSABLE := [0, 2, 9, 10, 7]
-const PICTURES := ["f73", "f74", "f75", "f76"]
-const PICTURE_UPDATES := 2
+## Its pictures by update (measured): two updates each; when the list
+## starts again the last picture stays one update longer and the first one
+## is an update short, as with every animation of the original.
+const PICTURES_FIRST := ["f73", "f73", "f74", "f74", "f75", "f75", "f76", "f76"]
+const PICTURES_AFTER := ["f76", "f73", "f74", "f74", "f75", "f75", "f76", "f76"]
 const SPRITE_LINES_UP := 4       ## the original's sprites do not get the background's 4-line shift
 
 var direction := 1               ## 1 right, -1 left
@@ -65,7 +68,7 @@ func _show() -> void:
 	if _sprites == null:
 		queue_redraw()
 		return
-	var frame: String = PICTURES[(updates / PICTURE_UPDATES) % PICTURES.size()]
+	var frame: String = PICTURES_FIRST[updates] if updates < PICTURES_FIRST.size() else PICTURES_AFTER[updates % PICTURES_AFTER.size()]
 	if _sprites.textures.has(frame):
 		_picture.texture = _sprites.textures[frame]
 		_picture.position = _sprites.offsets[frame] - Vector2(0, SPRITE_LINES_UP)
@@ -91,7 +94,7 @@ func _hit_things() -> void:
 		var foe := thing as Node2D
 		if foe == null or foe.is_queued_for_deletion() or not foe.has_method("take_hit"):
 			continue
-		if bool(foe.get("blinking")) or bool(foe.get("gone")) or int(foe.get("safe_updates")) > 0:
+		if foe.get("blinking") == true or foe.get("gone") == true or ("safe_updates" in foe and int(foe.get("safe_updates")) > 0):
 			continue
 		if not box.intersects(box_of(foe)):
 			continue

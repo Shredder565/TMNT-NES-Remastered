@@ -122,9 +122,10 @@ Different from the original:
 
 - The defeat pictures are drawn in the turtle's own colours, not colour
   group 3.
-- On the GAME OVER screen the marker is a plain square and is moved with
-  Up or Down (the remake has no Select button); the words use the Start
-  screen's letter tiles, which have the same letter numbers.
+- On the GAME OVER screen the marker is a plain square (the original's
+  is an object picture, number $49); Select moves it, as in the original;
+  the words use the Start screen's letter tiles, which have the same
+  letter numbers.
 - END goes to the title in both (see `title_screen.md`); the remake
   shows the notice again first.
 - No sounds.

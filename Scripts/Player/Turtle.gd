@@ -185,6 +185,8 @@ func _physics_process(delta: float) -> void:
 	_frame += 1
 	if _frame % TICK_FRAMES == 0:
 		_tick()
+	elif throw_tick >= 0:
+		_show_throw(1)   # the original's pictures change on the frame between his updates
 	moved.emit()   # the room puts the screen in place now, not a frame late
 
 ## One game update, in the same order as the original: move with the
@@ -323,12 +325,13 @@ func pose(frame: String, new_facing: int) -> void:
 		rom_sprite.visible = true
 
 ## The picture of a throw going on, over whatever else he would show.
-func _show_throw() -> void:
+func _show_throw(frames_on := 0) -> void:
 	if throw_tick >= 0 and state != State.NORMAL and state != State.CROUCH:
 		throw_tick = -1   # a hit, a ladder or a capture ends it
 	if throw_tick < 0 or sprites == null:
 		return
-	var frame: String = THROW_PICTURES[throw_pose][mini(throw_tick / THROW_PICTURE_UPDATES, 3)]
+	var frames := throw_tick * TICK_FRAMES + frames_on
+	var frame: String = THROW_PICTURES[throw_pose][mini((frames + 1) / (THROW_PICTURE_UPDATES * TICK_FRAMES), 3)]
 	var from: SpriteSet = sprites if sprites.textures.has(frame) else swing_sprites
 	if from != null and from.textures.has(frame):
 		rom_sprite.texture = from.textures[frame]
@@ -496,11 +499,10 @@ func _control() -> void:
 func _throw() -> bool:
 	if throw_tick >= 0:
 		throw_tick += 1
-		if throw_tick >= THROW_UPDATES:
-			throw_tick = -1
-			return false
-		_attack_pressed = false
-		return true
+		if throw_tick < THROW_UPDATES:
+			_attack_pressed = false
+			return true
+		throw_tick = -1   # over: a press on this update can begin the next
 	if not (special_ready and _attack_pressed and attack_tick < 0 and power_ticks == 0):
 		return false
 	_attack_pressed = false

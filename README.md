@@ -32,6 +32,8 @@ It is not synced. Without it the `.bat` files look in
 
 Controls: arrow keys to move and climb ladders, Down to crouch, Z or Space to jump, X to attack
 (hold Up or Down to swing upward or downward),
+C or Backspace is the NES pad's Select (in a room it changes between the
+turtle's own weapon and his special weapon; Back on a controller),
 F1 to open the tile viewer (needs a ROM). F3/F4 step through the 46 areas,
 F7 shows the current world's overworld map, F8 switches the stand-in enemies
 on and off, F6 toggles flying through walls, F2 opens the practice room.

@@ -1944,6 +1944,7 @@ func _ready() -> void:
 	await _test_score()
 	await _test_world_end()
 	await _test_rescue()
+	await _test_special_weapons()
 
 	print("ROM screen")
 	var rom_path := "user://_test_fake.nes"
@@ -3245,4 +3246,175 @@ func _test_rescue() -> void:
 		check(not again, "and no second captive is shown, though another turtle is captured")
 		scene._on_game_over_chosen(true)
 		check(not scene.rescued_one, "CONTINUE clears that")
+	scene.free()
+
+# ============================ Special weapons (Research/special_weapons.md) ============================
+func _test_special_weapons() -> void:
+	print("Special weapons")
+	check(InputMap.has_action("select") and InputMap.action_get_events("select").size() >= 2, "there is a Select action, with a key and a controller button")
+	var back := InputEventJoypadButton.new()
+	back.button_index = JOY_BUTTON_BACK
+	back.pressed = true
+	check(back.is_action("select"), "Back on a controller is Select")
+	# GAME OVER: Select moves the marker.
+	var over := GameOverScreen.new()
+	add_child(over)
+	over.open(2)
+	for i in GameOverScreen.WORDS_FRAMES:
+		over.tick()
+	over.move_marker()
+	check(over.choice == 1, "on GAME OVER the marker moves to END (Select does it in play)")
+	over.move_marker()
+	over.choose()
+	over.free()
+	var scene = load("res://Scenes/Levels/Area1Sewer.tscn").instantiate()
+	scene.start_on_overworld = false
+	scene.door_wipe = false
+	add_child(scene)
+	scene.set_physics_process(false)
+	scene.set_show_enemies(false)
+	var leo: Turtle = scene.turtle
+	leo.set_physics_process(false)
+	scene.press_select()
+	check(not scene.special_in_use, "Select does nothing while he has no special weapon")
+	scene.give_special(1)
+	check(scene.special_kind[0] == 1 and scene.special_count[0] == 20 and scene.special_in_use and leo.special_ready, "an item gives 20 of its weapon, which becomes the weapon in use")
+	scene.give_special(1)
+	check(scene.special_count[0] == 40, "the same item again adds 20")
+	scene.special_count[0] = 90
+	scene.give_special(1)
+	check(scene.special_count[0] == 99, "up to 99")
+	scene.give_special(3)
+	check(scene.special_kind[0] == 3 and scene.special_count[0] == 20 and not leo.special_ready, "a different one replaces it, with 20 (the boomerang is not thrown yet: his own swing stays)")
+	scene.give_special(2)
+	scene.press_select()
+	check(not scene.special_in_use and not leo.special_ready, "Select goes back to his own weapon")
+	scene.press_select()
+	check(scene.special_in_use, "and to the special weapon again")
+	if scene.hud_strip != null and scene.levels != null:
+		scene._show_special()
+		check(scene.hud_strip.special == 2 and scene.hud_strip.special_count == 20, "the strip is told which and how many")
+		var blanks := 0
+		for i in 16:
+			leo._frame = i
+			scene._show_special()
+			if scene.hud_strip.special_blanked:
+				blanks += 1
+		check(blanks == 8, "its box is blank for 8 frames in every 16 while that weapon is in use")
+	# An item of kind 08 picked up.
+	var scroll := Item.new()
+	scroll.setup(0x08, Vector2(100, 100), null)
+	scroll.taken.connect(scene._on_item_taken)
+	scene.items.add_child(scroll)
+	scroll.pick_up(leo)
+	check(scene.special_kind[0] == 4 and scene.special_count[0] == 20, "item kind 08 gives special weapon 4")
+	# Another turtle has none: his own weapon is in use.
+	scene.set_turtle(1)
+	check(not scene.special_in_use and scene.special_kind[0] == 4, "a turtle without one uses his own weapon; the first keeps his")
+	scene.set_turtle(0)
+	# Throwing the star.
+	scene.give_special(1)
+	scene.special_count[0] = 2
+	leo.state = Turtle.State.NORMAL
+	var here := leo.position.floor()
+	leo._attack_pressed = true
+	check(leo._throw() and leo.throw_tick == 0 and scene.thrown.get_child_count() == 1 and scene.special_count[0] == 1, "attack throws one and takes one off the count")
+	var star: ThrownWeapon = scene.thrown.get_child(0)
+	check(star.position == here - Vector2(0, 20) and star.direction == leo.facing and star.rise == 0, "the star starts at his middle, facing as he does")
+	star.room = null
+	star.view_corner = Callable()
+	star.update()
+	star.update()
+	check(star.position.x == here.x + 10 * leo.facing and star.updates == 2, "and flies 5 pixels an update")
+	leo._attack_pressed = true
+	check(leo._throw() and scene.thrown.get_child_count() == 1, "a press during the throw is thrown away")
+	var updates := 1
+	while leo.throw_tick >= 0 and updates < 40:
+		leo._throw()
+		updates += 1
+	check(updates == Turtle.THROW_UPDATES, "the throw lasts 12 updates (%d)" % updates)
+	leo._attack_pressed = true
+	leo._throw()
+	check(scene.special_count[0] == 0 and scene.special_kind[0] == 0 and not scene.special_in_use and not leo.special_ready, "the last one thrown, he has no special weapon and his own is in use again")
+	leo.throw_tick = -1
+	# The triple star: three, as far as the three places allow.
+	scene._clear_thrown()
+	scene.give_special(2)
+	leo._attack_pressed = true
+	leo._throw()
+	var rises: Array[int] = []
+	for thing in scene.thrown.get_children():
+		rises.append(thing.rise)
+	check(rises == [0, -1, 1] and scene.special_count[0] == 19, "the triple star throws three (level, rising, sinking) for one off the count")
+	leo.throw_tick = -1
+	leo._attack_pressed = true
+	leo._throw()
+	check(scene.thrown.get_child_count() == 3 and scene.special_count[0] == 19, "with the three places taken nothing is thrown and nothing used up")
+	leo.throw_tick = -1
+	# The star against the map, the screen's edges and an enemy.
+	scene._clear_thrown()
+	var levels: RomLevels = scene.levels
+	if levels == null:
+		print("  skip  no verified ROM is installed, so the damage table and the star in a room are not exercised")
+		scene.free()
+		return
+	scene.give_special(1)
+	check(scene.weapon_damage_now() == 18, "the star takes 18 off (measured)")
+	leo.health = 63
+	check(scene.weapon_damage_now() == 20, "20 when his energy is under 64")
+	leo.health = 128
+	scene.special_kind[0] = 2
+	check(scene.weapon_damage_now() == 14, "one star of the triple takes 14")
+	scene.press_select()
+	check(scene.weapon_damage_now() == levels.weapon_damage(0).x, "with his own weapon in use the row is his own")
+	scene.press_select()
+	scene.special_kind[0] = 1
+	scene.load_area(0, 0)
+	leo.position = Vector2(136, 176)
+	leo.sync_screen()
+	scene._place_camera()
+	leo.facing = -1
+	leo._attack_pressed = true
+	leo._throw()
+	star = scene.thrown.get_child(0)
+	var flown := 0
+	while not star.gone and flown < 100:
+		star.update()
+		flown += 1
+	# From 128 across the screen, 5 an update: it is under 7 from the left edge after 25.
+	check(flown == 26 and star.gone, "thrown left from the middle of the screen it is gone at the left edge on its 26th update (%d)" % flown)
+	leo.throw_tick = -1
+	var wall_star := ThrownWeapon.new()
+	wall_star.room = scene.room
+	wall_star.position = Vector2(8, 8)   # inside the room's wall
+	scene.thrown.add_child(wall_star)
+	wall_star.update()
+	check(wall_star.gone, "a wall stops it")
+	# An enemy: hit, not beaten, the star flies on; beaten, the star goes too.
+	scene.enemies_follow_camera = false
+	scene.set_show_enemies(true)
+	var soldier: Node2D = null
+	for spot: EnemySpot in scene.room.enemy_spots:
+		var made: Variant = scene._spot_enemies.get(spot)
+		if made != null and spot.kind == 0x98 and soldier == null:
+			soldier = made
+	if soldier != null:
+		soldier.set_physics_process(false)
+		soldier.set("health", 30)
+		var hit_star := ThrownWeapon.new()
+		hit_star.targets = func() -> Array: return [soldier]
+		hit_star.damage = scene.weapon_damage_now
+		hit_star.position = ThrownWeapon.box_of(soldier).get_center() - Vector2(5, 0)
+		scene.thrown.add_child(hit_star)
+		hit_star.update()
+		check(int(soldier.get("health")) == 12 and not hit_star.gone, "a star takes 18 off an enemy and flies on")
+		hit_star.position = ThrownWeapon.box_of(soldier).get_center() - Vector2(5, 0)
+		hit_star.update()
+		check(int(soldier.get("health")) == 12, "an enemy that is still blinking is not hit again")
+		soldier.set("blinking", false)
+		soldier.set("safe_ticks", 0)
+		hit_star.position = ThrownWeapon.box_of(soldier).get_center() - Vector2(5, 0)
+		var before: int = scene.score
+		hit_star.update()
+		check(hit_star.gone and scene.score > before, "the hit that beats the enemy takes the star with it, and scores")
 	scene.free()
