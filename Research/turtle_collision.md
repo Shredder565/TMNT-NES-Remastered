@@ -140,6 +140,16 @@ the remake now waits the one update the code does.
 A hurting tile (kind 1) hurts only when one of these tests looks at it:
 see `Research/items_and_hits.md`.
 
+## Cells, not tiles (read from code 7:$C7C7, 13 November 2026)
+
+Every point test above looks the map up in cells of 16 x 16 pixels, as
+the enemies' tests do (`enemy_routines.md`); a cell is what its top-left
+8 x 8 tile is. The remake's turtle looked at single tiles until a run in
+the last room showed the difference: a moving floor drawn 8 pixels thick
+stops a jump 8 pixels lower than its picture. World 1's other floors and
+walls are drawn in whole cells, which is why the runs below never showed
+it.
+
 ## How close it is now
 
 Update 27: all eighteen runs match the original **exactly**, to the

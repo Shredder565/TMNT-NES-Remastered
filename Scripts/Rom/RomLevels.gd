@@ -56,8 +56,8 @@ const T_WEAPON_DAMAGE := 0x9BCB   ## per turtle: damage of a hit, then when belo
 const T_TOUCH_DAMAGE := 0x8B05    ## per kind: energy the turtle loses on touching it
 const T_ENCOUNTERS := 0x9E6D      ## per world -> per area: list of (row, column, x, y, slot[, $Fn]), ends $FF
 const T_ENCOUNTER_LINEUPS := 0x9E5F ## per $Fn code: the line-up that entry's kind comes from
+const T_POINTS := 0x9C03          ## per bits 3 to 6 of a slot byte: points, two bytes of decimal digits, in tens
 const ENCOUNTER_BYTES := 5
-const T_POINTS := 0x9C03          ## per points number: two bytes of decimal digits (tens and hundreds, then thousands and ten thousands)
 ## Hit boxes (bank 6): a list of (half width, half height) pairs, and four
 ## tables giving the pair to use for each animation number.
 const T_BOX_SIZES := 0x8A43
@@ -178,6 +178,7 @@ func room(world: int, area: int) -> RoomData:
 	var pages := _word(7, T_GRAPHICS_PAGES + world * 2)
 	var data := RoomData.new()
 	data.name = "World %d, area %d" % [world + 1, area]
+	data.coarse = true
 	data.chr_page = _byte(7, pages + area * 2)
 	data.palettes = palette(_byte(7, _word(7, T_PALETTE_IDS + world * 2) + area))
 	_fill(data, map, _word(1, T_SCREENS + world * 2), SCREEN_BLOCKS,
@@ -187,8 +188,13 @@ func room(world: int, area: int) -> RoomData:
 	var lineup_address := _word(6, _word(6, T_ENEMY_LINEUPS + world * 2) + area * 2)
 	for i in 4:
 		lineups.append(_byte(6, lineup_address + i))
-	data.enemy_spots = _enemy_spots(_word(6, _word(6, T_ENEMY_SPOTS + world * 2) + area * 2), data, lineups)
-	data.encounters = _encounters(_word(6, _word(6, T_ENCOUNTERS + world * 2) + area * 2), lineups[0])
+	# A room comes up with the line-up named beside its graphics page
+	# (bank 7, $D551), whatever the line-up level is; the four by level are
+	# only turned to when the level changes (Research/enemy_placement.md).
+	data.lineups = lineups
+	data.entry_lineup = _byte(7, pages + area * 2 + 1)
+	data.enemy_spots = _enemy_spots(_word(6, _word(6, T_ENEMY_SPOTS + world * 2) + area * 2), data, lineups, data.entry_lineup)
+	data.encounters = _encounters(_word(6, _word(6, T_ENCOUNTERS + world * 2) + area * 2), data.entry_lineup)
 	data.start = data.find_spawn()
 	return data
 
@@ -238,7 +244,7 @@ func overworld(world: int) -> RoomData:
 		4, _word(1, T_OW_BLOCKS + world * 2), _word(1, T_OW_BLOCK_COLOURS + world * 2))
 	data.doors = _door_list(_word(7, T_DOORS + DOOR_LISTS_OVERWORLD * 2), world, data)
 	data.enemy_spots = _enemy_spots(_word(6, T_OW_ENEMY_SPOTS + world * 2), data,
-		PackedInt32Array([OVERWORLD_LINEUP, OVERWORLD_LINEUP, OVERWORLD_LINEUP, OVERWORLD_LINEUP]))
+		PackedInt32Array([OVERWORLD_LINEUP, OVERWORLD_LINEUP, OVERWORLD_LINEUP, OVERWORLD_LINEUP]), OVERWORLD_LINEUP)
 	# One table holds the screen's corner when the world begins, another
 	# where the turtle stands on that screen (bank 4, $96B8; measured for
 	# all five worlds). World 1 is the odd one: there he was measured 16
@@ -331,8 +337,11 @@ func _door_list(table: int, index: int, data: RoomData) -> Array[Door]:
 
 ## Reads a map's enemy places. `screen_table` holds one pointer per screen;
 ## each points at a list of 3-byte entries ending in $FF. `lineups` are the
-## map's 4 enemy line-up numbers.
-func _enemy_spots(screen_table: int, data: RoomData, lineups: PackedInt32Array) -> Array[EnemySpot]:
+## map's 4 enemy line-up numbers by line-up level; `entry_lineup` is the
+## one the map comes up with.
+func _enemy_spots(screen_table: int, data: RoomData, lineups: PackedInt32Array, entry_lineup := -1) -> Array[EnemySpot]:
+	if entry_lineup < 0:
+		entry_lineup = lineups[0]
 	var spots: Array[EnemySpot] = []
 	var size := data.size_pixels()
 	var screens := (size.x / data.screen_size.x) * (size.y / data.screen_size.y)
@@ -352,29 +361,41 @@ func _enemy_spots(screen_table: int, data: RoomData, lineups: PackedInt32Array) 
 				spot.points = points_for(third)
 				for lineup in lineups:
 					spot.kinds.append(_kind_in_slot(lineup, spot.slot))
-			spot.kind = spot.kinds[0]
-			if spot.kind >= 0:
-				var info := (T_KIND_INFO_HIGH + (spot.kind & 0x7F) * 2) if spot.kind >= 0x80 else (T_KIND_INFO_LOW + spot.kind * 2)
-				spot.hit_points = _byte(6, info)
-				spot.first_animation = _byte(6, info + 1)
-				spot.touch_damage = _byte(6, T_TOUCH_DAMAGE + spot.kind)
-				spot.half_size = box_half_size(spot.kind, spot.first_animation)
+				spot.points = points_for(third)
+			_set_kind(spot, third if third < 0x10 else _kind_in_slot(entry_lineup, spot.slot))
 			spots.append(spot)
 			address += ENEMY_SPOT_BYTES
 			read += 1
 	return spots
 
-## The points beating an enemy gives (Research/score.md). They do not go by
-## its kind but by its place in the line-up: four bits of the slot byte it
-## was made from pick a pair of bytes holding decimal digits, and the score
-## shown ends in one more nought.
+## Gives a place the numbers of the kind that stands there.
+func _set_kind(spot: EnemySpot, kind: int) -> void:
+	spot.kind = kind
+	if kind >= 0:
+		spot.hit_points = hit_points(kind)
+		spot.first_animation = first_animation(kind)
+		spot.touch_damage = touch_damage(kind)
+		spot.half_size = box_half_size(kind, spot.first_animation)
+
+## The same place as another line-up fills it.
+func spot_in_lineup(spot: EnemySpot, lineup: int) -> EnemySpot:
+	var copy := spot.moved_to(spot.position)
+	_set_kind(copy, _kind_in_slot(lineup, spot.slot))
+	return copy
+
+## What beating an enemy is worth, from its place's slot byte (bank 6,
+## $9BDF): bits 3 to 6 pick two bytes of decimal digits, counted in tens.
 func points_for(slot_byte: int) -> int:
 	if slot_byte == 0:
 		return 0   # an object whose slot byte is 0 gives nothing
-	var at := T_POINTS + ((slot_byte & 0x78) >> 3) * 2
-	var low := _byte(6, at)
-	var high := _byte(6, at + 1)
+	var index := (slot_byte & 0x78) >> 2
+	var low := _byte(6, T_POINTS + index)
+	var high := _byte(6, T_POINTS + index + 1)
 	return ((high >> 4) * 1000 + (high & 15) * 100 + (low >> 4) * 10 + (low & 15)) * 10
+
+## The kind a line-up has in one of its six slots.
+func kind_in_slot(lineup: int, slot: int) -> int:
+	return _kind_in_slot(lineup, slot)
 
 func _kind_in_slot(lineup: int, slot: int) -> int:
 	if lineup < 0 or lineup >= ENEMY_LINEUPS:

@@ -79,7 +79,7 @@ The enemies in these measurements were beaten both by the weapon and by
 touching the turtle while the power item ran; both go through the same
 routine and scored the same.
 
-## A second count, for the enemies (code; not used by the remake)
+## A second count, for the enemies (code)
 
 Each addition is made a second time to three more bytes, $C5 to $C7
 (6:$9BEB, 7:$C881). They are set to 0 by the set-up at 7:$E809. The
@@ -87,8 +87,8 @@ enemy routine at 6:$816A compares $C6 and $C5 with eight steps at 6:$838B
 (2000, 4000, 7000, 10000, 14000, 20000, 28000 and 35000 points) and,
 together with a clock at $9D/$9E and the turtle's energy, chooses which of
 the room's four enemy line-ups is in use ($0614). So the more points are
-made the harder line-ups come in. This belongs to the enemies, and is
-only noted here.
+made the harder line-ups come in. The remake keeps it as `RoomScene.room_points`
+(the enemies' side of it is in `enemy_placement.md`).
 
 ## The strip's boxes (code 0:$82E8; measured for all four turtles)
 
@@ -124,12 +124,14 @@ score of 1234560.
 
 - `RomLevels.points_for(slot_byte)` reads the table; `EnemySpot.points`
   and `Encounter.points` carry the result.
-- `RoomScene` keeps `score` and `high_score` (`add_score`, `set_score`).
-  A beaten enemy leaves its puff the moment it is beaten, and that is
-  where the scene gives the points (`_on_thing_entered`): a placed enemy
-  its slot's, a boss or a held fight's enemy its entry's, anything else
-  that could be beaten (a thrown thing) 100. The enemies' own scripts were
-  not changed.
+- `RoomScene.add_points(points)` is the one place points are given: to
+  `score` and to `room_points` (the room's own count, which the line-up
+  level looks at). Enemies run by the original's rules (`OriginalEnemy`)
+  give their place's points themselves through their `beaten` signal.
+  For everything else the scene gives them when a beaten enemy leaves its
+  puff (`_on_thing_entered`, `points_for_beating`): the fitted kinds and
+  the overworld's enemies their slot's points, a boss its encounter
+  entry's, a thrown thing beaten in the air 100. Nothing is counted twice.
 - The best score is kept in `Game.high_score` for as long as the program
   runs. CONTINUE sets the score to 0.
 - `HudStrip.show_scores` shows both; `HudStrip.show_special` and
@@ -139,4 +141,3 @@ score of 1234560.
 Different from the original:
 
 - The remake writes the strip at once, not a part every eighth frame.
-- An enemy line-up does not change with the points made.

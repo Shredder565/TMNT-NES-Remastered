@@ -5,9 +5,9 @@ extends RefCounted
 
 var position := Vector2.ZERO   ## the object's own position value, in room pixels
 var slot := 0                  ## which of the room's enemy kinds stands here (0 to 5)
-var points := 0                ## what beating the enemy made here adds to the score (it goes by the slot, not the kind)
 var kinds := PackedInt32Array()  ## the kind number for each of the room's 4 enemy line-ups
-var kind := -1                 ## the kind in the first line-up (the one a new game uses)
+var kind := -1                 ## the kind in the line-up the room comes up with
+var points := 0                ## what beating it is worth (the slot byte picks it from a table)
 var hit_points := 1            ## that kind's starting hit points
 var first_animation := 0       ## the animation number that kind starts with
 var touch_damage := 0          ## energy the turtle loses on touching that kind (he has 128)

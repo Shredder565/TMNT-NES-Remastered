@@ -62,7 +62,14 @@ static var _screen_left := 0
 static var scroll_step := 0
 static var _step_frame := 0
 
+## Beaten by the turtle: what it was worth.
+signal beaten(points: int)
+
 var kind := 0
+var points := 0                   ## what beating it is worth (from its place in the room)
+## Kept on the screen while a held fight goes on (bank 5, $808D): its
+## place across the screen is held between 6 and 246.
+var held_on_screen := false
 var room: RoomData
 var target: Node2D                ## the turtle
 var sprites: SpriteSet
@@ -322,6 +329,12 @@ func tick() -> void:
 	if moves:
 		sub_x += speed_x
 		sub_y += speed_y
+	if held_on_screen and view_corner.is_valid():
+		var across := whole_x() - int(_corner().x)
+		if across < 6:
+			sub_x += (6 - across) * 256
+		elif across >= 246:
+			sub_x -= (across - 246) * 256
 	position = Vector2(sub_x / 256.0, sub_y / 256.0)
 	_placed = position
 	if _off_screen():
@@ -622,5 +635,7 @@ func take_hit(amount: int) -> void:
 	safe_ticks = SAFE_TICKS
 	health -= amount
 	if health <= 0:
+		if points > 0:
+			beaten.emit(points)
 		Puff.leave(self)
 		remove()
