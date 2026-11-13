@@ -1,0 +1,35 @@
+extends SceneTree
+## Renders a scenario through our driver and chip into a WAV file, so the
+## sound can be measured without ears.
+##   godot --headless -s render_wav.gd -- out.wav frames number [frame:number ...]
+func _init() -> void:
+	var args := OS.get_cmdline_user_args()
+	var prg := SoundData.prg_of_file(FileAccess.get_file_as_bytes("user://baserom.nes"))
+	var data := SoundData.new(prg)
+	var chip := SoundChip.new(data, 44100.0)
+	var driver := SoundDriver.new(data, chip)
+	var events := {0: [args[2].hex_to_int()]}
+	for i in range(3, args.size()):
+		var parts := args[i].split(":")
+		if not events.has(int(parts[0])): events[int(parts[0])] = []
+		events[int(parts[0])].append(parts[1].hex_to_int())
+	var pcm := PackedByteArray()
+	var t0 := Time.get_ticks_usec()
+	var peak := 0.0
+	for frame in int(args[1]):
+		for n: int in events.get(frame, []):
+			driver.play(n)
+		driver.step()
+		var samples := chip.render_frame(735)
+		for s in samples:
+			peak = maxf(peak, absf(s.x))
+			var v := clampi(int(s.x * 32767.0), -32768, 32767)
+			pcm.append(v & 0xFF); pcm.append((v >> 8) & 0xFF)
+	var spent := (Time.get_ticks_usec() - t0) / 1000000.0
+	print("rendered %d frames (%.1f s of sound) in %.2f s; peak %.3f" % [int(args[1]), int(args[1]) / 60.0, spent, peak])
+	var wav := AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.mix_rate = 44100
+	wav.data = pcm
+	wav.save_to_wav(args[0])
+	quit()

@@ -15,6 +15,7 @@ var _picture := Sprite2D.new()
 static func leave(enemy: Node2D) -> void:
 	if enemy.get_parent() == null:
 		return
+	Sound.play(0x22)   # an enemy is beaten (6:$9A11)
 	var puff := Puff.new()
 	puff.position = enemy.position
 	enemy.get_parent().add_child(puff)

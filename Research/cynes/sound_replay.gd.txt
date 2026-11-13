@@ -1,0 +1,64 @@
+extends SceneTree
+## Runs our SoundDriver through the scenarios recorded from the original's
+## sound program (rec_writes.py) and compares every value sent to the sound
+## chip, frame by frame.
+##   godot --headless -s sound_replay.gd -- writes.json [rom path]
+
+func _init() -> void:
+	var args := OS.get_cmdline_user_args()
+	var rom_path := "user://baserom.nes" if args.size() < 2 else args[1]
+	var prg := SoundData.prg_of_file(FileAccess.get_file_as_bytes(rom_path))
+	var data := SoundData.new(prg)
+	var scenarios: Array = JSON.parse_string(FileAccess.get_file_as_string(args[0]))
+	var good := 0
+	var frames_equal := 0
+	for scenario: Dictionary in scenarios:
+		var driver := SoundDriver.new(data)
+		driver.keep_log = true
+		var events := {}
+		for event: Array in scenario.events:
+			if not events.has(int(event[0])):
+				events[int(event[0])] = []
+			events[int(event[0])].append(int(event[1]))
+		var first_bad := -1
+		var theirs: Array = scenario.writes
+		for frame in int(scenario.frames):
+			for number: int in events.get(frame, []):
+				if number == -1:
+					driver.stop_all()
+				elif number == -2:
+					driver.fade_out()
+				else:
+					driver.play(number)
+			driver.step()
+			var mine := driver.log
+			var want: Array = theirs[frame]
+			var same := mine.size() == want.size()
+			if same:
+				for i in mine.size():
+					if mine[i] != int(want[i]):
+						same = false
+						break
+			if not same:
+				first_bad = frame
+				var a := []
+				for w in mine: a.append("%04X=%02X" % [w >> 8, w & 0xFF])
+				var b := []
+				for w: float in want: b.append("%04X=%02X" % [int(w) >> 8, int(w) & 0xFF])
+				print("DIFF %s frame %d\n   ours   %s\n   theirs %s" % [scenario.name, frame, " ".join(a), " ".join(b)])
+				break
+			frames_equal += 1
+			driver.log = PackedInt32Array()
+		if first_bad < 0:
+			var slots := []
+			for s in 6: slots.append(driver.playing(s))
+			var end_slots := []
+			for s: float in scenario.end.slots: end_slots.append(int(s))
+			if slots != end_slots or driver.tune_over != (int(scenario.end.over) != 0):
+				print("END STATE differs in %s: %s / %s" % [scenario.name, slots, end_slots])
+			else:
+				good += 1
+		if driver.oddities > 0:
+			print("oddities in %s: %d" % [scenario.name, driver.oddities])
+	print("%d of %d scenarios agree; %d frames compared equal" % [good, scenarios.size(), frames_equal])
+	quit()
