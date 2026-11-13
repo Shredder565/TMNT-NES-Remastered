@@ -565,13 +565,7 @@ func _ready() -> void:
 	crawler.setup(crawler_spot, pit, null)
 	add_child(crawler)
 	crawler.set_physics_process(false)
-	crawler.direction = -1
-	crawler.tick()
-	crawler.tick()
-	check(crawler.direction == 1 and crawler.position.y == 28.0, "a crawler turns round at a wall")
-	for i in 40:
-		crawler.tick()
-	check(crawler.position.y == 44.0 and not crawler.falling, "it walks off a ledge, falls and lands 4 pixels into the floor below")
+	# (enemies2) The fitted plain walker's turning and falling went with its last kind (85, now Swooper.gd).
 	crawler.take_hit(7)
 	check(crawler.is_queued_for_deletion(), "one sword hit finishes a 4-point crawler")
 	var yard := RoomData.from_text([
@@ -3096,6 +3090,40 @@ func _test_enemies2() -> void:
 	OriginalEnemy.frame_counter = -1
 	holder.free()
 	victim.free()
+
+	# --- Kind 85 (enemies2) ---
+	print("Kind 85, from the original's routine")
+	var sky_lines := PackedStringArray()
+	for i in 24:
+		sky_lines.append("........................................")
+	var sky := RoomData.from_text(sky_lines)
+	var prey := Node2D.new()
+	prey.position = Vector2(200, 160)       # his middle is at 140
+	add_child(prey)
+	var bat_spot := EnemySpot.new()
+	bat_spot.kind = 0x85
+	bat_spot.position = Vector2(100, 40)
+	bat_spot.hit_points = levels.hit_points(0x85)
+	var bat := Swooper.new()
+	bat.setup(bat_spot, sky, null, prey)
+	add_child(bat)
+	bat.set_physics_process(false)
+	OriginalEnemy.scroll_step = -2
+	bat.tick()
+	OriginalEnemy.scroll_step = 0
+	check(OriginalEnemy.for_kind(0x85) is Swooper and bat.health == 7 and not bat.facing_left and bat.speed_x == 352 and bat.position == Vector2(101.375, 40), "kind 85 sets off against the screen's scroll at 1.375 pixels an update")
+	var level_updates := 0
+	while bat.speed_y == 0 and level_updates < 80:
+		bat.tick()
+		level_updates += 1
+	# 100 down is the band "96 and more", the third: it goes with him 40 to 47 across.
+	var went_from: float = prey.position.x - (bat.position.x - 1.75)
+	check(bat.speed_y == 0x0580 and bat.speed_x == 0x01C0 and bat.animation == Swooper.DIVING and went_from < 48.0 and went_from >= 40.0, "with the turtle 100 below it dives when he is 40 to 47 across: 5.5 pixels an update down, 1.75 across (%s)" % str(went_from))
+	bat.place(Vector2(180, 40))
+	bat.tick()
+	check(bat.speed_y == 0x0580, "once diving it takes no more notice of him")
+	bat.free()
+	prey.free()
 
 	# The turtle's lowered box runs one update behind his crouch, both ways.
 	var low_turtle: Turtle = load("res://Scenes/Player/Turtle.tscn").instantiate()

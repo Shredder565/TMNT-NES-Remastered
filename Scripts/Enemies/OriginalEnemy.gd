@@ -161,6 +161,8 @@ static func for_kind(spot_kind: int) -> OriginalEnemy:
 		return Gunner.new()
 	if Diver.KINDS.has(spot_kind):
 		return Diver.new()
+	if Swooper.KINDS.has(spot_kind):
+		return Swooper.new()
 	return null
 
 ## Makes it the enemy of one of the ROM's enemy places. Set `view_corner`

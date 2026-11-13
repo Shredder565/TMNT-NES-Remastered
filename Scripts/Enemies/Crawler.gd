@@ -13,14 +13,13 @@ extends Area2D
 ## - Its position value is its middle across and its bottom edge, and it
 ##   rides 4 pixels below the top edge of the floor it walks on.
 
-const KIND := 0x85
+const KIND := 0xA7
 const SPRITE_MAP := "Kind8D"
 ## The kinds this script moves. Speeds (1/256 pixel per update) and whether
 ## the kind flies were read from recordings of the original. `look` is how
 ## far ahead a wall turns it round, fitted to where each kind turned.
 ## Guess for the three other walkers: that they fall off ledges as 8D does.
 const KINDS := {
-	0x85: { "speed": 352, "flies": false, "look": 15.0 },
 	0xA7: { "speed": 768, "flies": true, "look": 12.0 },
 	0xA8: { "speed": 768, "flies": true, "look": 12.0 },
 	# 4B walks for 31 updates, stands for 9, and so on. It rides 3 pixels
