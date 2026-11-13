@@ -34,8 +34,10 @@ const ANIMATIONS := {
 }
 const COMPANY_KIND := 0x11
 const COMPANY_AT := Vector2(196, 83)   ## on the screen
+const CAPTIVE_AT := Vector2(168, 83)
 
 var company: OriginalEnemy            ## who stands by on the ledge
+var captive: Sprite2D                 ## the second figure there, only a picture
 
 func _animations() -> Dictionary:
 	return ANIMATIONS
@@ -98,6 +100,15 @@ func _bring_company() -> void:
 	company.setup_at(COMPANY_KIND, _corner() + COMPANY_AT, room, SpriteSet.cached("Kind%02X" % COMPANY_KIND), target)
 	company.facing_left = true
 	get_parent().add_child(company)
+	# The second figure (slot 8 in the original: a picture with no object
+	# behind it, at (168, 83) on the screen, not mirrored).
+	var pictures := SpriteSet.cached("Kind%02X" % COMPANY_KIND)
+	if pictures != null and pictures.textures.has("f143"):
+		captive = Sprite2D.new()
+		captive.centered = false
+		captive.texture = pictures.textures["f143"]
+		captive.position = _corner() + CAPTIVE_AT + pictures.offsets["f143"] - Vector2(0, sprite_lift)
+		get_parent().add_child(captive)
 
 ## The one on the ledge stops being an object the moment the boss is
 ## beaten (bank 6, $99F1): he hurts no more, but his picture stays until

@@ -88,6 +88,7 @@ const HOLD_LEAVE_UPDATES := 64
 const BOSS_LEAVE_UPDATES := 32
 const LEDGE_SCENE_UPDATES := 32
 const LEDGE_SCENE_FRAMES := 65
+const LEDGE_TAKES_AT := 16            ## updates left when he reaches the second figure
 const LEDGE_GONE_AT := 8             ## updates left when the last figure goes
 const BOSS_LEAVE_MORE_UPDATES := 63   ## the count runs from $C0 to $80; the update that sets it takes one off
 ## The line-up level (bank 6, $8174; Research/enemy_placement.md): the
@@ -162,6 +163,7 @@ var _camera_corner := Vector2.ZERO
 var _floor_frame := 0
 var _stood_before := false         ## was the turtle on the ground an update ago
 var items: Node2D                    ## holds the items of the room on show
+var _captive: Sprite2D                ## the second figure on the ledge
 var _ledge_frame := 0
 var _ledge_updates := 0               ## updates left of the scene on the ledge after the first boss
 var _boss_end_stage := 0              ## after a boss is beaten: 1 the first wait, 2 the second
@@ -780,6 +782,7 @@ func _place_items() -> void:
 		_boss_done.erase(_boss_key)   # he left with the boss still standing: it will be back
 	boss = null
 	_company = null
+	_captive = null
 	if _ledge_updates > 0:
 		_ledge_updates = 0
 		turtle.set_physics_process(true)
@@ -944,6 +947,8 @@ func _enemies_frame() -> bool:
 ## a beaten one, no boss (bank 7, $EEE9).
 func _screen_clear() -> bool:
 	for thing in enemies.get_children():
+		if thing is Sprite2D:
+			continue   # a picture with no object behind it (the second figure on the ledge)
 		if not thing.is_queued_for_deletion() and not (thing is OriginalEnemy and thing.gone):
 			return false
 	for thing in items.get_children():
@@ -1061,6 +1066,14 @@ func _step_ledge_scene() -> void:
 		_ledge_updates -= 1
 		if _company != null and is_instance_valid(_company):
 			_company.position.x -= 1.0
+			if _ledge_updates == LEDGE_TAKES_AT:
+				# He has reached the second figure: it is gone and his picture changes.
+				if _captive != null and is_instance_valid(_captive):
+					_captive.queue_free()
+				_captive = null
+				if _company is Bystander:
+					_company.carrying = true
+					_company._show()
 			if _ledge_updates <= LEDGE_GONE_AT:
 				_company.queue_free()
 				_company = null
@@ -1143,6 +1156,7 @@ func _start_fight(entry: Encounter, key: Vector2i) -> void:
 	boss.update_now()
 	if boss is Bebop:
 		_company = boss.company
+		_captive = boss.captive
 	boss_bar.show()
 
 ## A picture that only stands there.

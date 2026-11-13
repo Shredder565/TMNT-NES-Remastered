@@ -832,7 +832,11 @@ func _weapon_box() -> Array[int]:
 	var half: Vector2 = swing.half
 	var lower := 8 if state == State.CROUCH or _low_swing() else 0
 	sync_screen()
-	return [floori(screen_x) + int(place.x) * facing, floori(position.y) - int(CENTRE_ABOVE_FEET) + int(place.y) + lower, int(half.x), int(half.y)]
+	# The fifth number is the weapon's own height without the 8: the original
+	# asks "which of the two is higher" with that (bank 6, $9AF7) and only
+	# builds the box 8 lower.
+	var own := floori(position.y) - int(CENTRE_ABOVE_FEET) + int(place.y)
+	return [floori(screen_x) + int(place.x) * facing, own + lower, int(half.x), int(half.y), own]
 
 ## The weapon's box as the enemies' hit test meets it. The original puts
 ## the weapon in place at the end of the enemies' frame, after hits have
@@ -844,7 +848,7 @@ func _weapon_box() -> Array[int]:
 func weapon_box_for_enemies() -> Array[int]:
 	if _weapon_box_old.is_empty():
 		return _weapon_box_old
-	return [_weapon_box_old[0] + floori(scroll_x), _weapon_box_old[1], _weapon_box_old[2], _weapon_box_old[3]]
+	return [_weapon_box_old[0] + floori(scroll_x), _weapon_box_old[1], _weapon_box_old[2], _weapon_box_old[3], _weapon_box_old[4]]
 
 ## Which frame of the swing he is on, or -1 for its first update and its
 ## last two, when the weapon is at his middle and he stands as usual.
@@ -902,7 +906,8 @@ func touch_box() -> Array[int]:
 	# flag runs one update behind, also when he jumps out of a crouch).
 	# The same on the first update of a downward swing begun in the air.
 	var lower := 8 if _crouched_before or (_low_swing() and attack_tick >= 1) or _low_after >= 1 else 0
-	return [floori(position.x), floori(position.y) - int(CENTRE_ABOVE_FEET) + lower, half.x, half.y]
+	var own := floori(position.y) - int(CENTRE_ABOVE_FEET)
+	return [floori(position.x), own + lower, half.x, half.y, own]   # the fifth: his own height without the 8, see _weapon_box
 
 func _set_attacking(on: bool) -> void:
 	weapon_art.visible = on and sprites == null

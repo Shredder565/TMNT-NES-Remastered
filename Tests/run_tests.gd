@@ -1135,12 +1135,12 @@ func _ready() -> void:
 		add_child(o_test_turtle)
 		o_test_turtle.set_physics_process(false)
 		o_test_turtle.position = Vector2(100.7, 110.4)
-		check(o_test_turtle.touch_box() == [100, 90, 5, 16], "the turtle's box is measured from his middle, 20 above his feet, in whole pixels")
+		check(o_test_turtle.touch_box() == [100, 90, 5, 16, 90], "the turtle's box is measured from his middle, 20 above his feet, in whole pixels")
 		o_test_turtle.state = Turtle.State.CROUCH
 		o_test_turtle._crouched_before = false
 		var o_first_crouch: Array[int] = o_test_turtle.touch_box()
 		o_test_turtle._crouched_before = true
-		check(o_first_crouch == [100, 90, 5, 11] and o_test_turtle.touch_box() == [100, 98, 5, 11], "crouching it is smaller at once and 8 lower from the update after")
+		check(o_first_crouch == [100, 90, 5, 11, 90] and o_test_turtle.touch_box() == [100, 98, 5, 11, 90], "crouching it is smaller at once and 8 lower from the update after")
 		o_test_turtle.state = Turtle.State.NORMAL
 		o_test_turtle.max_health = 128
 		o_test_turtle.health = 128
@@ -1236,10 +1236,10 @@ func _ready() -> void:
 		o_leo.attack_tick = 0
 		o_leo._weapon_box_old = []
 		o_leo._weapon_box_new = o_leo._weapon_box()
-		check(o_leo.weapon_box_for_enemies().is_empty() and o_leo._weapon_box_new == [128, floori(o_leo.position.y) - 20, 14, 12], "on the first update of a swing the enemies' hit test has no weapon to meet yet")
+		check(o_leo.weapon_box_for_enemies().is_empty() and o_leo._weapon_box_new == [128, floori(o_leo.position.y) - 20, 14, 12, floori(o_leo.position.y) - 20], "on the first update of a swing the enemies' hit test has no weapon to meet yet")
 		o_leo._weapon_box_old = o_leo._weapon_box_new
 		o_leo.scroll_x = 43.0
-		check(o_leo.weapon_box_for_enemies() == [171, floori(o_leo.position.y) - 20, 14, 12], "an update later it meets the weapon where it was put then, moved along with the screen")
+		check(o_leo.weapon_box_for_enemies() == [171, floori(o_leo.position.y) - 20, 14, 12, floori(o_leo.position.y) - 20], "an update later it meets the weapon where it was put then, moved along with the screen")
 		o_leo.attack_tick = -1
 		# After a swing, two updates in which a press of attack is thrown away.
 		o_leo.attack_direction = 1
@@ -2334,11 +2334,9 @@ func _test_four_turtles() -> void:
 				leo.weapon_hitbox.scale.x = 1
 				leo.position = Vector2(136, 176)
 				var dummy := OriginalEnemy.for_kind(0x98)
-				# Raphael's crouching swing is swept with the soldier 4 lower: level
-				# with him the original still hits at the far edge and the remake
-				# does not (its weapon's box is 2 or 3 pixels lower there, see
-				# Research/turtles.md); 4 lower both agree, with the same edges.
-				var lower := 4 if t == 1 and way == 2 else 0
+				# (enemies2) Raphael's crouching swing is swept level like the rest again: the box
+				# test now asks which is higher with the weapon's own height (bank 6, $9AF7).
+				var lower := 0
 				dummy.setup_at(0x98, leo.position + Vector2(across, -20 + lower), sewer.room, null, leo)
 				sewer.enemies.add_child(dummy)
 				dummy.health = 4000
@@ -3132,7 +3130,7 @@ func _test_enemies2() -> void:
 	low_turtle.set_physics_process(false)
 	low_turtle.position = Vector2(100.0, 110.0)
 	low_turtle._crouched_before = true
-	check(low_turtle.touch_box() == [100, 98, 5, 16], "on the update he gets up (or jumps) out of a crouch his box is full size again but still 8 lower")
+	check(low_turtle.touch_box() == [100, 98, 5, 16, 90], "on the update he gets up (or jumps) out of a crouch his box is full size again but still 8 lower")
 	low_turtle.free()
 
 # ============================ The end of world 1 (Research/world_end.md) ============================

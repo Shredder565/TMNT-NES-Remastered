@@ -28,3 +28,13 @@ func setup_at(spot_kind: int, where: Vector2, in_room: RoomData, sprite_set: Spr
 
 func take_hit(_amount: int) -> void:
 	pass
+
+## Its picture: the figure alone (the sprite map's old "f138" has both
+## figures of the ledge in one), or the one it changes to in the scene
+## after the fight.
+var carrying := false
+
+func _frame_name() -> String:
+	if carrying:
+		return "f128"
+	return "f138_alone" if sprites != null and sprites.textures.has("f138_alone") else "f138"

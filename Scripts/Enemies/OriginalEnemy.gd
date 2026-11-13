@@ -315,6 +315,10 @@ func touches_box(his: Array[int]) -> bool:
 	var half := box_half()
 	var x := whole_x()
 	var y := whole_y()
+	# Which of the two is higher is asked with the other's own height, which
+	# for a crouching turtle and his weapon is 8 above the box's middle
+	# (bank 6, $9AF7 against $9B5D): a fifth number carries it when it differs.
+	var other_y: int = his[4] if his.size() > 4 else his[1]
 	if view_corner.is_valid():
 		# The original works all of this out in single bytes, as places on
 		# the screen: an edge that goes past 0 or 255 comes round the other
@@ -325,12 +329,13 @@ func touches_box(his: Array[int]) -> bool:
 		var ey := (y - int(corner.y)) & 255
 		var ox := (his[0] - int(corner.x)) & 255
 		var oy := (his[1] - int(corner.y)) & 255
+		var own := (other_y - int(corner.y)) & 255
 		if ex < ox:
 			if ((ex + half.x) & 255) < ((ox - his[2]) & 255):
 				return false
 		elif ((ex - half.x) & 255) >= ((ox + his[2]) & 255):
 			return false
-		if ey < oy:
+		if ey < own:
 			return ((ey - 2) & 255) >= ((oy - his[3]) & 255)
 		return ((ey - half.y) & 255) < ((oy + his[3]) & 255)
 	var across: bool
@@ -340,7 +345,7 @@ func touches_box(his: Array[int]) -> bool:
 		across = x - half.x < his[0] + his[2]
 	if not across:
 		return false
-	if y < his[1]:
+	if y < other_y:
 		return y - 2 >= his[1] - his[3]
 	return y - half.y < his[1] + his[3]
 
