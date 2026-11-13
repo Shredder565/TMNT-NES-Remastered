@@ -3110,7 +3110,10 @@ func _test_enemies2() -> void:
 	OriginalEnemy.scroll_step = -2
 	bat.tick()
 	OriginalEnemy.scroll_step = 0
-	check(OriginalEnemy.for_kind(0x85) is Swooper and bat.health == 7 and not bat.facing_left and bat.speed_x == 352 and bat.position == Vector2(101.375, 40), "kind 85 sets off against the screen's scroll at 1.375 pixels an update")
+	var made_for_85 := OriginalEnemy.for_kind(0x85)
+	var is_swooper: bool = made_for_85 is Swooper
+	made_for_85.free()
+	check(is_swooper and bat.health == 7 and not bat.facing_left and bat.speed_x == 352 and bat.position == Vector2(101.375, 40), "kind 85 sets off against the screen's scroll at 1.375 pixels an update")
 	var level_updates := 0
 	while bat.speed_y == 0 and level_updates < 80:
 		bat.tick()

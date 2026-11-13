@@ -96,7 +96,14 @@ func _hit_things() -> void:
 			continue
 		if foe.get("blinking") == true or foe.get("gone") == true or ("safe_updates" in foe and int(foe.get("safe_updates")) > 0):
 			continue
-		if not box.intersects(box_of(foe)):
+		if foe is OriginalEnemy:
+			# The original's own box test, as the sword has it (bank 6, $9AD3;
+			# Research/hit_boxes.md): one-sided at the edges, in whole pixels,
+			# with the enemy's box of the animation it shows.
+			var mine: Array[int] = [floori(position.x), floori(position.y), int(half.x), int(half.y)]
+			if not foe.can_touch() or not foe.touches_box(mine):
+				continue
+		elif not box.intersects(box_of(foe)):
 			continue
 		foe.take_hit(int(damage.call()) if damage.is_valid() else 1)
 		if "health" in foe and int(foe.get("health")) <= 0:
