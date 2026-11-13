@@ -299,3 +299,35 @@ put right:
   get.
 
 Up to those frames the bosses agree in these runs too.
+
+### Later the same day: the turtle's part put right from his code
+
+The three boss runs that parted at the turtle were gone through again,
+this time from his routines (bank 4, $9D0C on the ground, $9FB0 in the
+air, $9E7E the swing's start). Read from code, then checked in the runs:
+
+- **Jump held.** One flag ($0530) says "jump has been down on every
+  update of this jump". An update that finds the button up clears it for
+  good; pressing again does not bring it back. The cut at the fourth
+  update happens if it is clear, the second push at the eighth if it is
+  still set. (The remake looked at the button on those two updates only.)
+- **Curling up** at the second push does not happen if a swing is on, and
+  the attack button is seen to before the jump's count in the same
+  update, so a swing begun on that very update counts.
+- **Rooted by a downward swing.** A swing begun on the ground with Down
+  held and jump not held sets a flag ($D4). While that swing lasts (and
+  for the one update its flag outlasts it) Left and Right do nothing on
+  the ground: no step, no turn. A new press of jump still jumps. A swing
+  begun in the air never sets the flag, which is why he walked in one
+  run and stood in the other.
+- **Down with Left or Right walks**; he crouches only with neither
+  (4:$9D37; measured).
+- **A ladder's top is looked up by cells** like every other point: a
+  lone ladder tile that is not the top-left tile of its cell is not
+  there. (The last room has three such tiles; the remake's turtle landed
+  on one in mid-air.)
+
+The twelve runs again, 12508 frames: the turtle's position 12448, his
+energy 12508, his box 12446, every enemy and thrown thing 12508. All
+that is left is the last 60 frames of the kind 71 run (the room has
+gone dark) and two single frames of his box.
