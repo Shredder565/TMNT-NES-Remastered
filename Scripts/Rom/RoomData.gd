@@ -13,6 +13,7 @@ const KIND_EMPTY := 0
 const KIND_SOLID := 4
 const KIND_LADDER := 9
 const KIND_LADDER_TOP := 11
+const KIND_LADDER_SIDE := 10    ## the other kind the original takes for a ladder when he arrives through a door
 const KIND_DOOR := 2          ## a doorway or manhole
 const KIND_WATER := 12        ## blocks the way on the overworld
 const KIND_MOVING_FLOOR_LEFT := 12   ## in rooms the same number is a floor that carries him left
@@ -46,6 +47,7 @@ var encounters: Array[Encounter] = []  ## what appears when the camera reaches a
 ## whatever its top-left 8 x 8 tile is (measured). So points are looked
 ## up that way, for the turtle as for the enemies.
 var coarse := false
+var fixed_things := []                  ## [kind, place, number] for each thing at a fixed place (items are kinds below $10)
 var entry_lineup := -1                 ## the enemy line-up the room comes up with (-1: not from a ROM)
 var lineups := PackedInt32Array()      ## the line-up for each of the 4 line-up levels (Research/enemy_placement.md)
 

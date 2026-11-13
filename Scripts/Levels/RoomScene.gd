@@ -65,15 +65,7 @@ const ROW_SCROLL := 4                ## pixels an update while it changes
 const CAMERA_DOWN := 120.0           ## the camera's middle below the screen's top (the HUD strip is under the room)
 const PLACED_AT_ONCE := 6            ## the original's object slots 5 to 10
 const REMOVE_MARGIN := 4.0           ## and removed when it is this close to leaving
-## World 1's items and boss, as seen in the original (Research/world1.md).
-## The ROM tables these come from have not been found, so they are listed
-## here by hand: [kind, where] for each item of a room, keyed by (world, area).
-const ITEMS := {
-	Vector2i(0, 0): [[0x03, Vector2(928, 32)]],
-	Vector2i(0, 2): [[0x0B, Vector2(560, 64)]],
-	Vector2i(0, 3): [[0x03, Vector2(640, 40)]],
-	Vector2i(0, 4): [[0x01, Vector2(32, 48)], [0x03, Vector2(304, 64)]],
-}
+const ITEM_KINDS_BELOW := 0x10       ## of the ROM's things at fixed places, these kinds are items to pick up
 ## Which script runs each boss kind the ROM's encounter table names.
 const BOSS_KINDS := [Bebop.KIND, Rocksteady.KIND]
 ## Beating this kind ends the world.
@@ -330,6 +322,7 @@ func _ready() -> void:
 func load_area(new_world: int, new_area: int) -> void:
 	world = new_world
 	area = new_area
+	OriginalEnemy.left_over = PackedByteArray()   # a door fills this in afterwards
 	if levels != null:
 		room = levels.room(world, area)
 		if world == 0 and area == 0:
@@ -751,7 +744,10 @@ func _place_items() -> void:
 	_holds_done.clear()
 	if levels == null or room == null or room.top_down or not room.name.begins_with("World"):
 		return
-	for entry: Array in ITEMS.get(Vector2i(world, area), []):
+	# The ROM's own list (bank 4, $ACCD), which used to be copied here by hand.
+	for entry: Array in room.fixed_things:
+		if entry[0] >= ITEM_KINDS_BELOW:
+			continue
 		var item := Item.new()
 		item.setup(entry[0], entry[1], SpriteSet.cached("Kind%02X" % entry[0]))
 		items.add_child(item)
@@ -1501,24 +1497,72 @@ func enter_door(door: Door) -> void:
 	var target := door.to_area
 	if world == 4 and target >= 5 and target <= 8 and area == technodrome_cave:
 		target = 6  # this cave's inner door is the one that hides the Technodrome
+	var left_over := _cells_left_over()
 	load_area(world, target)
-	_place_turtle(door.arrive)
+	OriginalEnemy.left_over = left_over
+	_arrive(door.arrive, door.arrive_camera)
 
-## Stands (or hangs) the big turtle with his middle at `centre`.
-func _place_turtle(centre: Vector2) -> void:
+## The original keeps the map as cells in memory: sixteen columns, and
+## rows that wrap every 480 pixels (two pages of 15 rows; bank 7, $C7C7). A
+## one-screen room fills only its own twelve rows, so under it (and, round
+## the wrap, just above it) an enemy's map tests find what the overworld
+## left there: its cells 192 to 255 down the first page. Measured after
+## two doors of world 1: under the building it is partly empty, and a kind
+## 86 on that room's ceiling rises out of the room there. The columns are
+## taken as those on the overworld's screen when the door was used (they
+## were, in the two measured; otherwise a guess).
+func _cells_left_over() -> PackedByteArray:
+	var rows := PackedByteArray()
+	if room == null or not room.top_down:
+		return rows
+	rows.resize(64)
+	var left := int(overworld_screen.x)
+	var middle := int(overworld_screen.y) + 120
+	for row in 4:
+		# The overworld row with this place in the cell memory, nearest the screen.
+		var down := 192 + row * 16
+		while down + 240 < middle:
+			down += 480
+		for column in 16:
+			var across := ((left + 8) >> 4 << 4) + posmod(column * 16 - ((left + 8) >> 4 << 4), 256)
+			rows[row * 16 + column] = room.kind_at((across >> 4) * 2, (down >> 4) * 2)
+	return rows
+
+## Arriving in a room through a door (bank 7, $E755 to $E837; checked for
+## every door of world 1, Research/doors.md). The door's record gives his
+## place on the screen and the screen's corner, and both are taken as they
+## are: he is not stood on a floor and the screen is not centred on him.
+## With ladder at his middle he hangs on it; over a floor he stands; in
+## the air he falls. For his first 7 updates his speeds do not move him.
+func _arrive(centre: Vector2, corner: Vector2) -> void:
 	var feet := centre + Vector2(0, RoomData.CENTRE_TO_FEET)
-	# A doorway can leave him a pixel or two inside the floor: lift him out.
-	while feet.y > 0.0 and room.solid_at(feet.x, feet.y - 0.01):
-		feet.y = floorf((feet.y - 0.01) / RoomData.TILE) * RoomData.TILE
-	var ladder := room.ladder_center_at(feet.x, feet.y - 1.0)
-	if not is_nan(ladder) and not room.solid_at(feet.x, feet.y + 1.0):
-		# He arrives hanging on a ladder (coming down a manhole).
-		feet.x = ladder
-		turtle.state = Turtle.State.CLIMB
 	turtle.position = feet
 	turtle.speed = Vector2i.ZERO
+	turtle.put_screen(corner.x)
+	_row_way = 0
+	_screen_row = floori(corner.y / VIEW_SIZE.y)
+	_view_top = _screen_row * VIEW_SIZE.y
+	var at_middle := room.kind_at_pixel(centre.x, centre.y)
+	turtle.arrive(at_middle == RoomData.KIND_LADDER or at_middle == RoomData.KIND_LADDER_SIDE, room.kind_at_pixel(feet.x, feet.y + 1.0) != RoomData.KIND_EMPTY)
 	room.start = feet
-	_place_enemies()   # the view has moved to where he arrived
+	_place_camera()
+	_place_enemies()   # the room comes up around the screen the door gives
+	_boss_camera_x = _view_corner().x
+	(turtle.get_node("Camera2D") as Camera2D).reset_smoothing()
+
+## Stands the big turtle with his middle at `centre`, the screen centred on
+## him as far as the room allows (study keys, tests; a door uses _arrive).
+## He is put exactly there: the original never lifts him out of a floor.
+func _place_turtle(centre: Vector2) -> void:
+	var feet := centre + Vector2(0, RoomData.CENTRE_TO_FEET)
+	turtle.position = feet
+	turtle.speed = Vector2i.ZERO
+	var at_middle := room.kind_at_pixel(centre.x, centre.y)
+	if (at_middle == RoomData.KIND_LADDER or at_middle == RoomData.KIND_LADDER_SIDE) and not room.solid_at(feet.x, feet.y + 1.0):
+		turtle.arrive(true, false)   # he hangs on a ladder
+		turtle.hold_updates = 0
+	room.start = feet
+	_place_enemies()   # the view has moved to where he is
 	(turtle.get_node("Camera2D") as Camera2D).reset_smoothing()
 
 ## Goes through a door as the player sees it in the original (measured,

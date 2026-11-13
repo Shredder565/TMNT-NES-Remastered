@@ -58,6 +58,11 @@ const T_ENCOUNTERS := 0x9E6D      ## per world -> per area: list of (row, column
 const T_ENCOUNTER_LINEUPS := 0x9E5F ## per $Fn code: the line-up that entry's kind comes from
 const T_POINTS := 0x9C03          ## per bits 3 to 6 of a slot byte: points, two bytes of decimal digits, in tens
 const ENCOUNTER_BYTES := 5
+## Things that lie or stand at fixed places (bank 4): items, and in later
+## worlds obstacles. Per world -> per area: 8-byte entries ending in $FF:
+## screen, X from and to, Y from and to, kind, a number, flags.
+const T_FIXED_THINGS := 0xACCD
+const FIXED_THING_BYTES := 8
 ## Hit boxes (bank 6): a list of (half width, half height) pairs, and four
 ## tables giving the pair to use for each animation number.
 const T_BOX_SIZES := 0x8A43
@@ -195,8 +200,24 @@ func room(world: int, area: int) -> RoomData:
 	data.entry_lineup = _byte(7, pages + area * 2 + 1)
 	data.enemy_spots = _enemy_spots(_word(6, _word(6, T_ENEMY_SPOTS + world * 2) + area * 2), data, lineups, data.entry_lineup)
 	data.encounters = _encounters(_word(6, _word(6, T_ENCOUNTERS + world * 2) + area * 2), data.entry_lineup)
+	data.fixed_things = fixed_things(world, area, data)
 	data.start = data.find_spawn()
 	return data
+
+## The things the room has at fixed places (bank 4, $AB94; Research/
+## items_and_hits.md): each as [kind, where in the room, its number].
+## Kinds below $10 are the items to pick up.
+func fixed_things(world: int, area: int, data: RoomData) -> Array:
+	var found := []
+	var address := _word(4, _word(4, T_FIXED_THINGS + world * 2) + area * 2)
+	if address < 0x8000 or address >= 0xC000:
+		return found
+	while _byte(4, address) != 0xFF and found.size() < 64:
+		var screen := _byte(4, address)
+		var corner := Vector2((screen % data.screens_wide) * data.screen_size.x, (screen / data.screens_wide) * data.screen_size.y)
+		found.append([_byte(4, address + 5), corner + Vector2(_byte(4, address + 1), _byte(4, address + 3)), _byte(4, address + 6)])
+		address += FIXED_THING_BYTES
+	return found
 
 ## The things that appear when the camera reaches a place in the room
 ## (Research/encounters.md). Bosses carry a code naming their own line-up;

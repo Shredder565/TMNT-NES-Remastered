@@ -55,6 +55,12 @@ static var levels: RomLevels
 ## loop for as long as each frame has time to spare). In play the remake
 ## rolls its own; a side-by-side run sets `chance_byte` from the recording.
 static var chance_byte := -1
+## What the map before this one left in the original's cell memory under a
+## one-screen room: four rows of sixteen cells (192 to 255 down; the last
+## row is also what lies just above the room), by column counted round
+## sixteen. Empty: the rows measured after the first manhole. The room
+## scene fills it when a room is entered from the overworld.
+static var left_over := PackedByteArray()
 static var _first_column := -1    ## the first of the sixteen map columns to hand; -1 = not tracked
 static var _screen_left := 0
 ## How far the screen scrolled in the turtle's last update (the original's
@@ -390,6 +396,8 @@ func kind_at(across: int, down: int) -> int:
 			# top, nothing in the 16 pixels just below the room.
 			y &= 255
 			if y >= SCREEN_ROWS_PIXELS:
+				if left_over.size() == 64:
+					return left_over[((y - SCREEN_ROWS_PIXELS) >> 4) * 16 + ((x >> 4) & 15)]
 				return RoomData.KIND_EMPTY if y < SCREEN_ROWS_PIXELS + CELL else KIND_LEFT_OVER
 	return room.kind_at(column * 2, (y >> 4) * 2)
 
