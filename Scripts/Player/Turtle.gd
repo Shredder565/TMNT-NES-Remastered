@@ -108,6 +108,8 @@ var _swing_rest := 0                   ## updates left in which a new swing cann
 ## $9761: the door sets a count of 7). His routine runs meanwhile: states
 ## change, gravity builds up.
 var hold_updates := 0
+var _swing_rooted := false             ## the swing going on is a downward one begun on the ground (the original's $D4)
+var _jump_held := false                ## jump has been down on every update of this jump so far
 var _crouch_ticks := 0                 ## updates he has been crouching
 var _crouched_before := false          ## was he crouching at the end of the update before this one
 var _spinning := false                 ## in the high part of a held jump: his box is the small one
@@ -453,13 +455,22 @@ func _control() -> void:
 	var direction := int(signf(Input.get_axis("move_left", "move_right")))
 	if _try_grab_ladder(int(signf(Input.get_axis("move_up", "move_down")))):
 		return
+	# A downward swing begun on the ground roots him (bank 4, $9D49 and the
+	# flag at $D4): while it lasts Left and Right do nothing at all, also
+	# after a throw has put him back on the ground with it still going on.
+	# One begun in the air, or with jump held, does not.
+	var rooted := _swing_rooted and (attack_tick >= 0 or _swing_lingers > 0) and on_floor()   # the swing's flag outlasts it by an update
+	if rooted:
+		direction = 0
 	if direction != 0:
 		facing = direction
 		art.scale.x = facing
 		weapon_hitbox.scale.x = facing
 
-	# Crouch: hold down on the ground. No walking while crouched.
-	_set_crouching(Input.is_action_pressed("move_down") and on_floor())
+	# Crouch: Down on the ground with neither Left nor Right: those come
+	# first in the original's routine, so Down with one of them walks
+	# (read from 4:$9D37, measured).
+	_set_crouching(Input.is_action_pressed("move_down") and (direction == 0 or rooted) and on_floor())
 
 	var walk := POWER_WALK_SPEED if power_ticks > 0 else WALK_SPEED
 	var taking_off := _jump_pressed and on_floor() and state != State.CROUCH
@@ -473,24 +484,38 @@ func _control() -> void:
 		speed.x = direction * walk
 
 	# The three jump heights of the original.
+	var pushed := false
 	if jump_tick >= 0:
 		jump_tick += 1
-		if jump_tick == SHORT_JUMP_TICK and not Input.is_action_pressed("jump"):
+		# The original keeps one flag for "jump still held" (bank 4, $A007):
+		# an update that finds the button up clears it for the rest of the
+		# jump, and pressing again does not bring it back. The cut at the
+		# fourth update and the push at the eighth both go by that flag.
+		_jump_held = _jump_held and Input.is_action_pressed("jump")
+		if jump_tick == SHORT_JUMP_TICK and not _jump_held:
 			speed.y = SHORT_JUMP_SPEED
-		elif jump_tick == BOOST_TICK and Input.is_action_pressed("jump"):
+		elif jump_tick == BOOST_TICK and _jump_held:
 			speed.y = BOOST_SPEED
 			# Only the high jump curls him into a ball (the original's state 8),
 			# and not if a swing is going on at this moment: he then keeps his
 			# full box for the rest of the jump (measured in three runs).
-			_spinning = attack_tick < 0
+			pushed = true
 	if taking_off:
+		_jump_held = true
 		speed.y = JUMP_SPEED
 		jump_tick = 0
 		_spinning = false
 
 	if _throw():
+		if pushed:
+			_spinning = attack_tick < 0
 		return
 	_swing()
+	# The original sees to the attack button before the jump's count in the
+	# same update (bank 4, $9FBC before $A007), so a swing begun on the very
+	# update of the second push also keeps him from curling up.
+	if pushed:
+		_spinning = attack_tick < 0
 
 ## A special weapon's throw: begins one, or runs the one going on. Returns
 ## true when the attack button is the throw's business this update. The
@@ -558,6 +583,7 @@ func _begin_swing() -> void:
 		# Its length: the first update, each frame's updates, and the last
 		# frame's worth at his middle (Leonardo: 2 updates a frame, so
 		# places * 2 + 3; the others' lists give 1 or 5 updates a frame).
+		_swing_rooted = attack_direction == 2 and on_floor() and not Input.is_action_pressed("jump")
 		var swing: Dictionary = weapon_swings[attack_direction]
 		attack_length = (swing.places.size() + 2) * int(swing.get("updates", 2)) - 1
 		_set_attacking(true)
@@ -747,8 +773,12 @@ func _lands_on(x: float, feet: float) -> bool:
 	var kind := _feel(x, feet - 3.0)
 	if kind == RoomData.KIND_SOLID or kind == RoomData.KIND_MOVING_FLOOR or kind == RoomData.KIND_MOVING_FLOOR_LEFT or kind == RoomData.KIND_DEADLY:
 		return true
-	return room.is_ladder_cell(floori(x / RoomData.TILE), floori((feet - 3.0) / RoomData.TILE)) \
-		and not room.is_ladder_cell(floori(x / RoomData.TILE), floori((feet - 13.0) / RoomData.TILE))
+	# A ladder's top, looked up the way every other point is (by cells in a
+	# ROM room: a lone ladder tile that is not a cell's top-left one is not
+	# there for him; measured in the last room).
+	var above := room.kind_at_pixel(x, feet - 13.0)
+	return (kind == RoomData.KIND_LADDER or kind == RoomData.KIND_LADDER_TOP) \
+		and above != RoomData.KIND_LADDER and above != RoomData.KIND_LADDER_TOP
 
 ## True when he stands on something. (Godot's is_on_floor only knows about
 ## its own collision, which the ROM rooms do not use for him.)
