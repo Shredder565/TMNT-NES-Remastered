@@ -54,6 +54,7 @@ const T_SPECIAL_SPEAKER := 0xAEC6
 const T_CAUGHT_NAMES := 0xB47D     ## per turtle: his name, for "<name> GOT CAUGHT. WHO FIGHTS NEXT?"
 const T_CAUGHT_WORDS := 0xB4AE     ## the rest of that message: for most names, and for the long one
 const LONG_NAME_TURTLE := 2        ## Michelangelo's name fills the line, so the rest starts on the next
+const T_EVENT_MESSAGES := 0xB4ED   ## per world: what is said when the world's last boss has been beaten
 const T_PORTRAITS := 0xB43F        ## per speaker: the tiles of the face
 const T_ENDINGS := 0xB412          ## per speaker: the closing words
 const MESSAGE_START := 0x2223
@@ -357,6 +358,12 @@ func caught_message(world: int, turtle: int) -> Dictionary:
 ## Where the shared words after the name begin.
 func caught_words_address(turtle: int) -> int:
 	return word_at(3, T_CAUGHT_WORDS + (2 if turtle == LONG_NAME_TURTLE else 0))
+
+## The message after a world's last boss is beaten (code 3:$AE5B): the
+## world's entry in the table at 3:$B4ED. April says it, except in the
+## third world, where Splinter does.
+func event_message(world: int) -> Dictionary:
+	return { "speaker": 0 if world == 2 else 1, "address": word_at(3, T_EVENT_MESSAGES + world * 2) }
 
 ## The speaker's face, as writes.
 func portrait_writes(speaker: int) -> Array:

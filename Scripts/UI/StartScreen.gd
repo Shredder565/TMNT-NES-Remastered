@@ -12,6 +12,7 @@ extends CanvasLayer
 
 signal turtle_chosen(turtle: int)   ## Start was pressed: this turtle carries on
 signal closed                       ## the game is running again
+signal event_finished               ## the message after an event has been typed out (see `event`)
 
 const NAMES := ["LEO", "RAPH", "MIKE", "DON"]
 const PLACEHOLDER_COLOURS := [Color(0.2, 0.45, 1.0), Color(0.9, 0.2, 0.2), Color(1.0, 0.6, 0.1), Color(0.65, 0.3, 0.9)]
@@ -19,6 +20,11 @@ const FULL_ENERGY := 128
 ## Measured in the original, in frames:
 const BUILD_FRAMES := 10            ## Start to the finished screen
 const TYPE_FRAMES := 4              ## one letter of the message
+## After a world's last boss (Research/world_end.md, measured): the screen
+## comes up by itself after 4 dark frames, types at half the speed, takes
+## no buttons, has no marker, and ends a frame after the message does.
+const EVENT_BUILD_FRAMES := 5
+const EVENT_TYPE_FRAMES := 8
 const LEAVE_FRAMES_OVERWORLD := 34  ## Start to the map being back on show
 const LEAVE_FRAMES_ROOM := 26
 const HOLD_FRAMES := 16             ## the game then stands still this long
@@ -50,6 +56,7 @@ var _marker := Sprite2D.new()
 var _marker_looks: Array[ImageTexture] = []
 var _plain := Control.new()         ## the no-ROM version
 var _black := ColorRect.new()
+var _edge := ColorRect.new()        ## the right 8 pixels, dark while an event's screen is up (the room's edge sprites are still there)
 var _dirty := {}                    ## cells to repaint: row * 32 + column
 var _speaker := 0
 var _text_address := 0              ## where the message being typed is in the ROM
@@ -57,6 +64,8 @@ var _text_index := 0
 var _text_place := 0
 var _captured := 0
 var caught := -1                    ## the turtle just captured, when the screen was forced open by that; else -1
+var _event_over := false            ## the event's message has ended: one more frame on show
+var event := false                  ## the screen was put up by the game to say something (a world's end), not by Start
 
 func _init() -> void:
 	layer = 20
@@ -68,6 +77,11 @@ func _init() -> void:
 	add_child(_picture)
 	_marker.centered = false
 	add_child(_marker)
+	_edge.color = Color.BLACK
+	_edge.position = Vector2(248, 2)
+	_edge.size = Vector2(8, 238)
+	_edge.visible = false
+	add_child(_edge)
 	_plain.size = Vector2(256, 240)
 	_plain.draw.connect(_draw_plain)
 	add_child(_plain)
@@ -93,9 +107,12 @@ func is_open() -> bool:
 ## it), energies (four numbers, 0 to 128), turtle (who is playing),
 ## weapons and counts (each turtle's special weapon and how many),
 ## missiles, ropes, sprite_colours (the map's last two sprite colour groups)
-## and pick (which message, 0 to 3; left out, it is chosen at random).
+## and pick (which message, 0 to 3; left out, it is chosen at random);
+## event (true: the world's "after the boss" message, with no buttons).
 func open(about: Dictionary = {}) -> void:
 	world = int(about.get("world", 0))
+	event = bool(about.get("event", false))
+	_event_over = false
 	inside = bool(about.get("inside", false))
 	caught = int(about.get("caught", -1))
 	energies = (about.get("energies", energies) as Array).duplicate()
@@ -116,6 +133,7 @@ func open(about: Dictionary = {}) -> void:
 	_picture.visible = false
 	_marker.visible = false
 	_plain.visible = false
+	_edge.visible = false
 	_black.visible = true
 
 ## Puts the whole screen together in memory; it is shown BUILD_FRAMES later.
@@ -133,6 +151,8 @@ func _build(about: Dictionary) -> void:
 	var message := data.choose_message(world, int(about.get("area", 0)), inside, bool(about.get("held_fight", false)), _captured > 0, pick)
 	if caught >= 0:
 		message = data.caught_message(world, caught)
+	if event:
+		message = data.event_message(world)
 	_speaker = message.speaker
 	_text_address = message.address
 	_text_index = 0
@@ -165,7 +185,7 @@ func _first_fit(from: int, step: int) -> int:
 
 ## Up (-1) or Down (+1): the next turtle that way who is not captured.
 func move_selection(step: int) -> void:
-	if phase != Phase.SHOWN:
+	if phase != Phase.SHOWN or event:
 		return
 	var next := _first_fit(selected + step, step)
 	if next == selected:
@@ -192,7 +212,7 @@ func _light_row(turtle: int) -> void:
 
 ## Start: go back to the game with the chosen turtle.
 func request_close() -> void:
-	if phase != Phase.SHOWN:
+	if phase != Phase.SHOWN or event:
 		return
 	phase = Phase.LEAVING
 	_frames = 0
@@ -205,7 +225,7 @@ func request_close() -> void:
 func _physics_process(_delta: float) -> void:
 	if phase == Phase.SHUT:
 		return
-	if phase == Phase.SHOWN:
+	if phase == Phase.SHOWN and not event:
 		if Input.is_action_just_pressed("pause"):
 			request_close()
 		elif Input.is_action_just_pressed("move_down"):
@@ -220,12 +240,13 @@ func tick() -> void:
 	_clock += 1
 	match phase:
 		Phase.BUILDING:
-			if _frames >= BUILD_FRAMES:
+			if _frames >= (EVENT_BUILD_FRAMES if event else BUILD_FRAMES):
 				phase = Phase.SHOWN
 				_frames = 0
 				_black.visible = data == null
 				_picture.visible = data != null
-				_marker.visible = data != null and world < 5
+				_marker.visible = data != null and world < 5 and not event
+				_edge.visible = data != null and event
 				_plain.visible = data == null
 				if data != null:
 					_write(data.portrait_writes(_speaker))
@@ -235,9 +256,13 @@ func tick() -> void:
 		Phase.SHOWN:
 			if data != null:
 				_marker.texture = _marker_looks[_clock & 3]
-				if not message_done and _frames % TYPE_FRAMES == 0:
+				if not message_done and _frames % (EVENT_TYPE_FRAMES if event else TYPE_FRAMES) == 0:
 					_type_one()
 					_refresh()
+			if event and (message_done or data == null):
+				if _event_over:
+					_end_event()
+				_event_over = true
 		Phase.LEAVING:
 			if _frames >= (LEAVE_FRAMES_ROOM if inside else LEAVE_FRAMES_OVERWORLD):
 				phase = Phase.HOLDING
@@ -249,6 +274,16 @@ func tick() -> void:
 				if pause_game and is_inside_tree():
 					get_tree().paused = false
 				closed.emit()
+
+## The event's message is done: the screen goes and the game takes over
+## again at once (the original starts the next world on the next frame).
+func _end_event() -> void:
+	phase = Phase.SHUT
+	visible = false
+	event = false
+	if pause_game and is_inside_tree():
+		get_tree().paused = false
+	event_finished.emit()
 
 ## Types the next letter of the message, or obeys the next mark in it.
 ## Marks: $F7 and $F8 start the second and third line, $FA adds an S when
@@ -357,7 +392,7 @@ func snapshot() -> Image:
 		_paint_cell(index)
 	_dirty.clear()
 	var copy: Image = _image.duplicate()
-	if world < 5 and not _marker_looks.is_empty():
+	if world < 5 and not event and not _marker_looks.is_empty():
 		var look := _marker_looks[_clock & 3].get_image()
 		copy.blend_rect(look, Rect2i(0, 0, 8, 16), marker_at)
 	return copy

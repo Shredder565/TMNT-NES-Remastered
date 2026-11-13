@@ -91,9 +91,18 @@ steps; negative is behind him).
 | Michelangelo | -14 to 40 | -22 to 40 | -14 to 32 |
 | Donatello | -24 to 56 | -10 to 24 | -8 to 22 |
 
-The remake's forward swings hit and miss at the same edges for all four
-(tested at the two edges and 2 pixels beyond each). The up and down
-ranges are recorded here but not tested in the remake.
+The remake's swings hit and miss at the same edges for all four turtles
+and all three swings (tested at the two edges and 2 pixels beyond each),
+with one exception found on 12 November 2026. Raphael's crouching swing
+at its far edge (30 ahead): in the original the soldier is hit when its
+place is level with the turtle's middle or anything up to 32 lower, and
+missed when 2 higher; in the remake it is missed when level. So the
+remake's box for that swing is 2 or 3 pixels lower at that step than
+the original's. His forward swing agrees (hit from 12 higher down). The
+test sweeps his crouching swing with the soldier 4 lower, where the
+original's edges are the same (-10 to 30, measured) and both agree. The
+other three turtles' boxes are tall enough not to show it. Not fixed
+here: the swing's box belongs to the turtle's owner.
 
 ## In the remake
 

@@ -298,6 +298,18 @@ func _update_art() -> void:
 			_weapon_picture.position = place + weapon_sprites.offsets[weapon] + Vector2(0, -SPRITE_FEET_BELOW)
 			_weapon_picture.visible = true
 
+## Shows one named picture of his sprite map, facing the given way, for a
+## scene that moves him itself (the walk to April at the end of world 1).
+func pose(frame: String, new_facing: int) -> void:
+	facing = new_facing
+	art.scale.x = facing
+	weapon_hitbox.scale.x = facing
+	_weapon_picture.visible = false
+	if sprites != null and sprites.textures.has(frame):
+		rom_sprite.texture = sprites.textures[frame]
+		rom_sprite.position = sprites.offsets[frame]
+		rom_sprite.visible = true
+
 ## On a ladder, by the original's rules (bank 4, $A24D; checked in the
 ## emulator). Points are from his feet, at his middle unless said.
 ## - Left or right: if the three points 9 pixels to that side (32, 20 and

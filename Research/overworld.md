@@ -78,10 +78,8 @@ camera (16, 176), turtle at (128, 120) on it).
 
 The remake keeps this as a number (`RoomScene.overworld_screen`), which
 matched the original's camera on every frame of all four enemy
-recordings. It is used for the enemies. What the remake shows is still
-its own centred view with the HUD strip below it, which is not how the
-original lays the overworld out (its HUD overlaps the map); that was not
-part of this work.
+recordings. It is used for the enemies and, since the fifth pass, it is
+also what the remake shows: all 240 lines, as the original (`hud.md`).
 
 ## Enemies coming and going (measured; code 5:$8077)
 
@@ -323,8 +321,39 @@ room and 1 on the overworld. In a room he arrives hanging on the ladder
 where the door leaves him on one, as before. The study keys (F3, F4, F7)
 still change maps at once.
 
-Not looked at: doors between two rooms, and doorways that are not
-ladders (assumed the same); sounds.
+### Doorways that are not ladders, and doors between rooms (added 12 November 2026, fifth pass; measured)
+
+Three more recordings, frame by frame as above
+(`Research/cynes/door_looks_checks.py`):
+
+| Door | Black | Picture drawn in | Hold | Turtle first drawn |
+|---|---|---|---|---|
+| Overworld, the building at (424, 288) in world 1, into room 4 | 2 frames after the step | 24 rows, one a frame | 16 frames | standing (animation $80, picture 9): his picture number is set 3 frames after the hold and he is drawn the frame after, 46 frames after the step (the room's enemies are drawn 2 frames before him) |
+| Room 4's doorway, Up, out to the overworld | 2 frames after | 30 rows over 32 frames | 16 frames | the frame after the hold (picture 145); 51 frames after |
+| World 5, room 5's doorway, Up, into room 2 (room to room) | 2 frames after | 24 rows | 16 frames | standing, drawn 45 frames after the step |
+
+So all doors are shown the same way, and the only thing that depends on
+the door is how he arrives: hanging on a ladder he is drawn 7 frames
+after the hold (he passes through two ladder states first), standing he
+is drawn 3 or 4 frames after. A doorway in a room shows his state as $0D for
+one frame before the change, with no picture of him going in.
+
+Two more things seen in all of them:
+
+- While the picture is drawn in and held there are no sprites at all
+  and the strip under a room is empty. After he appears the strip is
+  written back a part at a time, every eighth frame (the score first):
+  it is whole 7 to 12 frames after he is drawn. On the overworld the
+  energy sprites come back with him.
+- In room 4 something hurt him again and again where he stood, and Up
+  did nothing while he was being hurt.
+
+In the remake: `RoomScene.wipe_appear_frames()` gives 7 on a ladder and
+4 standing; the strip and the energy sprites are hidden while a door's
+wipe runs and come back, whole, with the turtle. Where he and the
+screen are put after each door is not part of this.
+
+Not looked at: sounds.
 
 ## Still different from the original
 
@@ -336,9 +365,6 @@ ladders (assumed the same); sounds.
 - No sounds.
 - Kind 9C (it chases the turtle, code 5:$87F8) and kinds 42 and AC stand
   still. None is placed in world 1.
-- The remake's view of the overworld is centred on the turtle with the
-  HUD below; the original's is 240 lines tall, scrolls by the marks
-  above and has its HUD over the map.
 - The rollers' faster speeds are in, but nothing drives a van yet.
 - Whether a roller comes in facing left when the turtle is to its left
   was not seen (guess: it faces him, like the soldier).

@@ -18,9 +18,9 @@ func moved_to(where: Vector2) -> EnemySpot:
 	var copy := EnemySpot.new()
 	copy.position = where
 	copy.slot = slot
+	copy.points = points
 	copy.kinds = kinds
 	copy.kind = kind
-	copy.points = points
 	copy.hit_points = hit_points
 	copy.first_animation = first_animation
 	copy.touch_damage = touch_damage

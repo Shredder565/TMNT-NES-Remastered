@@ -35,6 +35,7 @@ var tiles := PackedInt32Array()        ## tile number per cell, -1 = nothing the
 var attrs := PackedByteArray()         ## colour group (0-3) per cell
 var kinds := PackedByteArray()         ## cell kind per cell
 var start := Vector2(40, 96)           ## where the turtle's feet begin
+var start_camera := Vector2.INF        ## an overworld: the screen's corner when the world begins (the ROM's), if known
 var top_down := false                  ## true for an overworld map
 var screens_wide := 1                  ## how many screens across the map is
 var screen_size := Vector2i(256, 192)  ## one screen in pixels (256 x 256 on the overworld)

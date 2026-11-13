@@ -38,6 +38,7 @@ const T_PALETTE_IDS := 0xD63B   ## per world -> per area: palette number
 const T_OW_GRAPHICS_PAGES := 0xD5C8 ## per world: the overworld's background page
 const T_OW_PALETTE_IDS := 0xD636    ## per world: the overworld's palette number
 const T_OW_START := 0xD679      ## per world: camera position when the world begins
+const T_OW_START_ON_SCREEN := 0xD73D ## per world: where the turtle stands on that screen (across, down)
 const T_PALETTES := 0xF796      ## per palette number: colour list ending in $FE
 const T_TILE_KINDS := 0xFC93    ## per graphics page (minus 13): (last tile, kind) pairs
 const T_DOORS := 0xE84F         ## 7 pointers: each world's rooms, then the overworlds
@@ -265,9 +266,17 @@ func overworld(world: int) -> RoomData:
 	data.doors = _door_list(_word(7, T_DOORS + DOOR_LISTS_OVERWORLD * 2), world, data)
 	data.enemy_spots = _enemy_spots(_word(6, T_OW_ENEMY_SPOTS + world * 2), data,
 		PackedInt32Array([OVERWORLD_LINEUP, OVERWORLD_LINEUP, OVERWORLD_LINEUP, OVERWORLD_LINEUP]), OVERWORLD_LINEUP)
-	# The table holds the camera's corner; the turtle stands mid-screen.
+	# One table holds the screen's corner when the world begins, another
+	# where the turtle stands on that screen (bank 4, $96B8; measured for
+	# all five worlds). World 1 is the odd one: there he was measured 16
+	# further right than the tables say, at 144 across the screen.
 	var camera := Vector2(_word(7, T_OW_START + world * 4), _word(7, T_OW_START + world * 4 + 2))
-	data.start = data.nearest_walkable(camera + Vector2(128, 120))
+	var on_screen := Vector2(_byte(7, T_OW_START_ON_SCREEN + world * 2), _byte(7, T_OW_START_ON_SCREEN + world * 2 + 1))
+	if world == 0:
+		data.start = data.nearest_walkable(camera + Vector2(128, 120))
+	else:
+		data.start = camera + on_screen
+		data.start_camera = camera
 	return data
 
 ## Lays a map's screens, blocks and tiles out into the room's cells.
@@ -370,6 +379,7 @@ func _enemy_spots(screen_table: int, data: RoomData, lineups: PackedInt32Array, 
 				spot.kinds = PackedInt32Array([third, third, third, third])
 			else:
 				spot.slot = third & 7
+				spot.points = points_for(third)
 				for lineup in lineups:
 					spot.kinds.append(_kind_in_slot(lineup, spot.slot))
 				spot.points = points_for(third)
@@ -397,6 +407,8 @@ func spot_in_lineup(spot: EnemySpot, lineup: int) -> EnemySpot:
 ## What beating an enemy is worth, from its place's slot byte (bank 6,
 ## $9BDF): bits 3 to 6 pick two bytes of decimal digits, counted in tens.
 func points_for(slot_byte: int) -> int:
+	if slot_byte == 0:
+		return 0   # an object whose slot byte is 0 gives nothing
 	var index := (slot_byte & 0x78) >> 2
 	var low := _byte(6, T_POINTS + index)
 	var high := _byte(6, T_POINTS + index + 1)
