@@ -336,8 +336,11 @@ func _ready() -> void:
 	technodrome_cave = randi_range(2, 4)
 	if start_on_overworld and levels != null and levels.has_overworld(world):
 		load_overworld(world)
+		if Game.draw_first_world_in and door_wipe:
+			_start_wipe(true)   # from the title: black, then the map drawn in, as when any world begins
 	else:
 		load_area(world, area)
+	Game.draw_first_world_in = false
 
 func load_area(new_world: int, new_area: int) -> void:
 	world = new_world
