@@ -15,11 +15,8 @@ were followed in the ROM.
 
 ## Left of piece 3 (the lake's things)
 
-- **Object kinds 1F, 20, 21, 22** (table kinds 13 to 16; made by
-  4:$B786 to $B792 with animations 59, 5B, 5D, 5F, hit points FF; their
-  routine is 5:$8E79 for all four by the table at 5:$823B; box table
-  gives 5 x 16 for those animations). One on the first screen is a
-  zigzag line from ceiling to floor at about 130 across. Not read.
+- (Done since: the lines that switch on and off, object kinds 1F to 26:
+  `lake.md`. 6 runs, 4342 frames.)
 - **Table kind 12**: 4:$B715 clears object slots 5 up and makes seven
   objects (kind 1B at the place with animation 57; 1C, 1D, 1E above at
   -20, -36, -52 and below at +18, +34, +50 with animation 58; flags C9,

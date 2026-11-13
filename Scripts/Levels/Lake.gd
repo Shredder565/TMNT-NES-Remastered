@@ -28,6 +28,23 @@ const BOMB_PICTURES := [0x8A, 0x8B]   ## his two pictures at a bomb, 4 calls eac
 const TIME_UP_CALLS := 50      ## the flashing when the clock has run out
 const FLASH_COLOUR := Color(0.85, 0.2, 0.5)   ## stands in for the original's all-one-colour palette ($15)
 
+## The lines that switch on and off (table kinds 13 to 16; bank 5, $8E79
+## and $8E9B): off while the frame counter is under $50, on for the rest
+## of its 256. Per table kind: the object kind while on, its animation
+## then, the picture when off, the picture when on, the stand-in box.
+const LINES := {
+	0x13: [0x23, 0x5A, 0x9B, 0x94, Vector2i(2, 32)],
+	0x14: [0x24, 0x5C, 0x9C, 0x96, Vector2i(2, 40)],
+	0x15: [0x25, 0x5E, 0x9D, 0x98, Vector2i(2, 48)],
+	0x16: [0x26, 0x60, 0x9E, 0x9A, Vector2i(2, 64)],
+}
+const LINE_ON_FROM := 0x50     ## the frame counter's value from which a line is on
+const LINE_DAMAGE := 16        ## what its touch costs (stand-in for the ROM's table)
+const LINE_BLANK_EVERY := 4    ## switched on, its picture is blank for one update in four (measured)
+
+var lines: Array = []          ## each: { kind (the table's), at, picture (Sprite2D), half, damage, on, updates }
+var _lines_set: SpriteSet
+
 var scene: Node                ## the room scene
 var turtle: Turtle
 var things: Array = []         ## the room's fixed things: [kind, place, number, far corner, flags]
@@ -43,6 +60,7 @@ var _time_up_calls := -1
 var _live: SpriteSet
 var _off: SpriteSet
 var bomb_half := BOMB_BOX
+var lines_live := true         ## false: the lines are drawn but do not hurt (comparisons made without them)
 
 func setup(room_scene: Node, the_turtle: Turtle, fixed_things: Array, done: int) -> void:
 	scene = room_scene
@@ -57,8 +75,53 @@ func setup(room_scene: Node, the_turtle: Turtle, fixed_things: Array, done: int)
 			picture.centered = false
 			add_child(picture)
 			bombs[int(thing[0])] = picture
+	_lines_set = SpriteSet.cached("LakeLines")
+	var levels: RomLevels = room_scene.levels
+	for thing: Array in things:
+		if LINES.has(int(thing[0])):
+			var data: Array = LINES[int(thing[0])]
+			var picture := Sprite2D.new()
+			picture.centered = false
+			add_child(picture)
+			var half: Vector2i = data[4]
+			var damage := LINE_DAMAGE
+			if levels != null:
+				half = levels.box_half_size(data[0], data[1])
+				damage = levels.touch_damage(data[0])
+			lines.append({ "kind": int(thing[0]), "at": Vector2((thing[3] as Vector2).x, (thing[1] as Vector2).y), "picture": picture, "half": half, "damage": damage, "on": false, "updates": 0 })
 	turtle.swim_clock = clock_update
 	_show_bombs()
+	_step_lines(Vector2(-10000, -10000), false)
+
+## The lines, once an update: each switches by the frame counter; one that
+## is on, in hand and touching him hurts him (the usual box test, with a
+## box that reaches as far below the line's place as above it: bank 6,
+## $9B90, kinds 23 to 26).
+func _step_lines(corner: Vector2, touch: bool) -> void:
+	var on := OriginalEnemy.counter() >= LINE_ON_FROM
+	var his := turtle.touch_box()
+	for line: Dictionary in lines:
+		line.updates = line.updates + 1 if on and line.on else 0
+		line.on = on
+		var data: Array = LINES[line.kind]
+		var picture: Sprite2D = line.picture
+		var frame := "f%d" % (data[3] if on else data[2])
+		picture.visible = _lines_set != null and _lines_set.textures.has(frame) and not (on and line.updates % LINE_BLANK_EVERY == 0)
+		if picture.visible:
+			picture.texture = _lines_set.textures[frame]
+			picture.position = (line.at as Vector2) + _lines_set.offsets[frame]
+		if not touch or not on or turtle.state != Turtle.State.SWIM:
+			continue
+		var at: Vector2 = line.at
+		if floori(at.y / 192.0) != floori(corner.y / 192.0) or at.x < corner.x + IN_HAND_LEFT or at.x > corner.x + IN_HAND_RIGHT:
+			continue
+		var half: Vector2i = line.half
+		var x := int(at.x)
+		var y := int(at.y)
+		var across := x + half.x >= his[0] - his[2] if x < his[0] else x - half.x < his[0] + his[2]
+		var down := y + half.y >= his[1] - his[3] if y < his[1] else y - half.y < his[1] + his[3]
+		if across and down:
+			turtle.take_damage(line.damage)
 
 static func bomb_bit(kind: int) -> int:
 	return 1 << (kind - KIND_BOMB_FIRST)
@@ -155,6 +218,7 @@ func frame(enemies_frame: bool, corner: Vector2) -> bool:
 		return true
 	if not enemies_frame or turtle.state != Turtle.State.SWIM:
 		return false
+	_step_lines(corner, lines_live)
 	turtle.swim_current = current_for(corner, floori(turtle.screen_x))
 	var kind := bomb_touched()
 	if kind >= 0 and turtle.health > 0:

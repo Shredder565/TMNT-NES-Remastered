@@ -11,12 +11,14 @@ const BUTTONS := { 1: "move_right", 2: "move_left", 4: "move_down", 8: "move_up"
 var dump_from := -1
 var dump_to := -1
 var live_lake := false
+var args_file := ""
 
 func _ready() -> void:
 	var args := OS.get_cmdline_user_args()
 	var data: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(args[0]))
 	var only := args[1] if args.size() > 1 else "all"
 	live_lake = args[0].contains("lake")
+	args_file = args[0]
 	if args.size() > 2:
 		dump_from = int(args[2].split("-")[0])
 		dump_to = int(args[2].split("-")[1])
@@ -81,6 +83,7 @@ func _run(scene, name: String, rows: Array) -> Array:
 	leo.swim_left = int(row[28])
 	leo.hold_updates = 0
 	if live_lake:
+		scene.lake.lines_live = args_file.contains("lines")   # the other lake recordings were made without them
 		scene.lake.seconds = int(row[19])
 		scene.lake.count = int(row[20])
 		scene.lake.disarmed = int(row[32])
@@ -88,9 +91,14 @@ func _run(scene, name: String, rows: Array) -> Array:
 		scene.lake.owner_number = int(row[33])
 		leo.swim_current = int(row[16])
 	leo._frame = 1                      # the next frame is his update
+	OriginalEnemy.frame_counter = -1
+	OriginalEnemy.pace_maker = leo
+	OriginalEnemy.counter_offset = (int(row[0]) - 1) & 255
 	leo._jump_pressed = false
 	var counts := [0, 0, 0, 0, 0, 0, 0]
 	var first := ["", "", "", "", "", ""]
+	var counter_ok := 0
+	var counter_first := -1
 	var previous := int(row[0])
 	var refill := false
 	for f in range(start + 1, rows.size()):
@@ -104,7 +112,7 @@ func _run(scene, name: String, rows: Array) -> Array:
 					Input.action_press(BUTTONS[bit])
 				else:
 					Input.action_release(BUTTONS[bit])
-			if refill and not name in ["weed_shaft"]:
+			if refill and not name in ["weed_shaft"] and not args_file.contains("lines"):
 				leo.health = 128       # the recorder fills his energy before every frame
 			await get_tree().physics_frame
 			await get_tree().process_frame
@@ -123,6 +131,11 @@ func _run(scene, name: String, rows: Array) -> Array:
 			int(row[15]) == leo.health,
 			not live_lake or (int(row[16]) == leo.swim_current and int(row[19]) == scene.lake.seconds and int(row[20]) == scene.lake.count and int(row[32]) == scene.lake.disarmed),
 		]
+		if OriginalEnemy.counter() == int(row[0]):
+			counter_ok += 1
+		elif counter_first < 0:
+			counter_first = f
+			print("  frame counter first differs at frame %d: remake %d original %d" % [f, OriginalEnemy.counter(), int(row[0])])
 		for i in checks.size():
 			if checks[i]:
 				counts[i + 1] += 1
@@ -133,4 +146,5 @@ func _run(scene, name: String, rows: Array) -> Array:
 			if live_lake:
 				print("      orig current %02X clock %d %d bombs %02X scene %02X | remake %02X clock %d %d bombs %02X" % [int(row[16]), int(row[19]), int(row[20]), int(row[32]), int(row[31]), leo.swim_current, scene.lake.seconds, scene.lake.count, scene.lake.disarmed])
 	print("%s: %d frames; place %d, speeds %d, animation and picture %d, facing %d, energy %d, lake %d; first differences: %s" % [name, counts[0], counts[1], counts[2], counts[3], counts[4], counts[5], counts[6], str(first)])
+	print("  frame counter agrees on %d" % counter_ok)
 	return counts

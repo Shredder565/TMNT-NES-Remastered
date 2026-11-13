@@ -1742,6 +1742,7 @@ func _on_swim_row_wanted(way: int) -> void:
 ## up he is then put 2 higher, and the current he was in is forgotten);
 ## and he lies still for two updates after that.
 func _step_swim_row_change() -> void:
+	OriginalEnemy.counter_offset += 1   # the original's frame counter runs on while he is held
 	var scroll_steps := VIEW_SIZE.y / ROW_SCROLL
 	if _row_frame % Turtle.TICK_FRAMES != 0:
 		# His picture's count goes down on the frames between and is put up
@@ -2114,6 +2115,7 @@ func _physics_process(_delta: float) -> void:
 		lake_disarmed = lake.disarmed
 		hud_strip.show_clock(lake.seconds, (turtle._frame & 8) == 0)
 		if held:
+			OriginalEnemy.counter_offset += 1   # the frame counter runs on through the lake's scenes
 			_place_camera()
 			return
 	_check_row()

@@ -117,14 +117,40 @@ speeds, facing and energy agree on all 7679; the current he is in, the
 clock (seconds and count) and the bombs' bits on all 7679; animation
 and picture on 7677 (two frames at the bomb).
 
+## The lines that switch on and off (code 5:$8E79, $8E9B, 6:$9B90; measured)
+
+Table kinds 13, 14, 15, 16 make an object of kind 1F, 20, 21 or 22
+(4:$B786): two end pieces, one above and one below its place, and
+nothing between. Their routine (5:$8E79): once the frame counter is $50
+or more the object becomes kind 23, 24, 25 or 26 with animation 5A, 5C,
+5E or 60: a zigzag line between the end pieces. That kind's routine
+(5:$8E9B) turns it back when the counter is under $50. So every line in
+the lake is off for the same 80 frames of every 256 and on for the
+other 176.
+
+- Touching: kinds 1F to 22 cost nothing (the touch table has 0); kinds
+  23 to 26 cost 16. The box is by animation: 2 each side and 32, 40, 48
+  or 64 up; and for kinds 23 to 26 (and 89) the box test takes the same
+  distance below the object's place as above it (6:$9B90, list at
+  6:$9BC6), where every other object's box ends 2 above its place.
+- Measured: switched on, the picture is blank for one update in four
+  (pictures 93 then 94 three times, and so on for the others).
+- Measured: a swimmer who touches one loses 16 and blinks for 24
+  updates; he is not thrown and his speeds do not change.
+- The lake has 6, 6, 3 and 4 of the four lengths.
+
+Compared: six runs with the lines live in both (the columns taken away,
+energy not refilled): 4342 frames; place, speeds, pictures, facing,
+current, clock all 4342; energy 4340 (in one run the remake's hurt
+comes 2 frames from the original's). The frame counter itself was
+checked to agree through a change of row and a disarming: the remake's
+counter now runs on while the turtle is held.
+
 ## Not done
 
-- The objects that hurt: table kinds 13 to 16 (object kinds 1F to 22,
-  routines at 5:$8E79: on the first screen one is a zigzag line from
-  ceiling to floor, measured in a picture) and kind 12 (a column of
-  seven objects of kinds 1B to 1E, routines 5:$8DE2 and $8DE5; stage
-  routine 4:$BAD0). Not read. **The remake's lake has no hazards but
-  the map's own weed and deadly cells.**
+- Table kind 12 (a column of seven objects of kinds 1B to 1E, 10 on
+  touch; routines 5:$8DE2 and $8DE5; stage routine 4:$BAD0). Not read,
+  not made: two places in the lake.
 - Table kind 1F: a list of palette changes every 6 updates (7:$FE78,
   list at 7:$FEC3: palettes $0C, $0D, $0E, $0E, $0D, $0C). Not made.
 - Scene 7's screens. The flashing of scene 5 is one tint, not the

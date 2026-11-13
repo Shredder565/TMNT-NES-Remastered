@@ -1,0 +1,285 @@
+{
+ "about": "Which ROM tiles make up the lines in world 2's lake that switch on and off (object kinds 1F to 22 off, 23 to 26 on), taken from the game's sprite table; frame 'f163' is picture $A3. Tile numbers and positions only; no graphics. Positions are in pixels from the object's own position value.",
+ "tile_height": 16,
+ "palettes": {
+  "1": [
+   15,
+   6,
+   23,
+   55
+  ],
+  "3": [
+   15,
+   15,
+   18,
+   42
+  ]
+ },
+ "animations": {},
+ "frames": {
+  "f155": [
+   {
+    "x": -4,
+    "y": -32,
+    "index": 4468,
+    "palette": 3,
+    "flip_h": true,
+    "flip_v": true
+   },
+   {
+    "x": -4,
+    "y": 16,
+    "index": 4468,
+    "palette": 3,
+    "flip_h": true,
+    "flip_v": false
+   }
+  ],
+  "f156": [
+   {
+    "x": -4,
+    "y": -40,
+    "index": 4468,
+    "palette": 3,
+    "flip_h": true,
+    "flip_v": true
+   },
+   {
+    "x": -4,
+    "y": 24,
+    "index": 4468,
+    "palette": 3,
+    "flip_h": true,
+    "flip_v": false
+   }
+  ],
+  "f157": [
+   {
+    "x": -4,
+    "y": -48,
+    "index": 4468,
+    "palette": 3,
+    "flip_h": true,
+    "flip_v": true
+   },
+   {
+    "x": -4,
+    "y": 32,
+    "index": 4468,
+    "palette": 3,
+    "flip_h": true,
+    "flip_v": false
+   }
+  ],
+  "f158": [
+   {
+    "x": -4,
+    "y": -64,
+    "index": 4468,
+    "palette": 3,
+    "flip_h": true,
+    "flip_v": true
+   },
+   {
+    "x": -4,
+    "y": 48,
+    "index": 4468,
+    "palette": 3,
+    "flip_h": true,
+    "flip_v": false
+   }
+  ],
+  "f148": [
+   {
+    "x": -4,
+    "y": -32,
+    "index": 4462,
+    "palette": 3,
+    "flip_h": true,
+    "flip_v": true
+   },
+   {
+    "x": -4,
+    "y": -16,
+    "index": 4464,
+    "palette": 1,
+    "flip_h": true,
+    "flip_v": true
+   },
+   {
+    "x": -4,
+    "y": 0,
+    "index": 4464,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": 16,
+    "index": 4462,
+    "palette": 3,
+    "flip_h": true,
+    "flip_v": false
+   }
+  ],
+  "f150": [
+   {
+    "x": -4,
+    "y": -40,
+    "index": 4462,
+    "palette": 3,
+    "flip_h": true,
+    "flip_v": true
+   },
+   {
+    "x": -4,
+    "y": -24,
+    "index": 4464,
+    "palette": 1,
+    "flip_h": true,
+    "flip_v": true
+   },
+   {
+    "x": -4,
+    "y": -8,
+    "index": 4466,
+    "palette": 1,
+    "flip_h": true,
+    "flip_v": true
+   },
+   {
+    "x": -4,
+    "y": 8,
+    "index": 4464,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": 24,
+    "index": 4462,
+    "palette": 3,
+    "flip_h": true,
+    "flip_v": false
+   }
+  ],
+  "f152": [
+   {
+    "x": -4,
+    "y": -48,
+    "index": 4462,
+    "palette": 3,
+    "flip_h": true,
+    "flip_v": true
+   },
+   {
+    "x": -4,
+    "y": -32,
+    "index": 4464,
+    "palette": 1,
+    "flip_h": true,
+    "flip_v": true
+   },
+   {
+    "x": -4,
+    "y": -16,
+    "index": 4466,
+    "palette": 1,
+    "flip_h": true,
+    "flip_v": true
+   },
+   {
+    "x": -4,
+    "y": 0,
+    "index": 4466,
+    "palette": 1,
+    "flip_h": true,
+    "flip_v": true
+   },
+   {
+    "x": -4,
+    "y": 16,
+    "index": 4464,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": 32,
+    "index": 4462,
+    "palette": 3,
+    "flip_h": true,
+    "flip_v": false
+   }
+  ],
+  "f154": [
+   {
+    "x": -4,
+    "y": -64,
+    "index": 4462,
+    "palette": 3,
+    "flip_h": true,
+    "flip_v": true
+   },
+   {
+    "x": -4,
+    "y": -48,
+    "index": 4464,
+    "palette": 1,
+    "flip_h": true,
+    "flip_v": true
+   },
+   {
+    "x": -4,
+    "y": -32,
+    "index": 4466,
+    "palette": 1,
+    "flip_h": true,
+    "flip_v": true
+   },
+   {
+    "x": -4,
+    "y": -16,
+    "index": 4466,
+    "palette": 1,
+    "flip_h": true,
+    "flip_v": true
+   },
+   {
+    "x": -4,
+    "y": 0,
+    "index": 4466,
+    "palette": 1,
+    "flip_h": true,
+    "flip_v": true
+   },
+   {
+    "x": -4,
+    "y": 16,
+    "index": 4466,
+    "palette": 1,
+    "flip_h": true,
+    "flip_v": true
+   },
+   {
+    "x": -4,
+    "y": 32,
+    "index": 4464,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": 48,
+    "index": 4462,
+    "palette": 3,
+    "flip_h": true,
+    "flip_v": false
+   }
+  ]
+ }
+}
