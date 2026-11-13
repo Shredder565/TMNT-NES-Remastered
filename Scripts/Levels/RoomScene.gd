@@ -883,7 +883,7 @@ func _on_throw_started(crouching: bool) -> void:
 ## What a thrown thing can hit: the enemies, and a boss.
 func _thrown_targets() -> Array:
 	var found: Array = enemies.get_children()
-	if boss != null and is_instance_valid(boss):
+	if boss != null and is_instance_valid(boss) and not found.has(boss):
 		found.append(boss)
 	return found
 
