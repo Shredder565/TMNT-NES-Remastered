@@ -166,3 +166,136 @@ walked, jumped and attacked and could not tell what it means.
 The remake's version is `Scripts/Enemies/Bebop.gd`. It keeps its own
 frame counter, so the timing of its choices will not line up with the
 original's frame for frame.
+
+## Both bosses again, from the code and frame by frame (13 November 2026)
+
+This replaces "Kind 70" above where the two differ. Read from 5:$AA96
+(what all bosses share), 5:$AADB (kind 70), 5:$AC0B (kind 71), 5:$B3E2
+and $8CFE (kind 19), 5:$B3AD (the table of things a boss puts out), 6:$99F1
+and 6:$A019 (after kind 70). The remake's versions are `Boss.gd`,
+`Bebop.gd`, `Rocksteady.gd`, `Bystander.gd` and `Bullet.gd`, all on the
+`OriginalEnemy` base: the same update, the original's touch and weapon
+tests, a box that follows the animation.
+
+### What bosses share (read from code)
+
+- A boss is an object in slot 5, made by the encounter routine, so it
+  has its first update on the frame it appears.
+- After its routine, in a room, it is put back between 24 and 232 across
+  the screen and no higher than 32 down it.
+- A hit makes it blink for 24 updates and nothing else. At no hit points
+  it becomes a puff.
+- Its box by animation: 16 x 60, and 32 wide in kind 70's stopped and
+  jumping animations and kind 71's jump.
+
+### Kind 70 (read from code)
+
+States 0 to 9 as in the table above, with these corrections:
+
+- State 0 comes first: it puts kind 11 in slot 9 at (196, 83) on the
+  screen, facing left, with 255 hit points, and a second picture with no
+  object behind it in slot 8 at (168, 83). The boss walks from its third
+  update.
+- The bit that update 21 could not name is bit 4 of the turtle's flags:
+  he is in the air. So after 48 updates of walking further than 35
+  pixels off it jumps if the turtle is in the air, else it turns to him.
+- "Faces the turtle" compares their places across the screen; level
+  with him counts as his being to the left. Setting off is the shared
+  helper (5:$8584): no speed if a wall is 10 ahead.
+- Walking, anything at all 12 ahead and 37 up stops it.
+- The jump falls by set 6 of `enemy_routines.md` and lands when the
+  place 5 above it is in a floor.
+
+Kind 11 has no routine. It hurts on touch (19) like any enemy; the
+weapon's code passes over anything with 255 hit points. When kind 70 is
+beaten its kind is set to 0 on the spot: it hurts no more, but its
+picture stays.
+
+### After kind 70 (read from code, measured)
+
+Nothing while the puff is there; 32 updates; 63 more; then the screen is
+freed (measured: frame 733, with the puff gone at 543; the remake's is
+freed on the same frame). Then a scene of 65 frames in which nothing
+else runs, the turtle included: the figure in slot 9 walks left a pixel
+an update; 16 updates in, the picture in slot 8 is gone and his own
+changes; 8 updates later he is gone. The turtle then carries on with the
+speed he had. The remake holds the turtle and walks the one figure off;
+it has no pictures for the second figure or for the changed one.
+
+### Kind 71 (read from code)
+
+Hit points 96, 23 on touch, 5000 points.
+
+| State | What it does |
+| --- | --- |
+| 0 | A picture is put in slot 15 at (26, 166) on the screen: April |
+| 1 | Turns to the turtle, sets off at 2 pixels an update, state 2 |
+| 2 | Walking. Stopped by anything 12 ahead, 37 up. Nothing under it (4 above its position): it falls, state 4. Turns round at the screen's sides (under 25 across, or 232 and more). Under 32 pixels from the turtle across: state 3. After 28 updates: state 5 |
+| 3 | A jump: 7 pixels an update upward |
+| 4 | In the air (set 6); landing, state 7 |
+| 5 | Turns to the turtle, stops, fires kind 19 from 20 above its position; state 6 |
+| 6 | When the firing animation has ended: state 1 |
+| 7 | Stands. When bits 1 to 3 of the frame counter are all 0: state 1 if bit 6 is set, state 5 if not |
+
+Kind 19, the bullet: 1 hit point, 9 on touch, worth 100 if hit. Its
+first update, in the round it is fired, sets it off at 5 pixels an
+update the way the boss faces; after that it is removed when the place
+4 above it is a wall, or off the screen.
+
+Beating kind 71 sets RAM $D2, which makes the turtle's routine see no
+buttons; what follows is in `world_end.md`.
+
+### Found on the way (measured, now in the remake)
+
+- **The box test works in single bytes**, as places on the screen
+  (6:$9AD3). A weapon swung past the screen's left side is at 254 or so
+  and hits nothing at the near side. `OriginalEnemy.touches_box` now
+  does the same.
+- **Something thrown is in the touch and weapon tests of the round it is
+  thrown in**: a bullet fired into a swing is a puff on the frame it was
+  made.
+- **A swing begun while he is curled up** in a high jump shows its own
+  box while it lasts; after it he is curled up again. (Not curled at all
+  if the swing was already on at the jump's second push: `live_play.md`.)
+- After the last boss the turtle's walk to April keeps the fraction of
+  his place, and its first step is the frame after the wait ends.
+
+### Compared
+
+Twelve runs, six for each boss, in the real room scene with the
+original's buttons (`Research/cynes/boss_record.py`, and
+`live_replay.gd.txt`): standing; swinging; walking and swinging; pacing
+with jumps and swings; the mixed script of `live_play.md`; and one in
+which the boss is beaten (its hit points set to 7 in both). In the
+second room everything on the screen is taken away when the screen
+stops, in both, so that the boss comes; the turtle's energy is filled
+up every 256th frame in both. 12508 frames:
+
+| What | Frames that agree |
+| --- | --- |
+| The turtle's position | 10854 |
+| His energy | 11640 |
+| His box | 11584 |
+| Every enemy and thrown thing | 11319 |
+
+Nine of the twelve agree on every frame (one of them but for a single
+frame of his box), among them both runs in which the boss stands, both
+with swings, and kind 70 beaten, through the wait, the freed screen and
+the scene after. Kind 71 beaten agrees up to the room going dark (799
+of 859 frames; after that the recording's turtle is somewhere else on
+the Start screen).
+
+The three that part do so at the turtle, not at the boss, and were not
+put right:
+
+- kind 70, mixed run, frame 428: he lands from a throw with a downward
+  swing still going on, facing right with Left and jump held, and stands
+  until the swing is over; the remake's walks. In the kind 71 mixed run
+  (frame 228) the same thing happens facing the way he walks, and there
+  he does walk. Tried "the direction behind him does nothing during a
+  downward swing": it broke other runs, so it is not that simple.
+- kind 71, jumping run, frame 770: a jump button pressed again in the
+  air gives the remake's jump a second push that the original's does not
+  get.
+
+Up to those frames the bosses agree in these runs too.

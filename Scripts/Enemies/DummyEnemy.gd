@@ -91,7 +91,7 @@ func _show_picture() -> void:
 	var frame := sprites.frame_at("walk", _frames / 2)   # one game update is 2 frames
 	if sprites.textures.has(frame):
 		_picture.texture = sprites.textures[frame]
-		_picture.position = sprites.offsets[frame]
+		_picture.position = sprites.offsets[frame] - Vector2(0, OriginalEnemy.sprite_lift)
 
 func take_hit(amount: int) -> void:
 	health -= amount

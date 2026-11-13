@@ -1,119 +1,108 @@
 class_name Bebop
 extends Boss
-## Object kind 70: the boss met in world 1's second room. It looks like
-## Bebop.
-##
-## This follows the original's own routine for it (bank 5, $AADB; see
-## Research/encounters.md), step for step, and was checked against
-## emulator recordings:
-## - It walks at 2 pixels an update. Every 48 updates of walking it turns
-##   to face the turtle again. At 25 pixels from the screen's left edge or
-##   24 from its right it turns round; a wall just ahead stops it.
-## - Closer than 16 pixels to the turtle (sideways only) it stops for 12
-##   updates, then stands.
-## - 16 to 35 pixels away it jumps, but only during 16 frames of every 64.
-## - Standing, it waits for the game's frame counter to come round (every
-##   32 frames) and then walks at the turtle or away from him, by turns:
-##   64 frames of "at him", 64 of "away".
-## - A jump ends in a walk away from him.
-##
-## One rule is left out: walking 48 updates while further than 35 pixels
-## away, the original jumps instead of turning if one bit of the turtle's
-## state is set, and what that bit means is not known.
+## Object kind 70, the boss of world 1's second room (it looks like
+## Bebop). Written from the original's routine at bank 5, $AADB
+## (Research/encounters.md), state by state:
+##   0  puts kind 11 on the ledge (see Bystander) and goes on;
+##   1  turns to the turtle and sets off at 2 pixels an update;
+##   2  walking. Under 16 pixels from the turtle (across only): state 5.
+##      Under 36: a jump, but only while bits 4 and 5 of the frame counter
+##      are both 0. Else, after 48 updates: a jump if the turtle is in the
+##      air, otherwise state 1 again;
+##   3  the jump: 5 pixels an update upward;
+##   4  in the air; landing, state 7;
+##   5, 6  stops and plays its stopped animation through, then state 9;
+##   7  turns away from the turtle and sets off;
+##   9  stands. When bits 1 to 4 of the frame counter are all 0: state 1
+##      if bit 6 is set, state 7 if not.
 
 const KIND := 0x70
-const WALK_SPEED := 512          ## 2 px per update
-const GRAVITY := 78              ## added to the fall speed every update
-const JUMP_SPEED := -1280        ## upward speed at the start of a jump
-const SINK := 4.0                ## rides 4 pixels below the floor's top edge
-const BUMP_DISTANCE := 16.0
-const JUMP_DISTANCE := 36.0
-const BUMP_TICKS := 12
-const REFACE_TICKS := 48
-const EDGE_LEFT := 25.0          ## screen X below this turns it round
-const EDGE_RIGHT := 232.0        ## and this or more
-const WALL_LOOK := 12.0
-const WALL_HEIGHT := 37.0
+const WALK_SPEED := 512
+const JUMP_SPEED := -1280
+const CLOSE := 16
+const JUMP_WITHIN := 36
+const WALK_UPDATES := 48
+const WALK := 0x40
+const STAND := 0x41
+const STOPPED := 0x42
+const JUMP := 0x43
+const ANIMATIONS := {
+	WALK: [4, [0x80, 0x81, 0x82], LOOPS],
+	STAND: [4, [0x83], LOOPS],
+	STOPPED: [4, [0x83, 0x84, 0x83], ENDS],
+	JUMP: [4, [0x85], LOOPS],
+}
+const COMPANY_KIND := 0x11
+const COMPANY_AT := Vector2(196, 83)   ## on the screen
 
-enum State { FACE, AWAY, WALK, BUMP, STAND, JUMP }
+var company: OriginalEnemy            ## who stands by on the ledge
 
-var state := State.FACE
-var state_ticks := 0
-var speed_x := 0
-var fall_speed := 0
-var clock := 0x10                ## stands in for the game's frame counter
+func _animations() -> Dictionary:
+	return ANIMATIONS
 
-func _init() -> void:
-	kind = KIND
-	health = 72
-	full_health = 72
-	touch_damage = 19
+func _default_kind() -> int:
+	return KIND
 
-func _wall_ahead() -> bool:
-	var ahead := position.x + (WALL_LOOK if speed_x >= 0 else -WALL_LOOK)
-	return ahead < 0.0 or ahead >= room.size_pixels().x or room.solid_at(ahead, position.y - WALL_HEIGHT)
+func _first_animation() -> int:
+	return STAND
 
-func tick() -> void:
-	clock += TICK_FRAMES
-	state_ticks += 1
+func _run_state() -> void:
 	match state:
-		State.FACE, State.AWAY:
-			var gap := _gap()
-			direction = 1 if gap > 0.0 else -1
-			if state == State.AWAY:
-				direction = -direction
-			speed_x = direction * WALK_SPEED
-			_go(State.WALK)
-		State.WALK:
-			if _wall_ahead():
-				speed_x = 0
-			var across := position.x - view_left
-			if across < EDGE_LEFT or across >= EDGE_RIGHT:
-				direction = -direction
-				speed_x = -speed_x
-			var distance := absf(_gap())
-			if distance < BUMP_DISTANCE:
-				_go(State.BUMP)
-			elif distance < JUMP_DISTANCE:
-				if clock & 0x30 == 0:
-					fall_speed = JUMP_SPEED
-					_go(State.JUMP)
-			elif state_ticks >= REFACE_TICKS:
-				_go(State.FACE)
-		State.BUMP:
-			speed_x = 0
-			if state_ticks >= BUMP_TICKS:
-				_go(State.STAND)
-		State.STAND:
-			speed_x = 0
-			if (clock >> 1) & 0x0F == 0:
-				_go(State.FACE if clock & 0x40 != 0 else State.AWAY)
-		State.JUMP:
-			fall_speed += GRAVITY
-			if _wall_ahead():
-				speed_x = 0
-	position.x += speed_x / 256.0
-	if state == State.JUMP:
-		position.y += fall_speed / 256.0
-		if fall_speed > 0 and room.solid_at(position.x, position.y - SINK - 1.0):
-			position.y = floorf((position.y - SINK) / RoomData.TILE) * RoomData.TILE + SINK
-			fall_speed = 0
-			speed_x = 0
-			_go(State.AWAY)
+		0:
+			state = 1
+			_bring_company()
+		1, 7:
+			face(state == 7)
+			set_off(WALK_SPEED)
+			set_animation(WALK)
+			go(2)
+		2:
+			stop_at_wall()
+			state_ticks += 1
+			turn_at_edge()
+			var far := gap()
+			if far < CLOSE:
+				go(5)
+			elif far < JUMP_WITHIN:
+				if counter() & 0x30 == 0:
+					go(3)
+			elif state_ticks >= WALK_UPDATES:
+				go(3 if turtle_in_air() else 1)
+		3:
+			speed_y = JUMP_SPEED
+			state = 4
+			set_animation(JUMP)
+		4:
+			fly(FLIGHT)
+			if land(LAND_UP):
+				state = 7
+		5:
+			set_animation(STOPPED)
+			state = 6
+			stop_across()
+		6:
+			if animation_ended():
+				state = 9
+				set_animation(STAND)
+		_:
+			set_animation(STAND)
+			stop()
+			if (counter() >> 1) & 0x0F == 0:
+				state = 1 if counter() & 0x40 != 0 else 7
 
-func _go(next: State) -> void:
-	state = next
-	state_ticks = 0
+func _bring_company() -> void:
+	if get_parent() == null:
+		return
+	company = Bystander.new()
+	company.view_corner = view_corner
+	company.setup_at(COMPANY_KIND, _corner() + COMPANY_AT, room, SpriteSet.cached("Kind%02X" % COMPANY_KIND), target)
+	company.facing_left = true
+	get_parent().add_child(company)
 
-func _animation() -> String:
-	match state:
-		State.FACE, State.AWAY, State.WALK:
-			return "walk"
-		State.BUMP:
-			return "bump"
-		State.JUMP:
-			return "jump"
-	return "stand"
-
-func _animation_tick() -> int:
-	return state_ticks if state == State.BUMP else _ticks
+## The one on the ledge stops being an object the moment the boss is
+## beaten (bank 6, $99F1): he hurts no more, but his picture stays until
+## the scene after the fight (RoomScene._step_ledge_scene).
+func _beaten() -> void:
+	if is_instance_valid(company):
+		company.gone = true
+		company.set_physics_process(false)

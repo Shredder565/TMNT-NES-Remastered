@@ -743,104 +743,8 @@ func _ready() -> void:
 	check(puffs == 1 and gunner.is_queued_for_deletion(), "a beaten enemy leaves a puff where it stood")
 	clear_shots.call()
 	victim.position = Vector2(120, 56)
-	var rhino := Rocksteady.new()
-	rhino.setup(Vector2(214, 16), yard, null, victim)
-	add_child(rhino)
-	rhino.set_physics_process(false)
-	var shot_from := 0.0
-	var shoot_ticks := 0
-	var rhino_top := 1000.0
-	var rhino_from := 0.0
-	var rhino_to := 0.0
-	for i in 150:
-		var was: int = rhino.state
-		rhino.tick()
-		if rhino.state == Rocksteady.State.SHOOT:
-			shoot_ticks += 1
-			if was != Rocksteady.State.SHOOT and shot_from == 0.0:
-				shot_from = rhino.position.x - victim.position.x
-		if rhino.state == Rocksteady.State.JUMP and was == Rocksteady.State.CLOSE_IN:
-			rhino_from = rhino.position.x
-		if rhino.state == Rocksteady.State.JUMP and rhino.jumps_done == 1:
-			rhino_top = minf(rhino_top, rhino.position.y)
-		if rhino.state == Rocksteady.State.REST and was == Rocksteady.State.JUMP and rhino_to == 0.0:
-			rhino_to = rhino.position.x
-	check(rhino.position.y == 60.0 or rhino.state == Rocksteady.State.JUMP, "the boss drops in and rides 4 pixels into the floor")
-	check(shot_from <= 34.0 and shot_from > 32.0 and shoot_ticks == 48 and count_shots.call(0x19) >= 0, "it walks 2 pixels an update to 34 pixels from him and stands 48 updates to shoot (%.1f, %d)" % [shot_from, shoot_ticks])
-	check(absf((60.0 - rhino_top) - 82.1) < 0.5 and absf(absf(rhino_to - rhino_from) - 92.0) <= 6.0 and rhino_to < victim.position.x, "its jump rises 82 pixels, covers about 92, and carries it over him (%.1f, %.1f)" % [60.0 - rhino_top, absf(rhino_to - rhino_from)])
-	var beaten := [false]
-	rhino.defeated.connect(func() -> void: beaten[0] = true)
-	rhino.take_hit(95)
-	var alive_at_one: bool = not beaten[0]
-	rhino.take_hit(7)
-	check(alive_at_one and beaten[0] and rhino.is_queued_for_deletion(), "it takes 96 points of hits, then reports its defeat")
-	var bullet := Shot.fire(thrower, 0x19, -1, yard, null)
-	bullet.set_physics_process(false)
-	bullet.tick()
-	check(bullet.position == Vector2(100 - 5 - 5, 36), "its bullet starts 5 across and 20 up and flies 5 pixels an update")
-	thrower.free()
-	clear_shots.call()
-	victim.position = Vector2(140, 56)
-	var pig := Bebop.new()
-	pig.setup(Vector2(100, 60), yard, null, victim)
-	add_child(pig)
-	pig.set_physics_process(false)
-	var pig_states: Array[int] = []
-	var pig_spans: Array[int] = []
-	var pig_stops: Array[float] = []
-	var pig_bumps := 0
-	for i in 120:
-		var pig_was := pig.state
-		pig.tick()
-		if pig.state != pig_was:
-			pig_states.append(pig.state)
-			pig_spans.append(i)
-			if pig_was == Bebop.State.BUMP:
-				pig_stops.append(victim.position.x - pig.position.x)
-			pig_bumps += 1 if pig.state == Bebop.State.BUMP else 0
-	check(pig.health == 72 and pig.touch_damage == 19, "the other boss (kind 70) has 72 hit points and does 19 on touch")
-	check(pig_states.slice(0, 3) == [Bebop.State.WALK, Bebop.State.BUMP, Bebop.State.STAND] and pig_stops[0] == 12.0 and pig_spans[2] - pig_spans[1] == 12, "it walks 2 pixels an update up to the turtle, stops 12 pixels short and waits 12 updates (%.0f)" % pig_stops[0])
-	var pig_turns := 0
-	for i in pig_states.size() - 1:
-		if (pig_states[i] == Bebop.State.FACE or pig_states[i] == Bebop.State.AWAY) and pig_spans[i] % 16 == 7:
-			pig_turns += 1
-	check(pig_bumps >= 5 and pig_turns >= 4 and pig_states.has(Bebop.State.FACE) and pig_states.has(Bebop.State.AWAY) and absf(victim.position.x - pig.position.x) < 24.0, "beside him it sets off again every 16 updates, at him and away by turns, and stops again (%d, %d)" % [pig_bumps, pig_turns])
-	pig.view_left = 0.0
-	victim.position = Vector2(160, 56)
-	pig.position = Vector2(24, 60)
-	pig.direction = -1
-	pig.speed_x = -512
-	pig.state = Bebop.State.WALK
-	pig.state_ticks = 0
-	pig.tick()
-	check(pig.direction == 1 and pig.position.x == 26.0, "it turns round 25 pixels from the left edge of the fight's screen")
-	pig.state_ticks = 47
-	pig.direction = -1
-	pig.speed_x = -512
-	pig.position = Vector2(60, 60)
-	pig.tick()
-	pig.tick()
-	check(pig.state == Bebop.State.WALK and pig.direction == 1, "after 48 updates of walking it faces the turtle again")
-	pig.position = Vector2(120, 60)
-	victim.position = Vector2(96, 56)
-	pig.direction = -1
-	pig.speed_x = -512
-	pig.state_ticks = 0
-	pig.clock = 0x1E
-	pig.tick()
-	check(pig.state == Bebop.State.WALK, "16 to 35 pixels away it does not jump while the frame counter is against it")
-	pig.position = Vector2(120, 60)
-	pig.clock = 0x3E
-	pig.tick()
-	var pig_top := 60.0
-	var pig_air := 1
-	check(pig.state == Bebop.State.JUMP, "and jumps when it is not")
-	while pig.state == Bebop.State.JUMP and pig_air < 60:
-		pig.tick()
-		pig_air += 1
-		pig_top = minf(pig_top, pig.position.y)
-	check(absf((60.0 - pig_top) - 43.0) < 2.5 and pig_air >= 33 and pig_air <= 37 and pig.position.y == 60.0 and pig.state == Bebop.State.AWAY, "the jump rises about 43 pixels, lasts 35 updates or so, and ends in a walk away (%.1f, %d)" % [60.0 - pig_top, pig_air])
-	pig.free()
+	# (enemies2) The two bosses were fitted scripts here; they are now written from the
+	# original's routines and tested in _test_enemies2 ("The two bosses").
 	victim.position = Vector2(200, 56)
 	var pacer_spot := EnemySpot.new()
 	pacer_spot.kind = 0x4B
@@ -1764,6 +1668,11 @@ func _ready() -> void:
 		check(sewer.boss_bar.health == 4, "half its energy gone shows as 4 blocks of 8")
 		sewer.boss.take_hit(999)
 		for i in 4:
+			leo.invulnerable_timer = 1.0
+			await get_tree().physics_frame
+		# (enemies2) The screen is freed 32 and 63 updates after the puff has gone, then the ledge scene runs.
+		check(sewer.fighting and sewer._company != null and sewer._company.gone, "beating it does not free the screen at once; the one on the ledge stays but hurts no more")
+		for i in 300:
 			leo.invulnerable_timer = 1.0
 			await get_tree().physics_frame
 		check(not sewer.fighting and not sewer.boss_bar.visible and sewer._company == null and sewer.world == 0 and not sewer.room.top_down, "beating it frees the screen and the world goes on")
@@ -3073,6 +2982,146 @@ func _test_enemies2() -> void:
 	check(OriginalEnemy.left_over.is_empty(), "a room not entered through a door has the cells measured after the first manhole")
 	door_scene.free()
 
+	# --- The two bosses (enemies2) ---
+	print("The two bosses, from the original's routines")
+	var lines := PackedStringArray()
+	for i in 12:
+		lines.append("........................................")
+	lines.append("########################################")
+	lines.append("########################################")
+	var yard := RoomData.from_text(lines)
+	var victim := Node2D.new()
+	victim.position = Vector2(200, 96)
+	add_child(victim)
+	var holder := Node2D.new()
+	add_child(holder)
+	var boss_spot := EnemySpot.new()
+	boss_spot.kind = 0x70
+	boss_spot.position = Vector2(100, 100)
+	boss_spot.hit_points = levels.hit_points(0x70)
+	boss_spot.touch_damage = levels.touch_damage(0x70)
+	var pig := Bebop.new()
+	pig.setup(boss_spot, yard, null, victim)
+	holder.add_child(pig)
+	pig.set_physics_process(false)
+	OriginalEnemy.frame_counter = 0x42
+	pig.tick()
+	var stander: Bystander = pig.company as Bystander
+	check(pig.health == 72 and pig.touch_damage == 19 and stander != null and stander.position == Vector2(196, 83) and stander.facing_left and stander.touch_damage == 19 and stander.health == 255, "kind 70 (72 hit points, 19 on touch) puts kind 11 on the ledge with its first update")
+	stander.take_hit(50)
+	check(stander.health == 255 and not stander.gone, "the weapon does nothing to kind 11")
+	pig.tick()
+	check(pig.state == 2 and pig.speed_x == 512 and pig.animation == Bebop.WALK and pig.position.x == 102.0, "then it turns to the turtle and walks 2 pixels an update")
+	var walked := 0
+	OriginalEnemy.frame_counter = 0x52   # bits 4 and 5 not both 0: no jump on the way
+	while pig.state == 2 and walked < 80:
+		pig.tick()
+		walked += 1
+	pig.tick()
+	var stop_gap: float = victim.position.x - pig.position.x
+	var stopped := 0
+	while pig.state == 6 and stopped < 40:
+		pig.tick()
+		stopped += 1
+	check(stop_gap == 12.0 and stopped == 12 and pig.state == 9 and pig.speed_x == 0, "under 16 pixels from him it stops (12 away, having taken one more step) for the 12 updates of its stopped animation, then stands (%s, %d, state %d, walked %d)" % [str(stop_gap), stopped, pig.state, walked])
+	OriginalEnemy.frame_counter = 0x44
+	pig.tick()
+	var waits: bool = pig.state == 9
+	OriginalEnemy.frame_counter = 0x40
+	pig.tick()
+	var toward: bool = pig.state == 1
+	pig.state = 9
+	OriginalEnemy.frame_counter = 0x20
+	pig.tick()
+	check(waits and toward and pig.state == 7, "standing, it waits for bits 1 to 4 of the frame counter to be 0, then walks at him if bit 6 is set and away if not")
+	pig.tick()
+	check(pig.state == 2 and pig.facing_left and pig.speed_x == -512, "walking away is the same walk, turned round")
+	pig.place(Vector2(170, 100))
+	pig.facing_left = false
+	pig.speed_x = 512
+	pig.state = 2
+	pig.state_ticks = 0
+	OriginalEnemy.frame_counter = 0x10
+	pig.tick()
+	var held_back: bool = pig.state == 2
+	pig.place(Vector2(170, 100))
+	OriginalEnemy.frame_counter = 0x40
+	pig.tick()
+	pig.tick()
+	check(held_back and pig.state == 4 and pig.speed_y == -1280 and pig.animation == Bebop.JUMP and levels.box_half_size(0x70, Bebop.JUMP) == Vector2i(16, 30) and pig.box_half() == Vector2i(16, 30), "16 to 35 pixels away it jumps (5 pixels an update upward) only while bits 4 and 5 of the counter are 0; its box follows its animation: 32 wide in the jump")
+	var air := 0
+	while pig.state == 4 and air < 80:
+		pig.tick()
+		air += 1
+	check(pig.state == 7 and air >= 30 and air <= 36 and pig.speed_x == 0 and pig.speed_y == 0, "it comes down after about 33 updates and then walks away from him (%d)" % air)
+	pig.place(Vector2(60, 100))
+	pig.state = 2
+	pig.state_ticks = 47
+	pig.facing_left = true
+	pig.speed_x = -512
+	pig.tick()
+	check(pig.state == 1, "after 48 updates of walking further off it turns to him again (it would jump were he in the air)")
+	var fell := [false]
+	pig.defeated.connect(func() -> void: fell[0] = true)
+	pig.take_hit(71)
+	var blinks: bool = pig.blinking and not fell[0] and pig.state == 1
+	pig.blinking = false
+	pig.take_hit(7)
+	check(blinks and fell[0] and pig.gone and stander.gone, "a hit only makes it blink; the last one beats it, and the one on the ledge hurts no more")
+	for child in holder.get_children():
+		child.free()
+
+	boss_spot.kind = 0x71
+	boss_spot.hit_points = levels.hit_points(0x71)
+	boss_spot.touch_damage = levels.touch_damage(0x71)
+	var rhino := Rocksteady.new()
+	rhino.setup(boss_spot, yard, null, victim)
+	holder.add_child(rhino)
+	rhino.set_physics_process(false)
+	OriginalEnemy.frame_counter = 0x42
+	rhino.tick()
+	rhino.tick()
+	var walk_updates := 0
+	while rhino.state == 2 and walk_updates < 60:
+		rhino.tick()
+		walk_updates += 1
+	rhino.tick()
+	var bullets: Array = []
+	for child in holder.get_children():
+		if child is Bullet:
+			bullets.append(child)
+	check(rhino.health == 96 and rhino.touch_damage == 23 and walk_updates == 28 and rhino.state == 6 and rhino.speed_x == 0 and rhino.animation == Rocksteady.FIRE, "kind 71 (96 hit points, 23 on touch) walks at him for 28 updates, then stops and fires")
+	check(bullets.size() == 1 and bullets[0].speed_x == 1280 and bullets[0].position == Vector2(rhino.position.x + 5.0, rhino.position.y - 20.0) and bullets[0].touch_damage == 9 and bullets[0].health == 1, "its bullet (kind 19, 9 on touch) starts 20 above it and flies 5 pixels an update, the first step in the same round")
+	rhino.place(Vector2(180, 100))
+	rhino.state = 2
+	rhino.state_ticks = 0
+	rhino.tick()
+	rhino.tick()
+	check(rhino.state == 4 and rhino.speed_y == -1792 and rhino.animation == Rocksteady.JUMP, "under 32 pixels from him it jumps, 7 pixels an update upward")
+	rhino.state = 7
+	rhino.place(Vector2(100, 100))
+	OriginalEnemy.frame_counter = 0x20
+	rhino.tick()
+	check(rhino.state == 5, "standing after a jump it waits on the frame counter, then walks or shoots by its bit 6")
+	for child in holder.get_children():
+		child.free()
+
+	# The box test in single bytes, as places on the screen.
+	var edge_spot := EnemySpot.new()
+	edge_spot.kind = 0x98
+	edge_spot.position = Vector2(10, 100)
+	var at_edge := Soldier.new()
+	at_edge.setup(edge_spot, yard, null, victim)
+	holder.add_child(at_edge)
+	at_edge.set_physics_process(false)
+	var off_screen: Array[int] = [-2, 90, 14, 12]
+	var plain: bool = at_edge.touches_box(off_screen)
+	at_edge.view_corner = func() -> Vector2: return Vector2.ZERO
+	check(plain and not at_edge.touches_box(off_screen) and at_edge.touches_box([20, 90, 14, 12]), "a weapon swung past the screen's left side is found at its far side and hits nothing at the near one")
+	OriginalEnemy.frame_counter = -1
+	holder.free()
+	victim.free()
+
 	# The turtle's lowered box runs one update behind his crouch, both ways.
 	var low_turtle: Turtle = load("res://Scenes/Player/Turtle.tscn").instantiate()
 	add_child(low_turtle)
@@ -3112,7 +3161,8 @@ func _test_world_end() -> void:
 	for i in 60:
 		leo.invulnerable_timer = 1.0
 		for thing in scene.enemies.get_children():
-			thing.free()
+			if thing != scene.boss:   # (enemies2) the boss is an object among the enemies now
+				thing.free()
 		await get_tree().physics_frame
 		if scene.april != null:
 			break
