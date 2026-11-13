@@ -3168,7 +3168,7 @@ func _test_world_end() -> void:
 		screen.tick()
 	check(screen.tile_at(3, 17) == blank and blank != 0x10 + 3, "the first letter comes %d frames later" % StartScreen.EVENT_TYPE_FRAMES)
 	screen.tick()
-	check(screen.tile_at(3, 17) == 0x10 + 3, "and is the D of DON'T LET THE FOOT CLAN DESTROY THE DAM.")
+	check(screen.tile_at(3, 17) == 0x10 + 3, "and is the first letter of the message the ROM gives for world 1's end")
 	var typed := 0
 	while screen.is_open() and typed < 2000:
 		screen.tick()
