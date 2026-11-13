@@ -7,7 +7,7 @@ extends Node
 ## user:// is a per-user folder Godot manages for us. On Windows it is
 ## %APPDATA%\Godot\app_userdata\TMNT Remake. Nothing in it is ever committed to Git.
 ## Shown on the ROM screen so we can tell which update is installed.
-const BUILD := 47
+const BUILD := 48
 
 const ROM_PATH := "user://baserom.nes"
 const ROM_ASSETS_PATH := "user://rom_assets"

@@ -16,6 +16,11 @@ const T_WOBBLES := 0xBEE2         ## addresses of the pitch-wobble tables
 const T_DRUMS := 0x89C1           ## per drum number: the effect (or sample) it starts
 const T_SAMPLES := 0xFE41         ## per sample: the four values for $4010-$4013
 
+const T_OVERWORLD_TUNES := 0xCC0C ## per world: the overworld's tune
+const T_ROOM_TUNES := 0xCC12      ## per world: the tune of its rooms
+const ODD_ROOM_WORLD := 1         ## this world's room 0 has a tune of its own ...
+const ODD_ROOM_TUNE := 0x6B       ## ... this one (the number is in the program at 7:$CBF7, not in a table)
+
 const SLOTS := 6
 const FIRST_TUNE := 0x4B          ## numbers from here on silence everything before they start
 const FIRST_SAMPLE := 0x8F        ## numbers from here on are samples
@@ -83,3 +88,12 @@ func sample_values(sample: int) -> PackedByteArray:
 	for i in 4:
 		values.append(byte(T_SAMPLES + sample * 4 + i))
 	return values
+
+## The tune of a place (7:$CBE7): the world's overworld tune, or the tune
+## of its rooms.
+func area_tune(world: int, area: int, inside: bool) -> int:
+	if not inside:
+		return byte(T_OVERWORLD_TUNES + world)
+	if world == ODD_ROOM_WORLD and area == 0:
+		return ODD_ROOM_TUNE
+	return byte(T_ROOM_TUNES + world)

@@ -10,6 +10,8 @@ sys.path.insert(0,'/home/claude/work_agent_enemies'); sys.path.insert(0,'/home/c
 import rec
 from common import *
 SENT=0xEE
+import os
+KILL_DRUMS=os.environ.get("KEEP_DRUMS")!="1"
 def record(area,x,y,script,frames,poke=None,settle=1,safe=True):
     e=place(area,x,y,settle=settle); n=e.nes
     rows=[]
@@ -23,7 +25,8 @@ def record(area,x,y,script,frames,poke=None,settle=1,safe=True):
             n[0x450]&=0xFB; n[0x500]=0
         if poke: poke(f,n)
         btn=script(f)
-        n[0x194]=SENT; n[0x10D]=0
+        n[0x194]=SENT
+        if KILL_DRUMS: n[0x10D]=0
         e.run(1,btn)
         s=n[0x194]
         cam=n[0x4F]|n[0x50]<<8; camy=n[0x51]|n[0x52]<<8

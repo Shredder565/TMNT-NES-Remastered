@@ -36,7 +36,7 @@ C or Backspace is the NES pad's Select (in a room it changes between the
 turtle's own weapon and his special weapon; Back on a controller),
 F1 to open the tile viewer (needs a ROM). F3/F4 step through the 46 areas,
 F7 shows the current world's overworld map, F8 switches the stand-in enemies
-on and off, F6 toggles flying through walls, F2 opens the practice room.
+on and off, F6 toggles flying through walls, F2 opens the practice room, M turns the sound on and off.
 
 A controller works as soon as it is plugged in, with no setup (Xbox layout;
 PlayStation and Switch pads map onto it): d-pad or left stick to move, climb
@@ -98,6 +98,10 @@ number, are the 5 kinds not recorded yet. See `Research/enemy_kinds.md`.
 | `Scripts/Enemies/Rocksteady.gd` | World 1's last boss |
 | `Scripts/Levels/Item.gd` | Pizzas and other things to pick up |
 | `Scripts/Player/OverworldTurtle.gd` | The small turtle that walks the overworld map |
+| `Scripts/Sound/Sound.gd` | The game's sound: `Sound.play(number)` from anywhere, the M key |
+| `Scripts/Sound/SoundData.gd` | Finds the sound and music data in the ROM |
+| `Scripts/Sound/SoundDriver.gd` | Steps the music and effects once a frame, as the original's sound program does |
+| `Scripts/Sound/SoundChip.gd` | A small stand-in for the console's sound chip: turns the driver's output into samples |
 | `Scripts/Levels/RoomScene.gd` | Shows a room or a map and takes the turtle through doors |
 | `Resources/AssetRipper/Sprites/` | Sprite maps (which tiles make which sprite) |
 | `Research/` | Notes on how the original works, and the emulator scripts used |
@@ -105,10 +109,14 @@ number, are the 5 kinds not recorded yet. See `Research/enemy_kinds.md`.
 
 ## Sound
 
-With a ROM installed the game plays the original's sound effects and the
-title tune through its own sound driver and synthesizer, from the ROM's
-music data (`Research/sound.md`). M turns sound on and off. Music in play
-is not wired in yet.
+With a ROM installed the game plays the original's sound effects and
+music through its own sound driver and synthesizer, from the ROM's own
+music data, read when the game runs (`Research/sound.md`). M turns sound
+on and off. Each world's overworld and room tunes, the fight and boss
+tunes, the tunes for a fight won, a turtle caught, the world won and GAME
+OVER play where the original plays them; the music carries on behind the
+Start screen and through a door from one room to another. Sounds of parts
+of the game that are not in the remake yet are listed in the note.
 
 ## World 1
 

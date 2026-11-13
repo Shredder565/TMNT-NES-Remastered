@@ -279,7 +279,7 @@ made again with the number asked for written down each frame
 (`Research/cynes/sound_live_record.py`, `sound_live_replay.gd.txt`), the
 original asked for a sound 204 times (jumps, landings, swings, hits,
 enemies beaten, the turtle hurt, the boss's tune); ours asks for the same
-number on the same frame all 204 times.
+number on the same frame all 204 times; and in two recorded boss fights (`sound_boss_record.py`) all 67 times (the fight and boss tunes, the bosses' ends, the tune after).
 
 ### The turtle (bank 4)
 
@@ -287,14 +287,14 @@ number on the same frame all 204 times.
 | --- | --- | --- | --- |
 | 4:$9E7B | `$07` | a jump begins (his state becomes 7) | `Turtle._control` |
 | 4:$A1B0 | `$08` | he lands (any landing: a jump, a fall, a throw by a hit) | `Turtle._test_room` |
-| 4:$9F6B | `$0A $0C $0E $10` | a swing begins: one number per turtle (table 4:$9F7C); Donatello's is `$12` instead inside a room | `Turtle._begin_swing` (number set in `RoomScene.set_turtle`); the overworld swing is not wired |
+| 4:$9F6B | `$0A $0C $0E $10` | a swing begins: one number per turtle (table 4:$9F7C); Donatello's is `$12` instead inside a room | `Turtle._begin_swing` and `OverworldTurtle` (numbers set in `RoomScene.set_turtle`). Measured on the overworld: `$0A` on the frame the swing begins |
 | 4:$9F79 | `$14 $14 $16 $17` | a special weapon is thrown, by its kind 1-4 (table 4:$9F80) | `RoomScene._on_throw_started` |
 | 4:$9845 | `$3C` | Select changes weapon (only if he has any special weapon) | `RoomScene.press_select` |
-| 4:$A5CE | `$25`, or `$2F` when $D3 is set | hurt by a hurting tile (16 energy) | `Turtle.tile_hurt` (`$25` only; what sets $D3 was not followed) |
+| 4:$A5CE | `$25`, or `$2F` when $D3 is set | hurt by a hurting tile (16 energy). $D3 is set (4:$996F) in one place only: inside area 1 of the second world, the underwater one | `Turtle.tile_hurt` (`$25` only) |
 | 4:$97BB, 4:$A414 | `$83` | the turtle's energy is gone: the "caught" tune. The game then waits for $019D (4:$9797) before the Start screen opens | `RoomScene._on_turtle_died` |
-| 4:$999E | `$33` | energy below `$18`: the low-energy warning, once ($03D6 remembers) | - |
-| 4:$9A0B | `$2C` | his state becomes `$16` (going into a doorway/manhole; **guess**) | - |
-| 4:$9A45 | `$29` | his state becomes `$17` (coming out; **guess**) | - |
+| 4:$999E | `$33` | the low-energy warning: once when the playing turtle's energy is under `$18` and not 0; $03D6 remembers, and is cleared when the energy is `$18` or more (and when the Start screen's choice moves, 3:$AA6B). Measured: the frame after the energy drops, in a room and on the overworld | `RoomScene._physics_process` -> `Sound.low_energy` (the Start screen's clearing is left out) |
+| 4:$9A0B | `$2C` | his state becomes `$16`: not followed. (Measured: going down a manhole and climbing back out make no sound of their own; only the music changes) | - |
+| 4:$9A45 | `$29` | his state becomes `$17`: not followed | - |
 | 4:$A561 | `$2A` | a count runs out in a state not followed | - |
 | 4:$A974 | `$33 $63 $67` | by $BB (`$16`, `$15`, `$05`): not followed | - |
 | 4:$A980 | `$4B` | not followed (overworld van; **guess**) | - |
@@ -321,10 +321,10 @@ number on the same frame all 204 times.
 
 | Where | Number | When | Ours |
 | --- | --- | --- | --- |
-| 6:$9CC7 | `$7B` | a held fight with a boss begins (encounter slot 0), after "silence everything" | see section 9 |
-| 6:$9CD6 | `$73` | the same for the other kind of boss entry | `RoomScene._start_fight` |
+| 6:$9CC7 | `$7B` | a boss fight begins, for every boss but the table's first, after "silence everything" | `RoomScene._check_boss` |
+| 6:$9CD6 | `$73` | the same for the first boss (code F0) and for every held fight that is not a boss | `RoomScene._check_boss` |
 | 6:$9DB4, 6:$9E03 | `$77` | the boss is beaten: the short tune that starts on top of everything | `RoomScene` (section 9) |
-| 6:$9DF2 | `$42` | world 3 only, when a count of bosses reaches 0 | - |
+| 6:$9DF2 | `$42` | a boss is gone and the screen is clear: silence, then this (in world 3 the silence only when a count of bosses reaches 0; world 5 skips it all) | `RoomScene._after_boss` and `_step_world_end` |
 | 6:$9E54 | `$7F` | the world is won (worlds 1-4) | `RoomScene` (section 9) |
 | 6:$A0CA, 6:$A324 | `$52` | world-end scene: silence | section 9 |
 | 6:$A1DD, 6:$A2AA, 6:$A41B, 6:$A49C, 6:$A567, 6:$A67A, 6:$A69E, 6:$A6E1, 6:$A715, 6:$A779 | `$32 $3F $19 $1B $1C $29 $2C $44 $48 $31` | steps of the scenes between worlds: not followed one by one | - |
@@ -347,11 +347,11 @@ number on the same frame all 204 times.
 | 7:$C605 | `$3C` | Start on the title | `TitleScreen.press_start` |
 | 7:$CDEE | `$3E` | Start in play: the Start screen opens | `RoomScene.open_start_screen` |
 | 3:$AA8B | `$3C` | the choice on the Start screen moves (more than one turtle left) | `StartScreen.move_selection` |
-| 3:$AF7E | `$39`, or `$36` when $24 is set | each letter of a message that is typed | `StartScreen._type_one` (`$36` for the world-end message is a **guess**) |
+| 3:$AF7E | `$39`, or `$36` when $24 is set | each letter of a message that is typed | `StartScreen._type_one` (`$39`; measured: April's message at the world's end uses `$39` too. What sets $24 was not followed) |
 | 3:$BAE4 | `$4E` | not followed | - |
 | 3:$BE57, 3:$BEB8 | `$3A` | not followed | - |
 | 7:$CBF9, 7:$CC01, 7:$CC09 | area's tune | a world, room or overworld begins (section 9) | `RoomScene.show_room` |
-| 7:$CD21 | `$8B` | a long count ($9D/$9E) reaches `$FF00`: not followed | - |
+| 7:$CD21 | `$8B` | the GAME OVER tune (measured: asked for when the last turtle has been caught, 168 frames after his `$83`) | `RoomScene._step_capture`, when the GAME OVER screen opens |
 | 7:$F3BD | `$38` | while a number in the top strip counts ($0A set): not followed | - |
 | 7:$FDA8 | `$16` | every update the boomerang (kind 27) flies | - |
 | 2:$B631, 2:$BDDD, 2:$BE10 | `$7F` | the scenes of bank 2 (the story pictures): not followed | - |
@@ -363,3 +363,92 @@ number on the same frame all 204 times.
 **Measured** on the Start screen: `$3E` on the frame it opens, `$39` for
 each letter (every 4 frames), `$3C` when the choice moves, nothing when it
 closes; **the tune goes on playing** behind the Start screen.
+
+## 9. Music: which tune where
+
+**Read from code** unless marked.
+
+- **Title**: `$4E` when the title picture appears (7:$C5D6); it plays on
+  through Start and the first world's drawing-in, until the world's own
+  tune starts. **Measured** from power-on: `$4E` at frame 262, Start's
+  `$3C`, then `$53`.
+- **A place's own tune** (7:$CBE7): "silence everything", then on the
+  overworld the world's entry of the table at 7:$CC0C (worlds 1-6: `$53
+  $53 $53 $53 $57 $53`), in a room its entry of 7:$CC12 (`$5B $5F $6B $5B
+  $6F $6B`), except that the first room of the second world has `$6B`.
+  It is called by the step that finishes bringing a place up (7:$CBBF),
+  **measured** 26 frames after a door into a room and 34 after one out
+  to the overworld (the 24 or 32 rows of the picture being drawn, and 2);
+  ours calls it on that frame of its wipe.
+- **Doors** (7:$E7C5): using a door silences everything at once, and the
+  new place's tune starts from its beginning when the place is up. But a
+  door from a room to a room (the door's "leads to a room" byte set
+  while already inside) marks $03E2: nothing is silenced and the tune is
+  not started again, so the music carries on unbroken.
+- **The Start screen**: the tune carries on behind it (**measured**), and
+  leaving it marks $0609 so that the room, which is built again, does not
+  start its tune again (7:$CE3A). Not so after a turtle has been caught:
+  then the world starts again and so does its tune.
+- **A held fight** (6:$9CBE): when the screen stops, "silence
+  everything" and tune `$73`; for a boss other than the table's first,
+  `$7B`. **Measured**: `$73` on the frame the screen stops in both world-1
+  cases, `$7B` for the last boss.
+- **A held fight won** (6:$9DAE): `$77` (it starts on top of the fight's
+  tune: only tunes `$77` and `$7F` start without silencing), 64 updates,
+  then the place's own tune again.
+- **A boss beaten** (6:$9DD1): once nothing is left on the screen,
+  "silence everything" and effect `$42`; 32 updates; then for the first
+  boss `$77` and 64 updates more and the place's tune again; for a boss
+  that ends a world, tune `$7F`. **Measured** in the two recorded fights:
+  first boss `$73`, `$42`, `$77`, `$5B`; last boss `$7B`, `$42`, `$7F`; ours
+  asks for each on the same frame.
+- **The end of world 1**: `$7F` plays through the walk to April. The
+  scene then waits for the tune's end ($019D, 6:$A0BE): `$7F`'s drum
+  voice ends 475 steps after it starts. Then `$52` (silence) and April's
+  words, each letter `$39`. **Measured**: `$7F` at frame 363 of the
+  recorded fight, `$52` at 840 (ours 837), letters from 851 (ours 849),
+  the next world's `$53` at 1391. Ours now waits for the tune's length (worked out from the ROM's data
+  by playing the tune through silently), counted from the frame it
+  starts; the old count of 249 frames, which is that length less the
+  walk of the one recorded run, is only used when there is no ROM.
+- **A turtle caught** (4:$97B9): `$83`. Nothing can start a tune or
+  silence it while it plays (section 3), and the game waits for its end
+  (4:$9797): its drum voice ends after 146 steps, which is the 147 frames
+  `losing_a_turtle.md` measured; ours keeps that count.
+- **GAME OVER**: `$8B` (**measured**; it ends by itself after 194 steps).
+  CONTINUE starts the world, and with it the world's tune.
+- **Fade-out**: the game writes 7 to $0199 in three places of the story
+  scenes (2:$B88C, 2:$BF9F, 3:$BCC6), none of them in the remake yet;
+  `Sound.fade_out()` does the same.
+
+## 10. How ours is checked
+
+- `Research/cynes/sound_mini6502.py`: a small 6502 interpreter that runs
+  the ROM's own sound program by itself and writes down every value it
+  sends to $4000-$4017 (the emulator package gives no access to those).
+  **Measured** against the whole game in the emulator
+  (`sound_mini_vs_cynes.py`): the sound program's memory $0104-$01AD is
+  the same in both for the 397 frames the title tune plays after
+  power-on, one frame apart where the game skipped a step.
+- `sound_record_writes.py` records 185 scenarios (every effect alone and
+  over a tune, all 16 tunes for 7000 frames, priorities, a fade-out, the
+  tunes that start on top, the locked tune); `sound_replay.gd.txt` runs
+  `SoundDriver` on the same and compares every value in order.
+  **Measured: all 185 agree, 209,205 frames.**
+- `sound_render_wav.gd.txt` and `sound_wav_check.py`: our chip's output
+  written to a file and its spectrum compared with the pitches sent: the
+  36 steady stretches found in 20 seconds of tune `$53` all peak at the
+  right frequency.
+- `sound_live_record.py` / `sound_live_replay.gd.txt`: the number the
+  game asks for, frame by frame, in whole-room play (section 8).
+
+Not checked, because it needs ears: the balance of loudness between the
+channels, the exact timbre (our square waves are smoothed a little, the
+real chip's mixer is slightly curved and its output filtered), and
+whether Godot's sound output keeps up on a slow machine.
+
+Things the original does that ours leaves out, on purpose: a write of the
+drum track's or the triangle's "quieting" command would land in another
+voice's memory in the original (the tables are only two or three entries
+long); no tune in the ROM does that (**measured**: our driver counts such
+commands and found none in any scenario).
