@@ -7,12 +7,11 @@ extends Area2D
 ## As with the soldier, the rules that choose what it does are a simple
 ## pattern fitted to a few recordings, not the original's code.
 
-const KIND := 0x92
+const KIND := 0x9D
 ## `walk` and `side` are speeds along the floor and through the air.
 ## `rest` is the updates it stands between hops. `alternate` kinds turn
 ## round after every hop instead of following the turtle.
 const KINDS := {
-	0x92: { "walk": 448, "side": 448, "rest": 0, "alternate": false },
 	0x9D: { "walk": 0, "side": 512, "rest": 17, "alternate": true },
 	# 9E stands for 75 updates, then jumps straight up 82 pixels. After 26
 	# updates its upward speed is set to 0 and it falls back.

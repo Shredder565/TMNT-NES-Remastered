@@ -23,7 +23,7 @@ func _stand_in_box() -> Rect2:
 func setup_at(spot_kind: int, where: Vector2, in_room: RoomData, sprite_set: SpriteSet, turtle: Node2D) -> void:
 	super.setup_at(spot_kind, where, in_room, sprite_set, turtle)
 	health = levels.hit_points(kind) if levels != null else (9 if kind == 0x4A else 24)
-	touch_damage = Shot.damage_of.get(kind, 1)
+	touch_damage = levels.touch_damage(kind) if levels != null else 1
 	set_animation(KINDS[kind].first)
 
 func _act() -> void:

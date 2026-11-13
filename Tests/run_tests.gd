@@ -596,23 +596,7 @@ func _ready() -> void:
 	add_child(leaper)
 	leaper.set_physics_process(false)
 	check(leaper.position.y == 59.0, "a leaper settles 3 pixels into the floor it is placed on")
-	var leapt_from := 0.0
-	var leap_top := 1000.0
-	var leap_ticks := 0
-	for i in 140:
-		var was_in_air: bool = leaper.in_air
-		leaper.tick()
-		if leaper.in_air and not was_in_air:
-			leapt_from = victim.position.x - (leaper.position.x - 1.75)
-		if leaper.in_air:
-			leap_top = minf(leap_top, leaper.position.y)
-			leap_ticks += 1
-	check(leapt_from <= 37.0 and leapt_from > 35.0, "it walks 1.75 pixels an update and leaps from 37 pixels away (%.2f)" % leapt_from)
-	check(absf((59.0 - leap_top) - 25.5) < 0.6 and leap_ticks == 33 and not leaper.in_air and leaper.position.y == 59.0, "the leap rises 26 pixels and lasts 34 updates, as recorded (%.1f, %d)" % [59.0 - leap_top, leap_ticks + 1])
-	var rested_at := leaper.position.x
-	for i in 30:
-		leaper.tick()
-	check(leaper.position.x == rested_at and not leaper.in_air, "next to the turtle it stays put until he moves away")
+	# (enemies2) The walk and leap fitted to kind 92 went with it: Pouncer.gd runs that kind from the original's code.
 	leaper.free()
 	var hopper_spot := EnemySpot.new()
 	hopper_spot.kind = 0x9D
@@ -629,19 +613,7 @@ func _ready() -> void:
 			hop_ends.append(hopper.position.x)
 	check(hop_ends.size() == 3 and hop_ends[0] == 184.0 and hop_ends[1] == 120.0 and hop_ends[2] == 184.0, "kind 9D hops 64 pixels towards the turtle, rests, and hops 64 back, as recorded (%s)" % str(hop_ends))
 	hopper.free()
-	var walker_spot := EnemySpot.new()
-	walker_spot.kind = 0x49
-	walker_spot.position = Vector2(60, 56)
-	var plain := LegacyWalker.new()
-	plain.setup(walker_spot, yard, null, victim)
-	add_child(plain)
-	plain.set_physics_process(false)
-	var plain_attacked := false
-	for i in 220:
-		plain.tick()
-		plain_attacked = plain_attacked or plain.state == LegacyWalker.State.KICK or plain.state == LegacyWalker.State.PUNCH or plain.state == LegacyWalker.State.AIR
-	check(absf(victim.position.x - plain.position.x) <= 16.0 and absf(victim.position.x - plain.position.x) > 15.0 and not plain_attacked, "kind 49 walks 1 pixel an update up to 16 pixels from him and stands, with no hop or attack")
-	plain.free()
+	# (enemies2) The fitted walker (kind 49) is retired: Lurker.gd runs that kind from the original's code.
 	var charger_spot := EnemySpot.new()
 	charger_spot.position = Vector2(60, 56)
 	victim.position.x = 150.0                 # leaves room for the charge to finish
@@ -709,11 +681,7 @@ func _ready() -> void:
 	var thrower := Node2D.new()
 	add_child(thrower)
 	thrower.position = Vector2(100, 56)
-	var star := Shot.fire(thrower, 0x99, 1, yard, null)
-	star.set_physics_process(false)
-	for i in 10:
-		star.tick()
-	check(star.position == Vector2(133, 20) and star.speed == 768, "a thrown star starts 3 across and 36 up from the soldier and flies level at 3 pixels an update")
+	# (enemies2) Shot.gd no longer serves kinds 99, 4A, 95 and 19: Star.gd, Missile.gd and Bullet.gd do.
 	var flame := Shot.fire(thrower, 0x4C, -1, yard, null)
 	flame.set_physics_process(false)
 	for i in 38:
@@ -723,25 +691,7 @@ func _ready() -> void:
 	flame.tick()
 	check(flame_x == 96.0 - 15 * 3.25 and flame_alive and flame.is_queued_for_deletion(), "kind 4C flies 15 updates, hangs there, and is gone after 39")
 	clear_shots.call()
-	var gunner_spot := EnemySpot.new()
-	gunner_spot.kind = 0x94
-	gunner_spot.position = Vector2(60, 56)
-	var gunner := Crawler.new()
-	gunner.setup(gunner_spot, yard, null)
-	add_child(gunner)
-	gunner.set_physics_process(false)
-	for i in 16:
-		gunner.tick()
-	var before_pause: int = count_shots.call(0x95)
-	for i in 6:
-		gunner.tick()
-	check(before_pause == 0 and count_shots.call(0x95) == 4, "kind 94 fires 4 shots, one an update, when it stops")
-	gunner.take_hit(99)
-	var puffs := 0
-	for child in get_children():
-		puffs += 1 if child is Puff and child.position == gunner.position else 0
-	check(puffs == 1 and gunner.is_queued_for_deletion(), "a beaten enemy leaves a puff where it stood")
-	clear_shots.call()
+	# (enemies2) Kind 94 is Gunner.gd now; its shots are tested with the original's rules below.
 	victim.position = Vector2(120, 56)
 	# (enemies2) The two bosses were fitted scripts here; they are now written from the
 	# original's routines and tested in _test_enemies2 ("The two bosses").
@@ -1601,7 +1551,7 @@ func _ready() -> void:
 			await get_tree().physics_frame
 		check(is_instance_valid(sewer._spot_enemies.get(far_spot)), "going away and coming back makes that enemy again")
 		sewer.set_flying(false)
-		check(Shot.damage_of.get(0x99) == 9 and Shot.damage_of.get(0x9F) == 30 and Shot.damage_of.get(0x4C) == 5, "shots take their damage from the ROM (a star 9, kind 9F 30)")
+		check(levels.touch_damage(0x99) == 9 and Shot.damage_of.get(0x9F) == 30 and Shot.damage_of.get(0x4C) == 5, "shots take their damage from the ROM (a star 9, kind 9F 30)")
 		var shot_maps := 0
 		for map_kind in [0x4A, 0x4C, 0x95, 0x9F, 0x99, 0x15]:
 			var shot_pictures := SpriteSet.cached("Kind%02X" % map_kind)
@@ -1616,7 +1566,7 @@ func _ready() -> void:
 		check(sewer.items.get_child_count() == 2 and sewer.items.get_child(0).kind == Item.WHOLE_PIZZA and sewer.items.get_child(0).position == Vector2(32, 48), "the building room has its whole pizza and its slice")
 		var chainsaws := 0
 		for spot in sewer.room.enemy_spots:
-			chainsaws += 1 if spot.kind == 0x91 and Crawler.KINDS.has(spot.kind) else 0
+			chainsaws += 1 if spot.kind == 0x91 and Chainsaw.KINDS.has(spot.kind) else 0   # (enemies2) the original's routine, not the fitted crawler
 		check(chainsaws == 3, "its 3 chainsaw carriers (kind 91) now move")
 		var first_room := levels.room(0, 1)
 		var bosses_listed := 0
@@ -1818,7 +1768,7 @@ func _ready() -> void:
 			leo.invulnerable_timer = 1.0
 			await get_tree().physics_frame
 		check(sewer.boss != null and sewer.boss.health == 96 and sewer.boss.touch_damage == 23 and sewer.boss.sprites != null, "then it appears, with 96 hit points and 23 touch damage from the ROM")
-		check(Shot.damage_of.get(0x19) == 9, "its bullet does 9")
+		check(levels.touch_damage(0x19) == 9, "its bullet does 9")
 		sewer.boss.take_hit(999)
 		for i in 4:
 			leo.invulnerable_timer = 1.0

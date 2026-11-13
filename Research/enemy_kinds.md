@@ -137,3 +137,46 @@ those scripts (`OriginalEnemy.for_kind` is asked first). Kind AA, which this
 page has as never appearing, does appear and is done too (`enemy_AA.md`),
 though it has no picture yet. That is every kind placed in world 1's
 rooms.
+
+## Which script runs which kind (13 November 2026, after the fitted scripts were pruned)
+
+"Original" means a script written from the original's own routine on the
+`OriginalEnemy` base and compared frame by frame; "fitted" means one of
+the older scripts whose rules were fitted to measurements. Worlds are
+counted from 1; a kind is listed for a world if any line-up one of its
+rooms can turn to places it (`enemy_placement.md`).
+
+| Kind | Worlds | Run by |
+| --- | --- | --- |
+| 8D, 84 | 1, 2, 3, 6 | original: `LedgeWalker.gd` |
+| 81, 8E, 8F, 96 | 1, 2, 4, 6 | original: `Flier.gd` |
+| 86 | 1, 2 | original: `CeilingCrawler.gd` |
+| 98 (and its star 99) | 1, 2, 6 | original: `Soldier.gd`, `Star.gd` |
+| 49 (and 4A) | 1, 2 | original: `Lurker.gd`, `Missile.gd` |
+| 91 | 1, 2 | original: `Chainsaw.gd` |
+| 92 (and 93) | 1, 4, 6 | original: `Pouncer.gd`, `Boomerang.gd` |
+| 94 (and 95) | 1, 4, 6 | original: `Gunner.gd`, `Missile.gd` |
+| AA | 1, 2 | original: `Diver.gd` |
+| 70, 11 | 1 | original: `Bebop.gd`, `Bystander.gd` |
+| 71, 19 | 1 | original: `Rocksteady.gd`, `Bullet.gd` |
+| 85 | 1, 2, 3 | fitted: `Crawler.gd` |
+| 4B (and 4C) | 1, 2, 3 | fitted: `Crawler.gd`, `Shot.gd` |
+| 9D | 1, 2, 3 | fitted: `Leaper.gd` |
+| A7, A8 | 5 | fitted: `Crawler.gd` |
+| 9E (and 9F) | 5 | fitted: `Leaper.gd`, `Shot.gd` |
+| A0 | 5 | fitted: `Charger.gd` |
+| 88 | 5 | fitted: `PathEnemy.gd` |
+| 30, 83, A3, A6 | 3, 4 | none: stands still |
+| 82, AB | 5 | none: stands still |
+| 35, 97 | 6 | none: stands still |
+
+Kinds 85, 9D and 4B reach world 1 through the line-up level: its third
+and fourth rooms turn to line-up 2 when the level is 2.
+
+Retired: `LegacyWalker.gd` (its one kind, 49, is `Lurker.gd`'s), and
+from the fitted scripts' lists every kind an original script now runs:
+8D, 86, 84, 81, 96, 8F, 94 and 91 from `Crawler.gd`, 92 from
+`Leaper.gd`, and 4A, 95, 99 and 19 from `Shot.gd`. The old `Boss.gd`
+was replaced, not removed (`encounters.md`). `Crawler.gd`, `Leaper.gd`,
+`Charger.gd`, `PathEnemy.gd` and `Shot.gd` stay for the kinds above
+until those are written from the code.

@@ -13,29 +13,19 @@ extends Area2D
 ## - Its position value is its middle across and its bottom edge, and it
 ##   rides 4 pixels below the top edge of the floor it walks on.
 
-const KIND := 0x8D
+const KIND := 0x85
 const SPRITE_MAP := "Kind8D"
 ## The kinds this script moves. Speeds (1/256 pixel per update) and whether
 ## the kind flies were read from recordings of the original. `look` is how
 ## far ahead a wall turns it round, fitted to where each kind turned.
 ## Guess for the three other walkers: that they fall off ledges as 8D does.
 const KINDS := {
-	0x8D: { "speed": 352, "flies": false, "look": 15.0 },
-	0x86: { "speed": 352, "flies": false, "look": 15.0 },
 	0x85: { "speed": 352, "flies": false, "look": 15.0 },
-	0x84: { "speed": 768, "flies": false, "look": 15.0 },
-	0x81: { "speed": 640, "flies": true, "look": 13.0 },
-	0x96: { "speed": 640, "flies": true, "look": 13.0 },
 	0xA7: { "speed": 768, "flies": true, "look": 12.0 },
 	0xA8: { "speed": 768, "flies": true, "look": 12.0 },
-	0x8F: { "speed": 640, "flies": true, "look": 13.0 },
 	# 4B walks for 31 updates, stands for 9, and so on. It rides 3 pixels
 	# into the floor it is placed on top of.
 	0x4B: { "speed": 296, "flies": false, "look": 15.0, "walk": 31, "pause": 9, "sink": 3.0, "shot": 0x4C, "shots": 1 },
-	# 94 walks for 16 updates and stands for 16, riding 4 pixels into the floor.
-	0x94: { "speed": 352, "flies": false, "look": 15.0, "walk": 16, "pause": 16, "sink": 4.0, "shot": 0x95, "shots": 4 },
-	# 91 (it carries a chainsaw) walks for 31 updates and stands for 33.
-	0x91: { "speed": 448, "flies": false, "look": 15.0, "walk": 31, "pause": 33 },
 }
 
 const TICK_FRAMES := 2

@@ -11,12 +11,8 @@ extends Area2D
 ## `move` (if given) is how many updates it flies before it stops and
 ## hangs; `life` is how many updates it lasts in all.
 const KINDS := {
-	0x4A: { "speed": 832, "offset": Vector2(4, -16) },             # thrown by kind 49
 	0x4C: { "speed": 832, "offset": Vector2(4, -20), "move": 15, "life": 39 },  # from kind 4B: flies 45 pixels, then hangs
-	0x95: { "speed": 640, "offset": Vector2(2, -17) },             # fired by kind 94
 	0x9F: { "speed": 832, "offset": Vector2(4, -12) },             # fired by kind 9E
-	0x99: { "speed": 768, "offset": Vector2(3, -36) },             # thrown by kind 98
-	0x19: { "speed": 1280, "offset": Vector2(5, -20) },            # the bullet of the world 1 boss, kind 71
 }
 const TICK_FRAMES := 2
 ## Only these are gone once they have hit him (the list at bank 6, $9910);

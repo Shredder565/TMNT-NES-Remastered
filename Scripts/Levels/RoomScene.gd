@@ -1349,10 +1349,6 @@ func _make_enemy_at(spot: EnemySpot, scrolled_in: bool) -> void:
 		var mover := PathEnemy.new()
 		mover.setup(spot, pictures)
 		enemy = mover
-	elif LegacyWalker.KINDS.has(spot.kind):
-		var walker_enemy := LegacyWalker.new()
-		walker_enemy.setup(spot, room, pictures, turtle)
-		enemy = walker_enemy
 	else:
 		enemy = _make_stand_in(spot)
 	enemy.set("weapon_damage", damage.x)
