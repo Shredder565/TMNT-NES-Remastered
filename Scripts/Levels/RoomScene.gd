@@ -1075,7 +1075,7 @@ func _step_world_end() -> bool:
 				return true   # his first step comes the frame after the wait ends (measured in a whole fight)
 			var across := floorf(turtle.position.x) - fight_corner.x
 			if across < APRIL_AT.x or across - APRIL_AT.x < END_STOP_GAP:
-				turtle.position.x = fight_corner.x + END_STAND_AT
+				turtle.position.x = fight_corner.x + END_STAND_AT + turtle.position.x - floorf(turtle.position.x)   # the fraction stays
 				turtle.pose("stand", -1)
 				_show_april("f145", Vector2(0, -1))
 				end_stage = EndStage.FREED
