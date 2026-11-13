@@ -1003,7 +1003,7 @@ func take_damage(amount: int, from_x: float = NAN) -> bool:
 func tile_hurt(amount: int) -> void:
 	if invulnerable_timer > 0.0 or state == State.DEAD:
 		return
-	Sound.play(0x25)   # hurt by a tile (4:$A5CC)
+	Sound.play(0x2F if swimming else 0x25)   # hurt by a tile (4:$A5CC; under water 4:$A5C8)
 	health = maxi(health - amount, 0)
 	health_changed.emit(health, max_health)
 	invulnerable_timer = invulnerable_time
@@ -1139,6 +1139,7 @@ func _swim_tick() -> void:
 		position.y -= SWIM_CRUSHED_RISE
 		speed = Vector2i.ZERO
 		_swim_bubble.visible = false
+		Sound.play(0x83)   # killed by the map (4:$A412)
 		drain(health)
 		return
 	if state != State.SWIM:

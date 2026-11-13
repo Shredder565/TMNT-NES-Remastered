@@ -83,6 +83,16 @@ runs the real room scene's turtle and `Lake`); area 0 needs
 a recorder that starts the emulator there (`world2_walk.py` shows how to
 begin world 2 and use the lower doorway).
 
+## Sounds (after merging build 48)
+
+Put in, at the moments the code plays them: under water a hurting cell
+plays $2F, not $25 (4:$A5C8); killed by the map $83 (4:$A412); the clock
+at 22, 21 and 5 seconds $33, $63, $67 (4:$A95C); time up $4B (4:$A97E);
+a bomb seen to $32 (6:$A1DB). Not put in: the jump into the lake, scene
+6's own start (6:$A83B, not read), scene 7, the row change's sounds if
+any, the dying sound under water (4:$97B9 plays $83 when his energy is
+gone: the remake's usual path is left as it is).
+
 ## Things noticed on the way
 
 - By the code (4:$9A87) a change of row keeps the turtle's place on the

@@ -14,6 +14,7 @@ signal time_up                 ## the clock ran out and the flashing is over
 
 const CLOCK_SECONDS := 140     ## what the clock is set to on diving in (measured)
 const CLOCK_UPDATES := 30      ## his updates to a second
+const CLOCK_SOUNDS := { 22: 0x33, 21: 0x63, 5: 0x67 }   ## what is played as the clock reaches these seconds
 const IN_HAND_LEFT := 10       ## a thing is in hand while its span across meets the screen from here
 const IN_HAND_RIGHT := 246     ## ...to here, on the row of screens on show
 const KIND_BOMB_FIRST := 0x17  ## the table's kinds for the eight bombs
@@ -150,12 +151,15 @@ func clock_update() -> bool:
 	if seconds == 0:
 		if _time_up_calls < 0:
 			_time_up_calls = TIME_UP_CALLS
+			Sound.play(0x4B)   # the time is up (4:$A97E)
 			turtle.set_physics_process(false)
 		return false
 	count -= 1
 	if count == 0:
 		count = CLOCK_UPDATES
 		seconds -= 1
+		if CLOCK_SOUNDS.has(seconds):
+			Sound.play(CLOCK_SOUNDS[seconds])   # 4:$A95C
 	return true
 
 ## Is a fixed thing in hand: on the row of screens on show, its span across
@@ -256,6 +260,7 @@ func _step_disarming() -> void:
 		return
 	disarming = -1
 	turtle.speed = Vector2i.ZERO
+	Sound.play(0x32)   # a bomb is seen to (6:$A1DB)
 	_show_bombs()
 	if disarmed == 0xFF:
 		all_disarmed.emit()
