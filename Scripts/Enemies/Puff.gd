@@ -33,7 +33,7 @@ func _show() -> void:
 	var frame := _sprites.frame_at("walk", _ticks)
 	if _sprites.textures.has(frame):
 		_picture.texture = _sprites.textures[frame]
-		_picture.position = _sprites.offsets[frame]
+		_picture.position = _sprites.offsets[frame] - Vector2(0, OriginalEnemy.sprite_lift)
 
 func _physics_process(_delta: float) -> void:
 	_frame += 1

@@ -31,7 +31,7 @@ func _ready() -> void:
 		picture.centered = false
 		var frame := sprites.frame_at("walk", 0)
 		picture.texture = sprites.textures[frame]
-		picture.position = sprites.offsets[frame]
+		picture.position = sprites.offsets[frame] - Vector2(0, OriginalEnemy.sprite_lift)
 		add_child(picture)
 	else:
 		var block := ColorRect.new()

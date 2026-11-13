@@ -61,6 +61,9 @@ static var chance_byte := -1
 ## sixteen. Empty: the rows measured after the first manhole. The room
 ## scene fills it when a room is entered from the overworld.
 static var left_over := PackedByteArray()
+## How many lines higher than its place a picture is drawn (the room scene
+## sets it: the original shifts a room's background down and not its sprites).
+static var sprite_lift := 0
 static var _first_column := -1    ## the first of the sixteen map columns to hand; -1 = not tracked
 static var _screen_left := 0
 ## How far the screen scrolled in the turtle's last update (the original's
@@ -638,7 +641,7 @@ func _show() -> void:
 	var frame := _frame_name()
 	if sprites.textures.has(frame):
 		_picture.texture = sprites.textures[frame]
-		_picture.position = sprites.offsets[frame]
+		_picture.position = sprites.offsets[frame] - Vector2(0, sprite_lift)
 
 ## The sprite map's name for the picture on show.
 func _frame_name() -> String:

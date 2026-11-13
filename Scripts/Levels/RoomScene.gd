@@ -216,7 +216,7 @@ var _clearing := false               ## true from the last boss's fall until the
 ## Start screen comes up with April's words; when they are typed out the
 ## next world begins.
 enum EndStage { NONE, WAIT, WALK, FREED, MESSAGE }
-const END_WAIT_FRAMES := 68          ## from the screen being clear to the walk (the program waits 64; set so that the first step shows on the measured frame)
+const END_WAIT_FRAMES := 64          ## from the screen being clear to the walk: the program waits 32 updates (bank 6, $9DD1); set so that the first step comes on the frame it does in a whole recorded fight (Research/encounters.md)
 const END_FREED_FRAMES := 249        ## from her standing up to the dark
 const END_BAR_GOES := 8             ## frames into the walk at which the boss's empty bar leaves the strip (its parts are written every 8th frame)
 const END_FLOOR_MIDDLE := 140        ## his middle, down the screen, while he walks
@@ -461,6 +461,10 @@ func _lay_out_screen() -> void:
 	hud.visible = not as_original or show_help_text
 	var room_camera: Camera2D = turtle.get_node("Camera2D")
 	room_camera.offset.y = -ROOM_TOP_LINE if in_room else 0.0
+	# The original's sprites do not get that shift: enemies, thrown things,
+	# puffs and items are drawn that much higher than their places (measured:
+	# a kind 8D at 180 down is drawn on lines 164 to 179).
+	OriginalEnemy.sprite_lift = ROOM_TOP_LINE if in_room else 0
 	# A room's places are counted on its picture, so the whole view goes down
 	# 4 lines. The overworld's are the original's own numbers, which its
 	# sprites follow and its map does not: there only the map goes down.
@@ -741,6 +745,7 @@ func _follow_overworld(corner: Vector2) -> void:
 ## Puts the room's items out. They are there from the start and stay until
 ## picked up; leaving the room and coming back brings them back.
 func _place_items() -> void:
+	OriginalEnemy.sprite_lift = ROOM_TOP_LINE if original_layout() and not room.top_down else 0
 	for child in items.get_children():
 		items.remove_child(child)
 		child.queue_free()
