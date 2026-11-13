@@ -62,6 +62,11 @@ const SPAWN_BOTTOM := 0xB8           ## this far when the screen is not scrollin
 const ROW_TOP := 11                  ## the turtle's middle this near the screen's top (climbing, Up held) changes the screen
 const ROW_BOTTOM := 172              ## ...or this far down it
 const ROW_SCROLL := 4                ## pixels an update while it changes
+const SWIM_WORLD := 1                ## (world2) the room where he swims: the original's world 1, area 1
+const SWIM_AREA := 1
+const SWIM_ROW_CARRIED := 8          ## a swimmer keeps his place on the screen for this many updates of a change of row
+const SWIM_ROW_UP_END := 2           ## going up he ends this much higher
+const SWIM_ROW_REST := 2             ## and lies still this many updates after it
 const CAMERA_DOWN := 120.0           ## the camera's middle below the screen's top (the HUD strip is under the room)
 const PLACED_AT_ONCE := 6            ## the original's object slots 5 to 10
 const REMOVE_MARGIN := 4.0           ## and removed when it is this close to leaving
@@ -157,6 +162,7 @@ var _coming_up_facing_left := false
 var _screen_row := 0                 ## which row of screens is on show
 var _row_way := 0                    ## -1 or 1 while the screen changes row
 var _row_frame := 0
+var _row_swim := false               ## (world2) the change of row going on is a swimmer's
 var _view_top := 0.0                 ## the top of the screen in the room
 var _made: Node2D                    ## what _make_enemy_at has just made, if anything
 var _camera_corner := Vector2.ZERO
@@ -287,6 +293,7 @@ func _ready() -> void:
 	turtle.health = TURTLE_ENERGY
 	turtle.health_changed.connect(_show_energy)
 	turtle.died.connect(_on_turtle_died)
+	turtle.swim_row_wanted.connect(_on_swim_row_wanted)   # (world2)
 	turtle.moved.connect(_place_camera)
 	_show_energy(turtle.health, turtle.max_health)
 	boss_bar = health_bar.duplicate()
@@ -305,6 +312,7 @@ func _ready() -> void:
 			"stand": levels.box_half_size(0, 0x80),
 			"crouch": levels.box_half_size(0, 0x83),
 			"ball": levels.box_half_size(0, 0x87),
+			"swim": levels.box_half_size(0, Turtle.SWIM_ANIMATION_STROKE),   # (world2)
 		}
 		turtle.weapon_swings = [levels.weapon_swing(0, 0), levels.weapon_swing(0, 1), levels.weapon_swing(0, 2)]
 	enemies = Node2D.new()
@@ -406,6 +414,10 @@ func show_room(new_room: RoomData) -> void:
 	turtle.room = room
 	turtle.speed = Vector2i.ZERO
 	turtle.state = Turtle.State.NORMAL
+	turtle.stop_swimming()
+	_row_swim = false
+	if under_water():
+		turtle.swimming = true   # (world2) the lake: Research/swimming.md
 	if room.top_down:
 		walker.position = room.start
 	else:
@@ -583,6 +595,10 @@ func _show_turtle_look() -> void:
 		big = SpriteSet.cached("Leonardo")
 		small = SpriteSet.cached("LeonardoOverworld")
 	turtle.set_look(TURTLE_NAMES[current_turtle], colour, big, swings, SpriteSet.cached("TurtleWeapons") if swings != null else null)
+	if start_screen.data != null:
+		turtle.swim_sprites = SpriteSet.cached_with_colour("TurtleSwim", "0", 2, start_screen.data.bandana(current_turtle))   # (world2)
+	elif levels != null:
+		turtle.swim_sprites = SpriteSet.cached("TurtleSwim")
 	if levels != null:
 		walker.swings = [levels.overworld_swing(current_turtle, 0), levels.overworld_swing(current_turtle, 1),
 			levels.overworld_swing(current_turtle, 2), levels.overworld_swing(current_turtle, 3)]
@@ -1630,8 +1646,8 @@ func _settle_row() -> void:
 
 ## Starts a change of screen if the turtle has reached the top or bottom.
 func _check_row() -> void:
-	if fighting or turtle.state == Turtle.State.DEAD:
-		return
+	if fighting or turtle.state == Turtle.State.DEAD or turtle.swimming:
+		return   # (world2) a swimmer asks for the change himself: _on_swim_row_wanted
 	var rows := room.size_pixels().y / VIEW_SIZE.y
 	var middle := floori(turtle.position.y) - RoomData.CENTRE_TO_FEET - _screen_row * VIEW_SIZE.y
 	var way := 0
@@ -1654,6 +1670,9 @@ func _check_row() -> void:
 ## 48 updates and is then carried along, so he ends 32 pixels on (measured).
 func _step_row_change() -> void:
 	_row_frame += 1
+	if _row_swim:
+		_step_swim_row_change()
+		return
 	if _row_frame % Turtle.TICK_FRAMES != 0:
 		return
 	var step := _row_frame / Turtle.TICK_FRAMES
@@ -1666,6 +1685,57 @@ func _step_row_change() -> void:
 		_row_way = 0
 		turtle.set_physics_process(true)
 		_place_enemies()   # guess: the new screen's enemies come up as when a room does
+
+## --- (world2) under water: Research/swimming.md ---
+
+## True in the one room where the turtle swims: the original asks for its
+## second world's second area (bank 4, $996F).
+func under_water() -> bool:
+	return levels != null and room != null and not room.top_down and world == SWIM_WORLD and area == SWIM_AREA
+
+## A swimmer has reached the top or the bottom of the screen (bank 4,
+## $98C3): the screen changes row, by the same routine as on a ladder
+## (bank 4, $9A87), unless there is no row that way.
+func _on_swim_row_wanted(way: int) -> void:
+	var rows := room.size_pixels().y / VIEW_SIZE.y
+	if _row_way != 0 or fighting or _screen_row + way < 0 or _screen_row + way >= rows:
+		return
+	_row_way = way
+	_row_frame = 0
+	_row_swim = true
+	turtle.set_physics_process(false)
+
+## One frame of a swimmer's change of row, as the routine was read: 48
+## updates of 4 pixels; for the first 8 he keeps his place on the screen,
+## for the other 40 his place in the room; one update more ends it (going
+## up he is then put 2 higher, and the current he was in is forgotten);
+## and he lies still for two updates after that.
+func _step_swim_row_change() -> void:
+	var scroll_steps := VIEW_SIZE.y / ROW_SCROLL
+	if _row_frame % Turtle.TICK_FRAMES != 0:
+		# His picture's count goes down on the frames between and is put up
+		# again by each update of the change, so it stands (bank 4, $9A98).
+		if _row_frame < (scroll_steps + 1) * Turtle.TICK_FRAMES:
+			turtle._step_swim_picture()
+		return
+	var step := _row_frame / Turtle.TICK_FRAMES
+	if step <= scroll_steps + 1:
+		turtle.swim_left += 1
+	if step <= scroll_steps:
+		_view_top += _row_way * ROW_SCROLL
+		if step <= SWIM_ROW_CARRIED:
+			turtle.position.y += _row_way * ROW_SCROLL
+	elif step == scroll_steps + 1:
+		_screen_row += _row_way
+		_view_top = _screen_row * VIEW_SIZE.y
+		if _row_way < 0:
+			turtle.position.y -= SWIM_ROW_UP_END
+		turtle.swim_current = 0
+	elif step >= scroll_steps + 1 + SWIM_ROW_REST:
+		_row_way = 0
+		_row_swim = false
+		turtle.set_physics_process(true)
+	turtle.swim_screen_top = _view_top
 
 ## Enemies coming and going as the screen scrolls, by the original's rule
 ## (bank 6, $80F6 and $8112; Research/enemy_spawning.md). Once an update,
@@ -1717,8 +1787,8 @@ func _follow_camera() -> void:
 ## speed his ground routine sets, so it moves him once an update, with his
 ## own step, and first on the second update after he lands (measured).
 func _apply_floor_kinds() -> void:
-	if turtle.state == Turtle.State.DEAD:
-		return
+	if turtle.state == Turtle.State.DEAD or turtle.swimming:
+		return   # (world2) under water the swimming routine feels the map itself
 	_floor_frame += 1
 	var his_update := (turtle._frame + 1) % Turtle.TICK_FRAMES == 0   # his update comes later this frame
 	var feet := turtle.position
@@ -2025,6 +2095,7 @@ func _place_camera() -> void:
 	var camera: Camera2D = turtle.get_node("Camera2D")
 	camera.position.x = floorf(turtle.scroll_x) + VIEW_SIZE.x / 2.0 - turtle.position.x
 	camera.position.y = _view_top + CAMERA_DOWN - turtle.position.y
+	turtle.swim_screen_top = _view_top
 	OriginalEnemy.screen_moved_to(floori(turtle.scroll_x))
 
 func set_flying(on: bool) -> void:

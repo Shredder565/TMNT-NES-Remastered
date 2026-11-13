@@ -1,0 +1,120 @@
+extends Node
+## Swimming side by side: the same buttons go to the real room scene's turtle as went to the
+## original (Research/cynes/swim_record.py), with no objects in either, and his place, speeds,
+## animation, picture, facing and energy are compared on every frame.
+## godot --headless --fixed-fps 60 res://tmp_run.tscn -- <recording.json> [run] [from-to]
+## Columns of a row: 0 frame counter, 1 2 screen corner, 3 4 X and fraction, 5 6 Y and fraction,
+## 7 8 speed across, 9 10 speed down, 11 state, 12 animation, 13 picture, 14 flags, 15 energy,
+## 16 current, 17 18 row change, 19 20 clock, 21.. the bubble, 30 buttons.
+
+const BUTTONS := { 1: "move_right", 2: "move_left", 4: "move_down", 8: "move_up", 0x40: "attack", 0x80: "jump" }
+var dump_from := -1
+var dump_to := -1
+
+func _ready() -> void:
+	var args := OS.get_cmdline_user_args()
+	var data: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(args[0]))
+	var only := args[1] if args.size() > 1 else "all"
+	if args.size() > 2:
+		dump_from = int(args[2].split("-")[0])
+		dump_to = int(args[2].split("-")[1])
+	var scene = load("res://Scenes/Levels/Area1Sewer.tscn").instantiate()
+	scene.start_on_overworld = false
+	add_child(scene)
+	await get_tree().physics_frame
+	var grand := [0, 0, 0, 0, 0, 0]
+	for name: String in data:
+		if only != "all" and name != only:
+			continue
+		var result: Array = await _run(scene, name, data[name])
+		for i in grand.size():
+			grand[i] += result[i]
+	print("ALL: %d frames; place %d, speeds %d, animation and picture %d, facing %d, energy %d" % grand)
+	get_tree().quit()
+
+func _signed(whole: int, fraction: int) -> int:
+	return (whole - 256 if whole >= 128 else whole) * 256 + fraction
+
+func _run(scene, name: String, rows: Array) -> Array:
+	for action: String in BUTTONS.values():
+		Input.action_release(action)
+	var start := 1
+	while int(rows[start][0]) % 2 != 0 or int(rows[start][0]) == int(rows[start - 1][0]) or int(rows[start][17]) != 0:
+		start += 1
+	for bit: int in BUTTONS:               # what is held as the comparison begins is not a new press
+		if int(rows[start - 1][30]) & bit != 0:
+			Input.action_press(BUTTONS[bit])
+	var leo: Turtle = scene.turtle
+	leo.revive()
+	leo.set_physics_process(true)
+	scene.set_show_enemies(false)
+	scene.door_wipe = false
+	for i in 4:
+		await get_tree().physics_frame
+	await get_tree().process_frame
+	# Begin on a frame after one of his updates (an even frame counter), with everything as
+	# the recording has it.
+	var row: Array = rows[start]
+	scene.load_area(1, 1)
+	scene.set_show_enemies(false)
+	scene._row_way = 0
+	leo.set_physics_process(true)
+	leo.max_health = 128
+	leo.health = 128
+	leo.invulnerable_timer = int(row[29]) * 2.0 / 60.0 if int(row[14]) & 4 != 0 else 0.0   # hurt while the recorder set him down
+	leo.position = Vector2(int(row[1]) + int(row[3]) + int(row[4]) / 256.0, int(row[2]) + int(row[5]) + 20 + int(row[6]) / 256.0)
+	leo.put_screen(float(row[1]))
+	scene._settle_row()
+	scene._place_camera()
+	leo.state = Turtle.State.SWIM
+	leo.speed = Vector2i(_signed(int(row[7]), int(row[8])), _signed(int(row[9]), int(row[10])))
+	leo.facing = -1 if int(row[14]) & 1 != 0 else 1
+	leo.swim_animation = int(row[12])
+	leo.swim_picture = int(row[13])
+	leo.swim_step = int(row[27])
+	leo.swim_left = int(row[28])
+	leo.hold_updates = 0
+	leo._frame = 1                      # the next frame is his update
+	leo._jump_pressed = false
+	var counts := [0, 0, 0, 0, 0, 0]
+	var first := ["", "", "", "", ""]
+	var previous := int(row[0])
+	var refill := false
+	for f in range(start + 1, rows.size()):
+		row = rows[f]
+		var lag := int(row[0]) == previous
+		previous = int(row[0])
+		if not lag:
+			var buttons := int(rows[f - 1][30])   # the original acts on them a frame late
+			for bit: int in BUTTONS:
+				if buttons & bit != 0:
+					Input.action_press(BUTTONS[bit])
+				else:
+					Input.action_release(BUTTONS[bit])
+			if refill and not name in ["weed_shaft"]:
+				leo.health = 128       # the recorder fills his energy before every frame
+			await get_tree().physics_frame
+			await get_tree().process_frame
+		refill = true
+		if int(row[11]) != 0x0F or leo.state == Turtle.State.DEAD:
+			print("  %s: ends at frame %d (original state %02X, remake %s)" % [name, f, int(row[11]), "dead" if leo.state == Turtle.State.DEAD else "swimming"])
+			break
+		counts[0] += 1
+		var theirs := Vector2(int(row[1]) + int(row[3]) + int(row[4]) / 256.0, int(row[2]) + int(row[5]) + 20 + int(row[6]) / 256.0)
+		var their_speed := Vector2i(_signed(int(row[7]), int(row[8])), _signed(int(row[9]), int(row[10])))
+		var checks := [
+			theirs.distance_to(leo.position) < 0.001 and int(row[1]) == floori(leo.scroll_x) and int(row[2]) == int(scene._view_top),
+			their_speed == leo.speed,
+			int(row[12]) == leo.swim_animation and int(row[13]) == leo.swim_picture,
+			(int(row[14]) & 1 != 0) == (leo.facing < 0),
+			int(row[15]) == leo.health,
+		]
+		for i in checks.size():
+			if checks[i]:
+				counts[i + 1] += 1
+			elif first[i] == "":
+				first[i] = "frame %d" % f
+		if f >= dump_from and f <= dump_to:
+			print("  %d c%d b%02X | orig at %s corner %d,%d speed %s an %02X pic %02X e %d | remake at %s corner %d,%d speed %s an %02X pic %02X e %d row %d" % [f, int(row[0]), int(rows[f - 1][30]), str(theirs), int(row[1]), int(row[2]), str(their_speed), int(row[12]), int(row[13]), int(row[15]), str(leo.position), floori(leo.scroll_x), int(scene._view_top), str(leo.speed), leo.swim_animation, leo.swim_picture, leo.health, scene._row_way])
+	print("%s: %d frames; place %d, speeds %d, animation and picture %d, facing %d, energy %d; first differences: %s" % [name, counts[0], counts[1], counts[2], counts[3], counts[4], counts[5], str(first)])
+	return counts
