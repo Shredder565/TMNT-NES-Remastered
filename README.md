@@ -103,6 +103,13 @@ number, are the 5 kinds not recorded yet. See `Research/enemy_kinds.md`.
 | `Research/` | Notes on how the original works, and the emulator scripts used |
 | `Tests/` | Self-tests that use a fake ROM built in memory |
 
+## Sound
+
+With a ROM installed the game plays the original's sound effects and the
+title tune through its own sound driver and synthesizer, from the ROM's
+music data (`Research/sound.md`). M turns sound on and off. Music in play
+is not wired in yet.
+
 ## World 1
 
 With a ROM installed the game opens on the original's notice and title
