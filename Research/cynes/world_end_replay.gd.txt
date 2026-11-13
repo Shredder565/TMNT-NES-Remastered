@@ -1,0 +1,46 @@
+## The remake's pictures of the scene after world 1's last boss, for the
+## frames listed in `shots` (counted from the blow, as world_end_checks.py
+## counts them). Copy to tmp.gd beside a tmp.tscn whose root node has this
+## script, and run with a display:
+##   xvfb-run -a godot --rendering-driver opengl3 --fixed-fps 60 res://tmp.tscn
+extends Node
+const OUT := "user://world_end_%d.png"   # compare with frame_<n>.png from world_end_checks.py
+var shots := [82,83, 84, 85, 86,87,88,89, 90,91, 92, 93, 94,95,96,97,98, 99,100,101,102,103,150,151,200,201,306,307,308,309,310,311,312,400,556,557,558,559,560,561,562,563,565,571,1075,1076,1077,1081,1130]
+func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	var room = load("res://Scenes/Levels/Area1Sewer.tscn").instantiate()
+	add_child(room)
+	room.door_wipe = false
+	room.load_area(0, 5)
+	room.door_wipe = true
+	var leo = room.turtle
+	leo.position = Vector2(60, 160)
+	for i in 40:
+		leo.invulnerable_timer = 1.0
+		await get_tree().physics_frame
+	print("boss ", room.boss, " april ", room.april, " fight corner ", room.fight_corner)
+	# stand him where the emulator's turtle stood when the boss fell
+	leo.position = Vector2(153, 160)
+	leo.facing = 1
+	for i in 3:
+		leo.invulnerable_timer = 1.0
+		await get_tree().physics_frame
+	room.boss.position = Vector2(180, 185)
+	leo.position.x = 153.0
+	print("turtle at ", leo.position, " state ", leo.state)
+	room.add_points(0)
+	room.boss.take_hit(999)
+	var log := []
+	for t in range(1, 1140):
+		await get_tree().physics_frame
+		log.append([t, room.end_stage, leo.position.x, room.world, room.start_screen.phase, room._wipe_frame])
+		if shots.has(t):
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(OUT % t)
+	var prev = null
+	for row in log:
+		var key = [row[1], row[3], row[4]]
+		if key != prev or row[0] in [82, 83, 84, 85, 86, 87, 88]:
+			print(row)
+		prev = key
+	get_tree().quit()
