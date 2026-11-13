@@ -208,3 +208,19 @@ with the turtle put 32 pixels inside a pillar by the recorder. The
 original leaves him there and raises him onto the pillar the moment he
 jumps; the remake now also leaves him there but its jump does not raise
 him, so that run differs from frame 72. It cannot happen in play.
+
+### Two follow-ups (13 November 2026)
+
+- **A doorway takes him through on his update after the one that sees
+  Up** (measured: 3 or 4 frames from the button; a ladder's top 1 frame).
+  The remake's doorway now waits for that second update; in the nine-door
+  comparison it leaves after 3 and 2 frames where the original took 3 and
+  4 (the comparison gives the remake its buttons a frame sooner).
+- **Items hold an object slot while they are on the screen** (measured in
+  the door recordings: slot 7 beside two enemies, slot 11 beside six).
+  The remake now counts an item on the screen as one of the six placed
+  enemies if a place was free when it came on, else as one of the four
+  thrown things. Taken as "on the screen" by the objects' own rule (4
+  pixels inside); the original's list takes an item up 10 pixels inside,
+  which was not copied. No recording here has an item and six enemies on
+  the screen at once, so the effect itself was not compared.

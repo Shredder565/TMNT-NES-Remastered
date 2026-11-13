@@ -21,6 +21,10 @@ const HALF_ENERGY := 64
 signal taken(item: Item)
 
 var kind := SLICE
+## The original makes an item an object while it is on the screen, in the
+## first free slot from 5 up: 0 here if that is one of the six enemy
+## slots, 1 if one of the four for thrown things, -1 while it has none.
+var slot_group := -1
 var sprites: SpriteSet
 
 func setup(item_kind: int, at: Vector2, sprite_set: SpriteSet) -> void:

@@ -64,6 +64,9 @@ static var left_over := PackedByteArray()
 ## How many lines higher than its place a picture is drawn (the room scene
 ## sets it: the original shifts a room's background down and not its sprites).
 static var sprite_lift := 0
+## How many of the four slots for thrown things something else holds (items
+## on the screen can: the room scene counts them).
+static var thrown_slots_taken := 0
 static var _first_column := -1    ## the first of the sixteen map columns to hand; -1 = not tracked
 static var _screen_left := 0
 ## How far the screen scrolled in the turtle's last update (the original's
@@ -580,7 +583,7 @@ func throw_object(thrown: OriginalEnemy, thrown_kind: int, across: int, down: in
 		for other in parent.get_children():
 			if other is OriginalEnemy and other.is_thrown and not other.gone:
 				flying += 1
-	if parent == null or flying >= THROWN_AT_ONCE:
+	if parent == null or flying + thrown_slots_taken >= THROWN_AT_ONCE:
 		thrown.free()
 		return null
 	thrown.is_thrown = true

@@ -172,6 +172,7 @@ func _run(sewer, name: String, run: Dictionary, levels: RomLevels, verbose: bool
 	OriginalEnemy.chance_byte = -1
 	# The way back out: Up (with a step left first where the door needs it).
 	sewer.set_show_enemies(false)
+	sewer.door_wipe = true
 	var left := -1
 	for f in 400:
 		for action: String in BUTTONS.values():
@@ -185,6 +186,8 @@ func _run(sewer, name: String, run: Dictionary, levels: RomLevels, verbose: bool
 			break
 	for action: String in BUTTONS.values():
 		Input.action_release(action)
+	while sewer.wiping():
+		await get_tree().physics_frame
 	var out: Dictionary = run.out[run.out.size() - 1]
 	var their_spot := Vector2(int(out.cam) + int(out.t[0]), int(out.camy) + int(out.t[2]))
 	var back := "back out after %d frames (original %d): turtle %s, screen %s" % [left, int(run.left_after), str(sewer.walker.position), str(sewer.overworld_screen)]

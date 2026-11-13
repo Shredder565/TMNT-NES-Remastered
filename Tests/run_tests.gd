@@ -2930,6 +2930,31 @@ func _test_enemies2() -> void:
 	check(door_leo.position == Vector2(392, 160), "putting him at a place does not lift him out of a floor any more")
 	door_scene.load_area(0, 0)
 	check(OriginalEnemy.left_over.is_empty(), "a room not entered through a door has the cells measured after the first manhole")
+	# Items hold an object slot while they are on the screen.
+	door_scene.load_overworld(0)
+	door_scene.enter_door(doors[5])
+	var pizza: Item = door_scene.items.get_child(0)
+	door_scene._see_to_item_slots()
+	check(pizza.position == Vector2(928, 32) and pizza.slot_group == 0 and door_scene.placed_enemies() == 1, "an item on the screen holds one of the six enemy slots")
+	door_scene.load_area(0, 0)
+	pizza = door_scene.items.get_child(0)
+	door_scene._see_to_item_slots()
+	check(pizza.slot_group == -1 and door_scene.placed_enemies() == 0, "and none while it is off the screen")
+	# A doorway acts on the update after the one that sees Up.
+	door_scene.load_overworld(0)
+	door_scene.enter_door(doors[8])
+	door_scene.door_wipe = true
+	door_leo.hold_updates = 0
+	Input.action_release("move_up")
+	await get_tree().physics_frame
+	Input.action_press("move_up")
+	await get_tree().physics_frame
+	var at_once: bool = door_scene.room.top_down
+	for i in 3:
+		await get_tree().physics_frame
+	Input.action_release("move_up")
+	check(not at_once and door_scene.room.top_down, "Up at a doorway takes him through 2 to 4 frames later, not on the frame of the press")
+	door_scene.door_wipe = false
 	door_scene.free()
 
 	# --- The two bosses (enemies2) ---

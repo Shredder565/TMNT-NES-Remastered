@@ -234,6 +234,7 @@ var _boss_camera_x := 0.0            ## where the camera was a frame ago
 ## World 5 hides the Technodrome behind the inner door of one of three caves
 ## (areas 2, 3 and 4), chosen afresh each game.
 var technodrome_cave := 2
+var _door_seen := false               ## his last update found Up held at a doorway
 var _wait_for_up_release := false    ## no second door until Up is let go
 var current_turtle := 0              ## who is playing: 0 Leonardo, 1 Raphael, 2 Michelangelo, 3 Donatello
 var turtle_energy: Array = [TURTLE_ENERGY, TURTLE_ENERGY, TURTLE_ENERGY, TURTLE_ENERGY]
@@ -1379,11 +1380,39 @@ func set_score(new_score: int) -> void:
 	if hud_strip != null:
 		hud_strip.show_scores(score, high_score)
 
+## Items as objects (bank 4, $AB94; measured: Research/doors.md). An item
+## on the screen holds an object slot, the first free one from 5 up when
+## it comes on: one of the six for placed enemies if any is free (then
+## only five enemies fit beside it), else one of the four for thrown
+## things. It gives the slot up when it leaves the screen or is taken.
+## Looked at once an update, after the enemies of that update are made.
+## (Guess: "on the screen" is taken as the object rule, 4 pixels inside;
+## the original's list takes an item up 10 pixels inside.)
+func _see_to_item_slots() -> void:
+	var corner := _view_corner()
+	var thrown_held := 0
+	for item in items.get_children():
+		if not (item is Item) or item.is_queued_for_deletion():
+			continue
+		var across: float = item.position.x - corner.x
+		var down: float = item.position.y - corner.y
+		var on_screen := across >= REMOVE_MARGIN and across < VIEW_SIZE.x - REMOVE_MARGIN and down >= REMOVE_MARGIN and down < VIEW_SIZE.y
+		if not on_screen:
+			item.slot_group = -1
+		elif item.slot_group < 0:
+			item.slot_group = 0 if placed_enemies() < PLACED_AT_ONCE else 1
+		if item.slot_group == 1:
+			thrown_held += 1
+	OriginalEnemy.thrown_slots_taken = thrown_held
+
 ## How many of the original's six places for placed enemies are taken:
 ## everything on the map but what enemies have thrown. A beaten enemy's
 ## puff still holds its place.
 func placed_enemies() -> int:
 	var count := 0
+	for item in items.get_children():
+		if item is Item and item.slot_group == 0 and not item.is_queued_for_deletion():
+			count += 1
 	for thing in enemies.get_children():
 		if thing.is_queued_for_deletion() or thing is Shot or (thing is OriginalEnemy and thing.is_thrown):
 			continue
@@ -1638,6 +1667,7 @@ func _follow_camera() -> void:
 		return
 	if not flying and turtle._frame % Turtle.TICK_FRAMES != 0:
 		return   # the turtle's frame: enemies are seen to on the other one
+	_see_to_item_slots.call_deferred()   # after this update's enemies are made
 	_camera_corner = corner
 	var step := int(corner.x) - int(old.x)
 	if step != 0 and not fighting:
@@ -1882,6 +1912,7 @@ func _room_door_in_use() -> Door:
 		return null
 	if not Input.is_action_pressed("move_up"):
 		_wait_for_up_release = false
+		_door_seen = false
 		return null
 	if _wait_for_up_release:
 		return null
@@ -1894,7 +1925,17 @@ func _room_door_in_use() -> Door:
 	elif turtle.state != Turtle.State.NORMAL or not turtle.on_floor():
 		return null
 	elif not room.is_door_cell(floori(turtle.position.x / RoomData.TILE), floori((floorf(turtle.position.y) - 28.0) / RoomData.TILE)):
+		_door_seen = false
 		return null   # the original tests the one point at his middle, 28 above his feet
+	elif door_wipe:
+		# A doorway is taken by his own routine: the update that finds Up at
+		# a door only notes it, and the next one goes through (measured: 3
+		# or 4 frames from the button, where a ladder's top takes 1).
+		if (turtle._frame + 1) % Turtle.TICK_FRAMES != 0:
+			return null
+		if not _door_seen:
+			_door_seen = true
+			return null
 	return room.door_at(centre, _door_reach())
 
 func _make_body(rect: Rect2i, one_way: bool) -> StaticBody2D:
