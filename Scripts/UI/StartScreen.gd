@@ -296,7 +296,7 @@ func _type_one() -> void:
 	if code == 0:
 		_text_place += 1
 	elif code < 0xF7:
-		Sound.play(0x36 if event else 0x39)   # a letter (3:$AF74)
+		Sound.play(0x39)   # a letter (3:$AF74)
 		_write([[_text_place, code]])
 		_text_place += 1
 	elif code == 0xF7:

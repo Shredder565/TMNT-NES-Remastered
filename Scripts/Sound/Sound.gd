@@ -19,6 +19,7 @@ const FRAMES_PER_SECOND := 60
 const BUFFER_SECONDS := 0.15          ## how much sound Godot may hold waiting to be heard
 const CUSHION_FRAMES := 3              ## silence put in first, so a late frame does not leave a gap
 const REQUESTS_KEPT := 64
+const LOW_ENERGY := 0x18               ## under this the warning sounds
 
 var data: SoundData
 var driver: SoundDriver
@@ -35,6 +36,10 @@ var _player: AudioStreamPlayer
 var _playback: AudioStreamGeneratorPlayback
 var _buffer_room := 0                  ## what Godot's buffer holds when empty
 var _looked_for_rom := false
+var _keep_tune := false                ## the next area's tune is not to be started (a room-to-room door)
+var _lengths := {}                     ## tune number -> its length in frames
+var _warned := false                   ## the low-energy warning has sounded
+var _awaited := 0                      ## the tune whose end the game is waiting for, if any
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -52,6 +57,7 @@ func load_rom(path: String = Game.ROM_PATH) -> void:
 ## Play from these program bytes (tests pass a made-up ROM here).
 func use_program(prg: PackedByteArray) -> void:
 	driver = null
+	_lengths.clear()
 	data = SoundData.new(prg)
 	if not data.usable():
 		return
@@ -87,6 +93,63 @@ func play(number: int) -> void:
 		load_rom()
 	if driver != null:
 		driver.play(number)
+		if number >= SoundData.FIRST_TUNE and number < SoundData.FIRST_SAMPLE:
+			_awaited = number if driver.playing(SoundDriver.SLOT_DRUMS) == number and (number == SoundDriver.TUNE_OVER_A or number == SoundDriver.TUNE_OVER_B) else 0
+
+## The place's own tune, from its beginning (7:$CBDC): silence first, then
+## the tune. Not after a door from one room to another, which leaves the
+## music playing.
+func play_area_tune(world: int, area: int, inside: bool) -> void:
+	if _keep_tune:
+		_keep_tune = false
+		return
+	if driver == null:
+		return
+	stop_all()
+	play(data.area_tune(world, area, inside))
+
+## The low-energy warning (4:$9989), to be called every frame with the
+## playing turtle's energy: sound $33 once when it is under $18 (and not
+## gone); it can sound again after the energy has been $18 or more.
+func low_energy(energy: int) -> void:
+	if energy >= LOW_ENERGY:
+		_warned = false
+	elif energy > 0 and not _warned:
+		_warned = true
+		play(0x33)
+
+## A door is being used (7:$E7C5): everything is silenced, unless the
+## door leads from a room to a room.
+func door_used(room_to_room: bool) -> void:
+	_keep_tune = room_to_room and driver != null
+	if not room_to_room:
+		stop_all()
+
+## Silence, then a tune or sound (how the original begins a held fight's
+## tune and a boss's end).
+func play_fight_tune(number: int) -> void:
+	stop_all()
+	play(number)
+
+## How many frames tune `number` plays before the original's "tune over"
+## byte is set (worked out by playing it through silently, once).
+func tune_length(number: int) -> int:
+	if driver == null:
+		return 0
+	if not _lengths.has(number):
+		var trial := SoundDriver.new(data)
+		trial.play(number)
+		var steps := 0
+		while not trial.tune_over and steps < 20000:
+			trial.step()
+			steps += 1
+		_lengths[number] = steps
+	return _lengths[number]
+
+## True when the game last started tune `number` (one of the two the
+## original waits on, $83 and $7F) and should wait for `tune_over`.
+func follows(number: int) -> bool:
+	return driver != null and _awaited == number
 
 func stop_all() -> void:
 	if driver != null:

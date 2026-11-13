@@ -230,6 +230,7 @@ const APRIL_AT := Vector2(26, 166)   ## where she sits on the fight's screen (ob
 const MUTED_ACTIONS := ["move_left", "move_right", "move_up", "move_down", "jump", "attack", "pause", "select"]
 var end_stage := EndStage.NONE
 var _end_frames := 0
+var _tune_wait := 0                  ## frames left of the tune the end-of-world scene waits for
 var april: Sprite2D                  ## April in the last room, while the fight and the scene after it last
 var _boss_key := Vector2i(-1, -1)    ## the room the living boss belongs to
 var _boss_camera_x := 0.0            ## where the camera was a frame ago
@@ -552,6 +553,7 @@ func set_turtle(index: int) -> void:
 	turtle_energy[current_turtle] = turtle.health
 	current_turtle = index
 	turtle.swing_sound = [0x0A, 0x0C, 0x0E, 0x12][index]   # each weapon's swish (4:$9F7C)
+	walker.swing_sound = [0x0A, 0x0C, 0x0E, 0x10][index]   # Donatello's is another on the overworld
 	turtle.health = int(turtle_energy[index])
 	turtle.health_changed.emit(turtle.health, turtle.max_health)
 	if levels != null:
@@ -1005,9 +1007,11 @@ func _check_boss() -> void:
 		if not _screen_clear():
 			return
 		if _hold_count == 0:
+			Sound.play(0x77)   # the fight is won (6:$9DB2)
 			_hold_count = HOLD_LEAVE_UPDATES
 		_hold_count -= 1
 		if _hold_count == 0:
+			Sound.play_area_tune(world, area, true)   # 6:$9DCE
 			_holds_done[_encounter_index] = true
 			_end_fight()
 		return
@@ -1019,6 +1023,7 @@ func _check_boss() -> void:
 		return
 	var entry := room.encounters[index]
 	if hold_stage == 0:
+		Sound.play_fight_tune(0x7B if entry.is_boss and entry.code != 0 else 0x73)   # 6:$9CBE
 		_start_hold(entry, index)
 	if not _screen_clear():
 		return
@@ -1043,18 +1048,21 @@ func _after_boss() -> void:
 	if _encounter == null or _encounter.kind == WORLD_END_BOSS or world_ending():
 		return
 	if _boss_end_stage == 0:
+		Sound.play_fight_tune(0x42)   # silence, then the boss's end (6:$9DED)
 		_boss_end_stage = 1
 		_hold_count = BOSS_LEAVE_UPDATES
 	_hold_count -= 1
 	if _hold_count > 0:
 		return
 	if _boss_end_stage == 1 and _encounter.code == 0:
+		Sound.play(0x77)   # 6:$9E01
 		_boss_end_stage = 2
 		_hold_count = BOSS_LEAVE_MORE_UPDATES
 		return
 	var with_scene := _encounter.code == 0
 	_end_fight()
 	if with_scene:
+		Sound.play_area_tune(world, area, true)   # 6:$9E45
 		_ledge_frame = 0
 		_ledge_updates = LEDGE_SCENE_UPDATES
 		turtle.set_physics_process(false)
@@ -1254,12 +1262,17 @@ func _mute_buttons() -> void:
 ## One frame of the scene. Returns true while it has the turtle in hand.
 func _step_world_end() -> bool:
 	_end_frames += 1
+	_tune_wait -= 1
 	match end_stage:
 		EndStage.WAIT:
 			_mute_buttons()
 			if _anything_left_on_screen():
 				_end_frames = 0
+			elif _end_frames == 2:
+				Sound.play_fight_tune(0x42)   # silence, then the boss's end (6:$9DED)
 			elif _end_frames >= END_WAIT_FRAMES:
+				Sound.play(0x7F)   # the world is won (6:$9E52)
+				_tune_wait = Sound.tune_length(0x7F)
 				_begin_end_walk()
 			return false
 		EndStage.WALK:
@@ -1284,7 +1297,8 @@ func _step_world_end() -> bool:
 			return true
 		EndStage.FREED:
 			_mute_buttons()
-			if _end_frames >= END_FREED_FRAMES:
+			if (_tune_wait <= 1 if Sound.ready_to_play() else _end_frames >= END_FREED_FRAMES):   # the original waits for the tune's end (6:$A0BE)
+				Sound.play(0x52)   # silence (6:$A0C8)
 				end_stage = EndStage.MESSAGE
 				var leftovers: Array = room.palettes.slice(6, 8) if room.palettes.size() >= 8 else []
 				turtle_energy[current_turtle] = turtle.health
@@ -1856,6 +1870,7 @@ func _place_turtle(centre: Vector2) -> void:
 ## is where the door leaves him). There is no climbing picture at a
 ## manhole. `enter_door` alone changes sides at once, with none of this.
 func use_door(door: Door) -> void:
+	Sound.door_used(door.to_room and room != null and not room.top_down)   # 7:$E7C5
 	enter_door(door)
 	if door_wipe and levels != null:
 		_start_wipe()
@@ -1898,6 +1913,7 @@ func wiping() -> bool:
 
 func _step_wipe() -> void:
 	_wipe_frame += 1
+	if _wipe_frame == 2 + _wipe_rows: Sound.play_area_tune(world, area, not room.top_down)   # the picture is whole (7:$CBBF)
 	var lines := _picture_lines()
 	var drawn := minf((_wipe_frame - 1) * RoomData.TILE, lines)
 	if _wipe_world_begin:
@@ -1972,6 +1988,7 @@ func _make_body(rect: Rect2i, one_way: bool) -> StaticBody2D:
 	return body
 
 func _physics_process(_delta: float) -> void:
+	Sound.low_energy(turtle.health)   # the warning when his energy is low (4:$9989)
 	if _capture_frame >= 0:
 		_step_capture()
 	if _wipe_frame >= 0:
@@ -2067,6 +2084,7 @@ func _step_capture() -> void:
 		anyone = anyone or energy > 0
 	if not anyone:
 		continues_left -= 1
+		Sound.play(0x8B)   # the GAME OVER tune (7:$CD1F)
 		game_over.open(continues_left)
 		return
 	var leftovers: Array = room.palettes.slice(6, 8) if room.palettes.size() >= 8 else []

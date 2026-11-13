@@ -1799,6 +1799,7 @@ func _ready() -> void:
 	await _test_rescue()
 	await _test_special_weapons()
 	await _test_title_to_play()
+	await _test_sound()
 
 	print("ROM screen")
 	var rom_path := "user://_test_fake.nes"
@@ -3493,3 +3494,318 @@ func _test_title_to_play() -> void:
 	plain.set_physics_process(false)
 	check(not plain.wiping(), "a game scene made any other way begins at once")
 	plain.free()
+
+
+## --- Sound (Scripts/Sound, Research/sound.md) -------------------------------
+
+## Puts bytes into a made-up program at a bank-0 address.
+func _sound_put(prg: PackedByteArray, address: int, bytes: Array) -> void:
+	for i in bytes.size():
+		prg[(address & 0x3FFF) + i] = bytes[i]
+
+## A made-up program with a table of sounds and a few short pieces of data
+## in the original's two formats. Nothing here is from the game.
+func _fake_sound_program() -> PackedByteArray:
+	var prg := PackedByteArray()
+	prg.resize(0x20000)
+	_sound_put(prg, SoundData.T_TABLE_POINTER, [0x00, 0xA0])           # the table is at $A000
+	# Sound 1: an effect on the effects' square wave (slot 4).
+	_sound_put(prg, 0xA000 + 1 * 3, [0x04, 0x00, 0xA1])
+	_sound_put(prg, 0xA100, [0x01, 0xB0, 0x88, 0x80, 0xFE, 0x02, 0xB0, 0x9A, 0x51, 0x23, 0xFF])
+	# Sound 2: an effect on the noise (slot 5), with a repeat.
+	_sound_put(prg, 0xA000 + 2 * 3, [0x05, 0x20, 0xA1])
+	_sound_put(prg, 0xA120, [0x01, 0xFB, 0xA3, 0xFE, 0x03, 0xFF])
+	# Sound $10: music on the first square wave and the triangle (two entries).
+	_sound_put(prg, 0xA000 + 0x10 * 3, [0x08, 0x40, 0xA1, 0x02, 0x60, 0xA1])
+	_sound_put(prg, 0xA140, [0xD2, 0xB8, 0x80, 0x00, 0xE5, 0x01, 0xE4, 0x10, 0xC0, 0xFF])
+	_sound_put(prg, 0xA160, [0xD3, 0x00, 0xE5, 0x13, 0xC0, 0xFF])
+	# Sound $7F: a drum track that rests and ends (one of the two tunes whose end is noticed).
+	_sound_put(prg, 0xA000 + 0x7F * 3, [0x03, 0x80, 0xA1])
+	_sound_put(prg, 0xA180, [0xD4, 0xC1, 0xFF])
+	# Sound $50: music with a table-shaped loudness and a called piece.
+	_sound_put(prg, 0xA000 + 0x50 * 3, [0x01, 0xA0, 0xA1])
+	_sound_put(prg, 0xA1A0, [0xD1, 0x70, 0x00, 0x00, 0xE5, 0xFD, 0xB0, 0xA1, 0xFF])
+	_sound_put(prg, 0xA1B0, [0x23, 0xFF])
+	_sound_put(prg, SoundData.T_SHAPES, [0x00, 0xB0])                  # shape 0 is at $B000
+	_sound_put(prg, 0xB000, [0x0A, 0x27, 0x05, 0xFF])
+	# Pitches: note 0 = $06AE, note 1 = $0400, note 2 = $0200.
+	_sound_put(prg, SoundData.T_PITCHES, [0xAE, 0x06, 0x00, 0x04, 0x00, 0x02])
+	_sound_put(prg, SoundData.T_DRUMS, [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0x8F])
+	return prg
+
+func _sound_log(driver: SoundDriver) -> Array:
+	var out := []
+	for entry in driver.log:
+		out.append("%04X=%02X" % [entry >> 8, entry & 0xFF])
+	driver.log = PackedInt32Array()
+	return out
+
+## Whole cycles in a run of samples: times the signal rises through its middle.
+func _sound_cycles(samples: PackedVector2Array) -> int:
+	var low := INF
+	var high := -INF
+	for sample in samples:
+		low = minf(low, sample.x)
+		high = maxf(high, sample.x)
+	var middle := (low + high) / 2.0
+	var band := (high - low) * 0.2
+	var cycles := 0
+	var below := true
+	for sample in samples:
+		if below and sample.x > middle + band:
+			cycles += 1
+			below = false
+		elif not below and sample.x < middle - band:
+			below = true
+	return cycles
+
+func _sound_render(chip: SoundChip, frames: int) -> PackedVector2Array:
+	var all := PackedVector2Array()
+	for i in frames:
+		all.append_array(chip.render_frame(735))
+	return all
+
+func _test_sound() -> void:
+	print("Sound")
+	# --- the reader, on a made-up program
+	var data := SoundData.new(_fake_sound_program())
+	check(data.usable() and not SoundData.new(PackedByteArray()).usable(), "a program with a table of sounds can be used; an empty one cannot")
+	check(data.voices(1) == [[4, 0xA100]] and data.voices(0x10) == [[0, 0xA140], [2, 0xA160]], "a sound's voices are read from the table: slot and address, and the entries that follow it")
+	check(data.is_effect_format(0xA100) and not data.is_effect_format(0xA140), "data beginning with a byte below $30 is in the effects' format")
+	check(data.shape_table(0) == 0xB000 and data.drum_sound(11) == 0x8F, "the loudness shapes and the drums' sounds are found")
+	check(SoundData.prg_of_file(PackedByteArray([1, 2, 3])).is_empty(), "a file too short to be a ROM gives no program")
+
+	# --- the driver: an effect on the square wave, step by step
+	var driver := SoundDriver.new(data)
+	driver.keep_log = true
+	driver.play(1)
+	check(_sound_log(driver) == ["4000=30", "4001=7F"] and driver.playing(4) == 1, "starting an effect quietens its channel first")
+	driver.step()
+	check(_sound_log(driver) == ["4001=7F", "4000=B8", "4003=08", "4002=FE"], "its first note: no sweep, tone and loudness, then the pitch, high part first")
+	driver.step()
+	check(_sound_log(driver) == ["4001=9A", "4000=B5", "4003=09", "4002=23"], "a new header changes the sweep; the next note follows")
+	driver.step()
+	check(_sound_log(driver).is_empty(), "a note lasts as many frames as its header says")
+	driver.step()
+	check(_sound_log(driver) == ["4000=30", "4001=7F"] and driver.playing(4) == 0 and not driver.busy(), "at its end the channel is silenced and the slot is free")
+
+	# --- the noise, with a repeat
+	driver.play(2)
+	_sound_log(driver)
+	var noise_notes := 0
+	for i in 6:
+		driver.step()
+		if _sound_log(driver).has("400C=3A"):
+			noise_notes += 1
+	check(noise_notes == 3 and driver.playing(5) == 0, "a repeat mark and count play the piece between them that many times")
+
+	# --- music: instrument, octave, note, rest, end
+	driver.play(0x10)
+	check(driver.playing(0) == 0x10 and driver.playing(2) == 0x10, "a tune takes all its voices")
+	_sound_log(driver)
+	driver.step()
+	var first := _sound_log(driver)
+	check(first.slice(0, 3) == ["4000=B8", "4003=0E", "4002=AE"], "a music note: the instrument's tone and loudness, and the note's pitch from the table")
+	check(first.slice(3) == ["4008=90", "400B=0C", "400A=00"], "the triangle's note: sound for the whole note, then the pitch of note 1")
+	for i in 3:
+		driver.step()
+	check(_sound_log(driver).is_empty() and driver.voices[0].frames_left == 1, "a note of length 1 lasts two tempo units")
+	driver.step()
+	check(_sound_log(driver) == ["4000=B8", "4003=0A", "4002=00"], "the next note: octave 4 halves the table's pitch")
+	driver.step()
+	driver.step()
+	check(_sound_log(driver) == ["4000=30"], "a rest silences the square wave")
+	for i in 10:
+		driver.step()
+	check(not driver.busy(), "and both voices end")
+
+	# --- an effect takes the first square wave from the music and gives it back
+	driver.play(0x10)
+	driver.step()
+	_sound_log(driver)
+	driver.play(1)
+	_sound_log(driver)
+	var music_heard := false
+	for i in 3:
+		driver.step()
+		for entry: String in _sound_log(driver):
+			if entry == "4003=0A" or entry == "4002=AE":
+				music_heard = true
+	check(not music_heard and driver.playing(0) == 0x10, "while an effect has the first square wave the tune's notes are not sent, but the tune goes on")
+	driver.step()
+	var back := _sound_log(driver)
+	check(back.has("4002=00") and back.has("4003=02"), "when the effect ends the tune's pitch as it is now is sent again")
+	driver.stop_all()
+	check(not driver.busy(), "silence everything frees every slot")
+
+	# --- priorities and the tune-over flag
+	driver.play(0x10)
+	driver.play(0x7F)
+	check(driver.playing(0) == 0x10 and driver.playing(3) == 0x7F and not driver.tune_over, "tune $7F starts on top of what is playing")
+	driver.play(0x50)
+	check(driver.playing(0) == 0 and driver.playing(1) == 0x50, "any other tune silences everything first")
+	driver.play(0x10)
+	driver.play(1)
+	driver.voices[4].number = 0x30
+	driver.play(1)
+	check(driver.playing(4) == 0x30, "a lower number does not take a voice from a higher one")
+	driver.stop_all()
+	driver.play(0x7F)
+	for i in 8:
+		driver.step()
+	check(not driver.tune_over, "the tune-over flag is not set while the tune plays")
+	driver.step()
+	check(driver.tune_over and driver.playing(3) == 0, "and is set when tune $7F's drum voice ends")
+
+	# --- a loudness shape from a table, and a called piece
+	driver.stop_all()
+	driver.play(0x50)
+	_sound_log(driver)
+	driver.step()
+	check(_sound_log(driver).slice(0, 1) == ["4004=7A"], "a table shape's first loudness is sent with the note (found through the called piece)")
+	driver.step()
+	check(_sound_log(driver) == ["4004=77"], "the shape's next step")
+	driver.step()
+	check(_sound_log(driver).is_empty(), "which its high digit holds for two frames")
+	driver.step()
+	check(_sound_log(driver) == ["4004=75"], "then the next")
+	driver.fade_out()
+	check(driver.fade_stage == SoundDriver.FADE_START, "a fade-out can be begun")
+	for i in 6 * SoundDriver.FADE_STEP_FRAMES + 2:
+		driver.step()
+	check(not driver.busy() and driver.fade_stage == 0, "and ends in silence after six steps of 47 frames")
+
+	# --- the chip
+	var chip := SoundChip.new(null, 44100.0)
+	check(chip.silent(), "a chip nothing has been sent to is silent")
+	chip.write(0x4000, 0xBF)
+	chip.write(0x4002, 0xFD)
+	chip.write(0x4003, 0x00)
+	_sound_render(chip, 30)        # let the offset settle
+	var cycles := _sound_cycles(_sound_render(chip, 60))
+	check(absi(cycles - 440) <= 2, "a square wave with pitch number 253 sounds at 440 Hz (counted %d cycles in a second)" % cycles)
+	chip.write(0x4000, 0xB0)
+	check(chip.silent(), "loudness 0 is silence")
+	chip.write(0x4008, 0xFF)
+	chip.write(0x400A, 0xFD)
+	chip.write(0x400B, 0x00)
+	_sound_render(chip, 30)
+	cycles = _sound_cycles(_sound_render(chip, 60))
+	check(absi(cycles - 220) <= 2, "the triangle with the same number sounds an octave lower (counted %d)" % cycles)
+	chip.write(0x4015, 0x0B)
+	chip.write(0x4015, 0x0F)
+	check(chip.silent(), "switching the triangle off and on silences it")
+	# the chip's own fading: fastest speed, 16 quarter-frames from full to nothing
+	chip.write(0x4004, 0x80)
+	chip.write(0x4006, 0x80)
+	chip.write(0x4007, 0x08)
+	chip.render_frame(735)
+	check(not chip.silent(), "a note with the chip's own fading starts loud")
+	_sound_render(chip, 5)
+	check(chip.silent(), "and has faded away five frames later")
+	# the counter that cuts a note off
+	chip.write(0x4004, 0x9F)
+	chip.write(0x4007, 0x18)       # length code 3: two half-frame ticks
+	chip.render_frame(735)
+	check(chip.silent(), "a short length code cuts the note off within a frame")
+	# a slide upwards
+	chip.write(0x4004, 0xBF)
+	chip.write(0x4006, 0x00)
+	chip.write(0x4007, 0x09)       # pitch number $100
+	chip.write(0x4005, 0x89)       # slide: every tick, downwards in number (up in pitch), by half
+	_sound_render(chip, 2)
+	check(chip.squares[1].period < 0x100 and chip.squares[1].period > 0, "the chip's sweep moves the pitch number by itself (now %d)" % chip.squares[1].period)
+	chip.write(0x4004, 0xB0)
+	chip.write(0x400C, 0x3F)
+	chip.write(0x400E, 0x05)
+	chip.write(0x400F, 0x08)
+	var hiss := _sound_render(chip, 2)
+	var level := 0.0
+	for sample in hiss:
+		level = maxf(level, absf(sample.x))
+	check(level > 0.01 and _sound_cycles(hiss) > 20, "the noise makes a signal that keeps changing")
+	check(chip._noise_long_sums[SoundChip.NOISE_LONG] == 16383 and chip._noise_short_sums.size() == SoundChip.NOISE_SHORT + 1, "the noise's long sequence is on for 16383 of its 32767 steps")
+
+	# --- the autoload: harmless without a ROM, and plays from a program
+	var driver_before: SoundDriver = Sound.driver
+	Sound.use_program(PackedByteArray())
+	check(not Sound.ready_to_play(), "with no usable ROM the sound is not ready")
+	Sound.play(0x21)
+	Sound.stop_all()
+	Sound.fade_out()
+	Sound.play_area_tune(0, 0, true)
+	check(not Sound.tune_over and Sound.tune_playing() == 0 and not Sound.follows(0x7F), "and every call is harmless")
+	Sound.use_program(_fake_sound_program())
+	Sound.requests.clear()
+	Sound.play(0x10)
+	check(Sound.ready_to_play() and Sound.tune_playing() == 0x10 and Sound.requests.size() == 1 and int(Sound.requests[0][1]) == 0x10, "from a program it plays, and remembers what was asked for")
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	check(Sound.driver.voices[0].frames_left < 4, "the driver steps once every game frame")
+	Sound.play(0x7F)
+	check(Sound.follows(0x7F) and not Sound.tune_over, "the game can wait on tune $7F")
+	Sound.door_used(true)
+	Sound.play_area_tune(0, 0, true)
+	check(Sound.tune_playing() == 0x10, "a door from room to room leaves the music playing")
+	Sound.door_used(false)
+	check(Sound.tune_playing() == 0, "any other door silences it")
+	check(InputMap.has_action(Sound.ACTION_TOGGLE), "there is a key to switch the sound on and off")
+	var press := InputEventAction.new()
+	press.action = Sound.ACTION_TOGGLE
+	press.pressed = true
+	Sound._unhandled_input(press)
+	check(not Sound.enabled, "it switches the sound off")
+	Sound._unhandled_input(press)
+	check(Sound.enabled, "and on again")
+
+	# --- the real ROM
+	Sound.load_rom()
+	if not Sound.ready_to_play() or not Game.has_rom():
+		print("  skip  no verified ROM is installed, so the real sounds are not exercised")
+		Sound.driver = driver_before
+		return
+	var rom := Sound.data
+	var title_voices := rom.voices(0x4E)
+	check(title_voices.size() == 4 and title_voices[0][0] == 0 and title_voices[1][0] == 1 and title_voices[2][0] == 2 and title_voices[3][0] == 3, "the title tune has the four music voices")
+	check(rom.voices(0x21).size() == 1 and rom.voices(0x21)[0][0] == 4 and rom.voices(0x22).size() == 2, "the hit effect is one voice on the effects' square wave; the enemy-beaten effect has two")
+	check(rom.area_tune(0, 0, false) == 0x53 and rom.area_tune(0, 0, true) == 0x5B and rom.area_tune(1, 0, true) == 0x6B and rom.area_tune(4, 0, false) == 0x57, "each world's tunes: world 1's overworld and rooms, the second world's first room, the fifth's overworld")
+	var real := SoundDriver.new(rom, SoundChip.new(rom, 44100.0))
+	real.play(0x83)
+	real.play(0x53)
+	real.stop_all()
+	check(real.playing(3) == 0x83, "nothing starts over the caught tune or silences it")
+	var steps := 0
+	while not real.tune_over and steps < 1000:
+		real.step()
+		steps += 1
+	check(steps == 146, "the caught tune is over after 146 steps (%d): the wait the original makes there" % steps)
+	real.play(0x7F)
+	steps = 0
+	while not real.tune_over and steps < 1000:
+		real.step()
+		steps += 1
+	check(steps == 475, "the world-won tune is over after 475 steps (%d)" % steps)
+	real.stop_all()
+	real.play(0x53)
+	var heard := 0
+	for i in 600:
+		real.step()
+		real.chip.render_frame(735)
+		if not real.chip.silent():
+			heard += 1
+		if i == 100:
+			real.play(0x21)
+		if i == 101:
+			check(real.playing(4) == 0x21 and real.playing(0) == 0x53, "an effect plays over the tune")
+	check(real.playing(0) == 0x53 and real.playing(3) == 0x53 and real.playing(4) == 0 and heard > 500 and real.oddities == 0, "the overworld tune plays on for ten seconds, the effect over, the chip sounding (%d of 600 frames)" % heard)
+	var unending := []
+	for number in range(1, 0x4B):
+		real.stop_all()
+		real.play(number)
+		steps = 0
+		while real.busy() and steps < 2000:
+			real.step()
+			steps += 1
+		if real.busy():
+			unending.append(number)
+	check(unending == [0x3F, 0x40] and real.oddities == 0, "every effect $01-$4A ends by itself, but the two that go round until they are stopped (%s)" % str(unending))
