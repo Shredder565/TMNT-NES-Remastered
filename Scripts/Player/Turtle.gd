@@ -12,6 +12,7 @@ signal died
 signal moved   ## every frame, after he has (or has not) moved
 ## A special weapon's throw has begun (the room scene makes what is thrown).
 signal throw_started(crouching: bool)
+var swing_sound := 0x0A   ## the sound of his weapon's swing; the room scene sets it for each turtle
 
 enum State { NORMAL, CROUCH, HURT, DEAD, CLIMB, SWIM }   ## SWIM: under water (the swimming section at the end of this file)
 
@@ -511,6 +512,7 @@ func _control() -> void:
 			# full box for the rest of the jump (measured in three runs).
 			pushed = true
 	if taking_off:
+		Sound.play(0x07)   # the jump (4:$9E79)
 		_jump_held = true
 		speed.y = JUMP_SPEED
 		jump_tick = 0
@@ -577,6 +579,7 @@ func _swing() -> void:
 
 ## Starts a swing: which one, and how long it lasts.
 func _begin_swing() -> void:
+	Sound.play(swing_sound)   # his weapon's swish (4:$9F5C)
 	attack_tick = 0
 	# A swing begun while he is curled up shows its own box for as long as
 	# it lasts; after it he is curled up again (measured in a boss fight).
@@ -684,6 +687,7 @@ func _test_room() -> void:
 		position.y = feet + position.y - floorf(position.y)
 		speed = Vector2i.ZERO
 		grounded = true
+		Sound.play(0x08)   # landing (4:$A1AE)
 		_unheld_ticks = 0
 
 ## The kind of tile at a point one of his tests looks at. A hurting tile
@@ -946,6 +950,7 @@ static func weapon_lands(enemy: Node) -> bool:
 	if now < int(enemy.get_meta("safe_until", 0)):
 		return false
 	enemy.set_meta("safe_until", now + ENEMY_SAFE_UPDATES * TICK_FRAMES)
+	Sound.play(0x21)   # a weapon lands (6:$9948)
 	if enemy is CanvasItem and enemy.is_inside_tree():
 		var blink := enemy.create_tween().set_loops(ENEMY_SAFE_UPDATES / 2)
 		blink.tween_property(enemy, "modulate:a", 0.25, 2.0 / 60.0)
@@ -966,6 +971,7 @@ func start_power() -> void:
 func take_damage(amount: int, from_x: float = NAN) -> bool:
 	if invulnerable_timer > 0.0 or state == State.DEAD or power_ticks > 0:
 		return false
+	Sound.play(0x25)   # hurt (6:$98F5)
 	health = maxi(health - amount, 0)
 	health_changed.emit(health, max_health)
 	_set_crouching(false)
@@ -997,6 +1003,7 @@ func take_damage(amount: int, from_x: float = NAN) -> bool:
 func tile_hurt(amount: int) -> void:
 	if invulnerable_timer > 0.0 or state == State.DEAD:
 		return
+	Sound.play(0x25)   # hurt by a tile (4:$A5CC)
 	health = maxi(health - amount, 0)
 	health_changed.emit(health, max_health)
 	invulnerable_timer = invulnerable_time

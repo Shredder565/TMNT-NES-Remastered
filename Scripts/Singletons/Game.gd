@@ -7,7 +7,7 @@ extends Node
 ## user:// is a per-user folder Godot manages for us. On Windows it is
 ## %APPDATA%\Godot\app_userdata\TMNT Remake. Nothing in it is ever committed to Git.
 ## Shown on the ROM screen so we can tell which update is installed.
-const BUILD := 46
+const BUILD := 48
 
 const ROM_PATH := "user://baserom.nes"
 const ROM_ASSETS_PATH := "user://rom_assets"
@@ -40,6 +40,7 @@ const DEFAULT_KEYS := {
 	"go_overworld": [KEY_F7],
 	"toggle_enemies": [KEY_F8],
 	"toggle_help": [KEY_F9],
+	"toggle_sound": [KEY_M],
 }
 
 ## Action name -> controller buttons, on from the start with no setup.

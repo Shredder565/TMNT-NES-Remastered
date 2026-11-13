@@ -53,6 +53,7 @@ func use_rom(prg_rom: PackedByteArray, chr_rom: PackedByteArray) -> void:
 
 ## Puts a phase's picture up.
 func show_phase(new_phase: Phase) -> void:
+	if new_phase == Phase.TITLE: Sound.play(0x4E)   # the title's tune (7:$C5D4)
 	phase = new_phase
 	_frames = 0
 	push_start_shown = true
@@ -130,6 +131,7 @@ func press_start() -> void:
 	if phase == Phase.NOTICE:
 		show_phase(Phase.TITLE)
 	elif phase == Phase.TITLE:
+		Sound.play(0x3C)   # Start on the title (7:$C603)
 		phase = Phase.BLINK
 		_frames = 0
 

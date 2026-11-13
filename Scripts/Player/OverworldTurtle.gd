@@ -45,6 +45,7 @@ var updated := false            ## true on the frames his own update ran (every 
 ## one entry per direction number (0 down, 1 up, 2 right, 3 left), as
 ## RomLevels.overworld_swing gives them. Empty: he cannot attack.
 var swings: Array = []
+var swing_sound := 0x0A         ## the swing's sound; the map scene sets it for each turtle
 var weapon_sprites: SpriteSet   ## the weapons' pictures, by the original's picture number
 var attack_tick := -1           ## updates since the attack began, -1 when not attacking
 var attack_direction := 0
@@ -112,6 +113,7 @@ func _update() -> void:
 			facing = way
 			if way.x != 0:
 				sideways_left = way.x < 0
+		Sound.play(swing_sound)   # his weapon's swish (4:$9F5C)
 		start_attack()
 		_attack_slide = way
 		_slide()
