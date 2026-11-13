@@ -1,5 +1,5 @@
 {
- "about": "Which ROM tiles make up object kind 11, the two figures who stand on the ledge during the fight in world 1's second room (they look like Rocksteady holding April), taken from the game's sprite table. Tile numbers and positions only; no graphics. Positions are in pixels from its own position value.",
+ "about": "Which ROM tiles make up object kind 11, the two figures who stand on the ledge during the fight in world 1's second room (they look like Rocksteady holding April), taken from the game's sprite table. Tile numbers and positions only; no graphics. Positions are in pixels from its own position value. Added 13 November 2026 from the sprite table during and after that fight: f138_alone is the standing figure of object slot 9 by itself (f138 above also holds the second figure's tiles, as first captured); f143 is the second figure, the tied one, which has no object behind it and sits in slot 8 at (168, 83) on the fight's screen, given from its own place and not mirrored; f128 is the picture slot 9 changes to 16 updates into its walk off the ledge (from sprite page 5). f138_alone and f128 are given facing right, as the other maps are; in the fight the figure faces left.",
  "tile_height": 16,
  "palettes": {
   "2": [
@@ -120,6 +120,164 @@
     "index": 2288,
     "palette": 2,
     "flip_h": true,
+    "flip_v": false
+   }
+  ],
+  "f138_alone": [
+   {
+    "x": 8,
+    "y": -47,
+    "index": 2260,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 8,
+    "y": -31,
+    "index": 2266,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -47,
+    "index": 2258,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -31,
+    "index": 2264,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -15,
+    "index": 2232,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -31,
+    "index": 2262,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -15,
+    "index": 2230,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f128": [
+   {
+    "x": 7,
+    "y": -47,
+    "index": 1522,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 7,
+    "y": -31,
+    "index": 1530,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -1,
+    "y": -47,
+    "index": 1520,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -1,
+    "y": -31,
+    "index": 1528,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -5,
+    "y": -15,
+    "index": 1488,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -9,
+    "y": -31,
+    "index": 1526,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -17,
+    "y": -39,
+    "index": 1524,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "f143": [
+   {
+    "x": -12,
+    "y": -32,
+    "index": 2284,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": -32,
+    "index": 2286,
+    "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -12,
+    "y": -16,
+    "index": 2288,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": -16,
+    "index": 2290,
+    "palette": 2,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 4,
+    "y": -16,
+    "index": 2292,
+    "palette": 2,
+    "flip_h": false,
     "flip_v": false
    }
   ]

@@ -7,7 +7,7 @@ extends Node
 ## user:// is a per-user folder Godot manages for us. On Windows it is
 ## %APPDATA%\Godot\app_userdata\TMNT Remake. Nothing in it is ever committed to Git.
 ## Shown on the ROM screen so we can tell which update is installed.
-const BUILD := 43
+const BUILD := 45
 
 const ROM_PATH := "user://baserom.nes"
 const ROM_ASSETS_PATH := "user://rom_assets"
@@ -70,6 +70,10 @@ const ANY_CONTROLLER := -1        ## listen to every controller plugged in
 ## The best score since the program was started. The original keeps its
 ## own until the console is switched off (Research/score.md).
 var high_score := 0
+
+## Set by the title when Start has been pressed there: the game scene then
+## draws its first world in as the original does (Research/title_screen.md).
+var draw_first_world_in := false
 
 func _ready() -> void:
 	_register_input_actions()

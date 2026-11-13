@@ -345,8 +345,11 @@ func _ready() -> void:
 	technodrome_cave = randi_range(2, 4)
 	if start_on_overworld and levels != null and levels.has_overworld(world):
 		load_overworld(world)
+		if Game.draw_first_world_in and door_wipe:
+			_start_wipe(true)   # from the title: black, then the map drawn in, as when any world begins
 	else:
 		load_area(world, area)
+	Game.draw_first_world_in = false
 
 func load_area(new_world: int, new_area: int) -> void:
 	world = new_world
@@ -881,7 +884,7 @@ func _on_throw_started(crouching: bool) -> void:
 ## What a thrown thing can hit: the enemies, and a boss.
 func _thrown_targets() -> Array:
 	var found: Array = enemies.get_children()
-	if boss != null and is_instance_valid(boss):
+	if boss != null and is_instance_valid(boss) and not found.has(boss):
 		found.append(boss)
 	return found
 

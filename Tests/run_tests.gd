@@ -1798,6 +1798,7 @@ func _ready() -> void:
 	await _test_world_end()
 	await _test_rescue()
 	await _test_special_weapons()
+	await _test_title_to_play()
 
 	print("ROM screen")
 	var rom_path := "user://_test_fake.nes"
@@ -3471,3 +3472,23 @@ func _test_special_weapons() -> void:
 		hit_star.update()
 		check(hit_star.gone and scene.score > before, "the hit that beats the enemy takes the star with it, and scores")
 	scene.free()
+
+# ============================ From the title into play (Research/title_screen.md) ============================
+func _test_title_to_play() -> void:
+	print("From the title into play")
+	# The title sets this when Start has been pressed there and it leaves.
+	Game.draw_first_world_in = true
+	var scene = load("res://Scenes/Levels/Area1Sewer.tscn").instantiate()
+	add_child(scene)
+	scene.set_physics_process(false)
+	check(not Game.draw_first_world_in, "the game scene takes the request")
+	if scene.levels == null:
+		check(not scene.wiping(), "without a ROM there is no overworld to draw in")
+	else:
+		check(scene.wiping() and scene._wipe_world_begin and not scene.walker.visible, "and begins with the map being drawn in, the turtle not yet there")
+	scene.free()
+	var plain = load("res://Scenes/Levels/Area1Sewer.tscn").instantiate()
+	add_child(plain)
+	plain.set_physics_process(false)
+	check(not plain.wiping(), "a game scene made any other way begins at once")
+	plain.free()

@@ -104,6 +104,43 @@ original's edges are the same (-10 to 30, measured) and both agree. The
 other three turtles' boxes are tall enough not to show it. Not fixed
 here: the swing's box belongs to the turtle's owner.
 
+## Why Raphael's crouching swing misses at its far step (cause found 13 November 2026; not changed)
+
+*Read from code (6:$9AD3 to $9B8F).* The original's test of an enemy's
+box against the weapon's has two parts. First it asks which of the two
+is higher, by the two objects' own height values. If the enemy is the
+higher one it compares the enemy's bottom edge with the weapon's top
+edge; otherwise the enemy's top edge with the weapon's bottom edge.
+Only one pair of edges is ever compared.
+
+When the turtle is low (crouching, or in a low swing: bit 1 of his flags
+at $0540) the boxes of his own objects, slots 0 to 4, are built 8 lower
+than their height values (6:$9B5D). But the "which is higher" question
+is still asked with the weapon's own height value, without the 8.
+
+At the far step of Raphael's crouching swing the weapon's place is level
+with his middle, and its box is 8 high to each side, so the box reaches
+from his middle down to 16 below it. A soldier whose place is level with
+his middle is not the higher one (equal counts as not higher), so only
+its top edge is compared with the weapon's bottom edge, and that is a
+hit, though the soldier's box ends 2 above its place and so does not
+reach down into the weapon's box at all. With the soldier 2 higher it is
+the higher one, its bottom edge is compared with the weapon's top edge,
+and that is a miss. Both are what was measured.
+
+The remake's test (`OriginalEnemy.touches_box`) asks "which is higher"
+with the middle of the box it is handed, which already has the 8 added
+(`Turtle._weapon_box`). So an enemy whose place is from level with the
+weapon's own height to 7 below it is taken for the higher one and tested
+by the wrong pair of edges. That is the 2 or 3 pixels seen: the three
+other turtles' boxes are tall enough to meet the enemy's box either way.
+
+To put right (not done here: the swing's box and the enemies' test
+belong to others): hand the weapon's own height (without the 8) to the
+test as well, and use it for the "which is higher" question only. The
+same holds for the turtle's own box when he crouches: `touches_turtle`
+should ask the question with his height value, not the lowered middle.
+
 ## In the remake
 
 - `Resources/AssetRipper/Sprites/TurtleSwings.json`: the 35 body pictures
