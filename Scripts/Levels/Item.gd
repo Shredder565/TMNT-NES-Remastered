@@ -37,10 +37,8 @@ func _ready() -> void:
 		var frame := sprites.frame_at("walk", 0)
 		picture.texture = sprites.textures[frame]
 		# The original's sprites do not get the 4-line shift its background
-		# gets (Research/hud.md); the remake moves a whole room down 4 lines,
-		# so an item's picture goes 4 up to sit where the original shows it
-		# (measured for a slice of pizza and for the captive). Its box stays.
-		picture.position = sprites.offsets[frame] - Vector2(0, SPRITE_LINES_UP)
+		# gets (Research/hud.md), so in a room the picture goes 4 up. Its box stays.
+		picture.position = sprites.offsets[frame] - Vector2(0, OriginalEnemy.sprite_lift)
 		add_child(picture)
 	else:
 		var block := ColorRect.new()

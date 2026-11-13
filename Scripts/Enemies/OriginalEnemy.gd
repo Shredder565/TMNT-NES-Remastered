@@ -61,6 +61,9 @@ static var chance_byte := -1
 ## sixteen. Empty: the rows measured after the first manhole. The room
 ## scene fills it when a room is entered from the overworld.
 static var left_over := PackedByteArray()
+## How many lines higher than its place a picture is drawn (the room scene
+## sets it: the original shifts a room's background down and not its sprites).
+static var sprite_lift := 0
 static var _first_column := -1    ## the first of the sixteen map columns to hand; -1 = not tracked
 static var _screen_left := 0
 ## How far the screen scrolled in the turtle's last update (the original's
@@ -307,6 +310,24 @@ func touches_box(his: Array[int]) -> bool:
 	var half := box_half()
 	var x := whole_x()
 	var y := whole_y()
+	if view_corner.is_valid():
+		# The original works all of this out in single bytes, as places on
+		# the screen: an edge that goes past 0 or 255 comes round the other
+		# side, and a weapon swung off the screen's side is found at the far
+		# side and hits nothing here (measured against kind 71).
+		var corner := _corner()
+		var ex := (x - int(corner.x)) & 255
+		var ey := (y - int(corner.y)) & 255
+		var ox := (his[0] - int(corner.x)) & 255
+		var oy := (his[1] - int(corner.y)) & 255
+		if ex < ox:
+			if ((ex + half.x) & 255) < ((ox - his[2]) & 255):
+				return false
+		elif ((ex - half.x) & 255) >= ((ox + his[2]) & 255):
+			return false
+		if ey < oy:
+			return ((ey - 2) & 255) >= ((oy - his[3]) & 255)
+		return ((ey - half.y) & 255) < ((oy + his[3]) & 255)
 	var across: bool
 	if x < his[0]:
 		across = x + half.x >= his[0] - his[2]
@@ -548,8 +569,10 @@ func launch(fall_speed: int) -> bool:
 ## four places for thrown things, shared by every enemy on the screen,
 ## and does not make one that would start in a wall (8 above its own
 ## position). Returns null if none was made. The caller sets it up and
-## then gives it its first update with `tick()`, which the original does
-## in the same round as the throw.
+## then gives it its first update with `update_now()`: the original
+## updates it in the same round as the throw, and the touch and weapon
+## tests that follow take it in too (measured: a bullet fired into a
+## swing is gone on the frame it was made).
 func throw_object(thrown: OriginalEnemy, thrown_kind: int, across: int, down: int) -> OriginalEnemy:
 	var parent := get_parent()
 	var flying := 0
@@ -618,7 +641,7 @@ func _show() -> void:
 	var frame := _frame_name()
 	if sprites.textures.has(frame):
 		_picture.texture = sprites.textures[frame]
-		_picture.position = sprites.offsets[frame]
+		_picture.position = sprites.offsets[frame] - Vector2(0, sprite_lift)
 
 ## The sprite map's name for the picture on show.
 func _frame_name() -> String:
