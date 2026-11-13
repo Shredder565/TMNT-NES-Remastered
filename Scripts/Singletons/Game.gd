@@ -71,6 +71,10 @@ const ANY_CONTROLLER := -1        ## listen to every controller plugged in
 ## own until the console is switched off (Research/score.md).
 var high_score := 0
 
+## Set by the title when Start has been pressed there: the game scene then
+## draws its first world in as the original does (Research/title_screen.md).
+var draw_first_world_in := false
+
 func _ready() -> void:
 	_register_input_actions()
 	# The build number is in the window's title, since the original's

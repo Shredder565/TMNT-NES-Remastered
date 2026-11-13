@@ -142,6 +142,7 @@ func tick() -> void:
 		if _frames >= BLINK_FRAMES:
 			finished = true
 			if leave_when_done:
+				Game.draw_first_world_in = true   # the game scene draws its first world in
 				Game.go_to(next_scene)
 			return
 		var on := (_frames / BLINK_EVERY) % 2 == 1

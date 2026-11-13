@@ -68,12 +68,57 @@ pressed, then blinks PUSH START for 128 frames and loads the game.
 `title_colours()` gives the colours. Without a ROM there is no notice
 and the title is plain text.
 
+## After the blink, after END, and the idle sequence (added 13 November 2026)
+
+**Start on the title, to play** (*measured*, frames counted from the
+press): the title blinks until frame 134; frame 135 is a nearly empty
+picture and 136 and 137 are black; from 138 the first world's overworld
+is drawn in from the top a row of tiles a frame, with the eight energy
+sprites on show, empty; the picture is whole at 167; everything stands
+still for 16 frames; the turtle is drawn at 187. That is the same
+"begin the world" step as after April's words (`world_end.md`), within
+a frame or two. The remake now does the same: the title sets
+`Game.draw_first_world_in` and the game scene starts with
+`_start_wipe(true)`. The number of frames from the title's last picture
+to the first row was not compared frame for frame (a scene is loaded in
+between).
+
+**After END** (*measured*, by playing a GAME OVER through and choosing
+END with Select and Start; *read from code* 7:$CD67): the game goes to
+state 0, step 0, which is the notice. It is shown for its 256 frames
+again, then the title. So the remake, which shows the notice again after
+END, already does what the original does; the earlier note here and in
+`losing_a_turtle.md` that the original goes straight to the title was
+wrong.
+
+**After 256 idle frames on the title** (*read from code* 7:$C627,
+3:$BCFE; *measured*): this is not a recording of play and no recorded
+buttons are in the ROM. Game state 1 runs a routine in bank 3 that works
+through fourteen steps of its own (the step number is at $03C2):
+
+- for each of the four turtles in turn (447 or 448 frames each): a
+  black screen with a small window in which he stands and swings his
+  weapon three times (the routine feeds the turtle's own routine a
+  button from three bytes at 3:$BEFA, one every 32 frames); then his
+  large picture slides in from the right, 8 pixels a frame, and his name
+  and his weapon's name are typed beside it (the Start screen's message
+  routine, with the per-turtle texts at 3:$B5D9);
+- then a closing part of about 420 frames with all four (steps 6 to 13;
+  not looked at in detail).
+
+It began 257 frames after the title came up and ended 2207 frames later
+(measured once, untouched); Start or Select ends it at once. Either way
+the game goes back to state 0, step 1: 256 frames of waiting, then the
+title again.
+
+The remake does not make this sequence: it needs its own layouts
+(number $1C and others), the large pictures and the windowed scene, none
+of which the remake has yet. The title simply waits.
+
 ## Still different
 
-- The demonstration of play after 256 idle frames is not made; the
-  title simply waits.
+- The sequence after 256 idle frames (the four turtles shown one by one)
+  is not made; the title simply waits.
 - (Done 13 November 2026: Select ends the notice too, as in the
   original.)
-- The first world appears at once after the blink rather than being
-  wiped in.
 - No sound.

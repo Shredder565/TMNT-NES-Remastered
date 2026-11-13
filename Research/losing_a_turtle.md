@@ -126,6 +126,6 @@ Different from the original:
   is an object picture, number $49); Select moves it, as in the original;
   the words use the Start screen's letter tiles, which have the same
   letter numbers.
-- END goes to the title in both (see `title_screen.md`); the remake
-  shows the notice again first.
+- (Corrected 13 November 2026: after END the original shows the notice
+  again and then the title, measured; the remake does the same.)
 - No sounds.
