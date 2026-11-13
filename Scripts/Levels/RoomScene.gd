@@ -235,6 +235,7 @@ var overworld_screen := Vector2.ZERO ## the corner of the original's screen on t
 var _overworld_last := Vector2.ZERO  ## where the overworld turtle was a frame ago
 var _overworld_turtle_half := Vector2(4, 4)   ## half the overworld turtle's box (the ROM's, when there is one)
 var game_over: GameOverScreen        ## GAME OVER, CONTINUE / END
+var rescued_one := false             ## a captured turtle has been rescued (the original's $56): no captive is shown while this is set
 var continues_left := 3              ## the original starts with 3 and takes one off at every GAME OVER; at 0 the game ends
 var _capture_frame := -1             ## frames since the playing turtle ran out of energy, -1 when he has not
 var _after_capture := false          ## the Start screen on show was forced by a capture
@@ -749,8 +750,50 @@ func _place_items() -> void:
 		if entry[0] >= ITEM_KINDS_BELOW:
 			continue
 		var item := Item.new()
-		item.setup(entry[0], entry[1], SpriteSet.cached("Kind%02X" % entry[0]))
+		if entry[0] == Item.CAPTIVE:
+			# A captured turtle to rescue: only there if one is captured and
+			# none has been rescued since the flag was last cleared.
+			var who := captive_to_show(randi() & 3)
+			if who < 0:
+				item.free()
+				continue
+			var bandana := start_screen.data.bandana(who) if start_screen.data != null else 0x16
+			item.setup(entry[0], entry[1], SpriteSet.cached_with_colour("Captive", "2", 2, bandana))
+			item.set_meta("turtle", who)
+			item.taken.connect(_on_captive_freed)
+		else:
+			item.setup(entry[0], entry[1], SpriteSet.cached("Kind%02X" % entry[0]))
 		items.add_child(item)
+
+## Which captured turtle waits at a rescue place (bank 4, $B934), or -1 for
+## none. None if one has been rescued already (the flag at $56). Otherwise
+## the four are gone through from a start that the frame counter picks (0
+## to 3), and the first with no energy is the one. The original's way of
+## going round has a slip: from start 2 it looks at turtles 2, 3, 0 and 2
+## again, never at turtle 1.
+func captive_to_show(start: int) -> int:
+	if rescued_one:
+		return -1
+	var energies: Array = turtle_energy.duplicate()
+	energies[current_turtle] = turtle.health
+	var offset := start & 3
+	for count in 4:
+		var who := count + offset
+		if who >= 4:
+			offset = -1
+			who = 0
+		if int(energies[who]) == 0:
+			return who
+	return -1
+
+## Touching the captive (bank 6, $9756): he is back with full energy, to be
+## chosen on the Start screen, and the flag is set.
+func _on_captive_freed(item: Item) -> void:
+	var who := int(item.get_meta("turtle", -1))
+	if who < 0 or who >= turtle_energy.size():
+		return
+	turtle_energy[who] = TURTLE_ENERGY
+	rescued_one = true
 
 ## Is this one of the frames on which the original sees to its enemies?
 ## (They and the turtle take turns; the room scene runs before both.)
@@ -951,6 +994,7 @@ func _on_boss_defeated(kind: int) -> void:
 	if _clearing:
 		return
 	# The screen stays held, with the boss's empty bar, until the walk begins.
+	rescued_one = false   # the original clears its rescue flag here (bank 6, $9E48)
 	_clearing = true
 	end_stage = EndStage.WAIT
 	_end_frames = 0
@@ -1790,6 +1834,7 @@ func _on_game_over_chosen(carry_on: bool) -> void:
 	turtle_energy = [TURTLE_ENERGY, TURTLE_ENERGY, TURTLE_ENERGY, TURTLE_ENERGY]
 	current_turtle = 0
 	set_score(0)   # CONTINUE starts the score again; the best score stays
+	rescued_one = false
 	_show_turtle_look()
 	if levels != null:
 		turtle.weapon_swings = [levels.weapon_swing(0, 0), levels.weapon_swing(0, 1), levels.weapon_swing(0, 2)]

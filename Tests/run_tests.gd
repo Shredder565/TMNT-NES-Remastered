@@ -1943,6 +1943,7 @@ func _ready() -> void:
 	# --- the second screens agent's sections ---
 	await _test_score()
 	await _test_world_end()
+	await _test_rescue()
 
 	print("ROM screen")
 	var rom_path := "user://_test_fake.nes"
@@ -3189,4 +3190,59 @@ func _test_world_end() -> void:
 		scene._step_wipe()
 		frames += 1
 	check(frames == 1 + 32 + 16 + 5 and scene.overworld_energy.energy == leo.health and scene.walker.visible, "and the turtle and his energy back after %d frames" % frames)
+	scene.free()
+
+# ============================ Rescuing a captured turtle (Research/losing_a_turtle.md) ============================
+func _test_rescue() -> void:
+	print("Rescuing a captured turtle")
+	var scene = load("res://Scenes/Levels/Area1Sewer.tscn").instantiate()
+	scene.start_on_overworld = false
+	scene.door_wipe = false
+	add_child(scene)
+	scene.set_physics_process(false)
+	scene.set_show_enemies(false)
+	check(scene.captive_to_show(0) == -1, "with nobody captured there is no captive")
+	scene.turtle_energy = [128, 0, 128, 128]
+	check(scene.captive_to_show(0) == 1 and scene.captive_to_show(1) == 1 and scene.captive_to_show(3) == 1, "a captured turtle is found from starts 0, 1 and 3")
+	check(scene.captive_to_show(2) == -1, "from start 2 the original never looks at turtle 1 (its slip), so he is not shown")
+	scene.turtle_energy = [128, 128, 0, 0]
+	check(scene.captive_to_show(0) == 2 and scene.captive_to_show(3) == 3 and scene.captive_to_show(2) == 2, "of two captured, the first met from the start is the one")
+	scene.rescued_one = true
+	check(scene.captive_to_show(0) == -1, "after a rescue no captive is shown")
+	scene.rescued_one = false
+	var levels: RomLevels = scene.levels
+	if levels == null:
+		print("  skip  no verified ROM is installed, so the rescue places are not exercised")
+		scene.free()
+		return
+	var places := 0
+	for spot: Array in [[2, 3], [3, 12], [4, 0], [5, 0]]:
+		for entry: Array in levels.room(spot[0], spot[1]).fixed_things:
+			if entry[0] == Item.CAPTIVE:
+				places += 1
+	check(places == 4, "the ROM has four rescue places: world 3 area 3, world 4 area 12, world 5 area 0, world 6 area 0 (%d)" % places)
+	check(SpriteSet.cached("Captive") != null and SpriteSet.cached("Captive").textures.has("f155"), "the tied-up turtle's picture is in a sprite map")
+	scene.turtle_energy = [128, 0, 128, 128]
+	var captive: Item = null
+	for attempt in 40:
+		scene.load_area(2, 3)
+		for thing in scene.items.get_children():
+			if thing is Item and thing.kind == Item.CAPTIVE and not thing.is_queued_for_deletion():
+				captive = thing
+		if captive != null:
+			break
+	check(captive != null and captive.position == Vector2(896, 480) and captive.get_meta("turtle") == 1, "in world 3's area 3 the captured turtle waits at (896, 480)")
+	if captive != null:
+		captive.pick_up(scene.turtle)
+		check(scene.turtle_energy[1] == 128 and scene.rescued_one, "touching him brings him back with full energy")
+		scene.turtle_energy[2] = 0
+		var again := false
+		for attempt in 12:
+			scene.load_area(2, 3)
+			for thing in scene.items.get_children():
+				if thing is Item and thing.kind == Item.CAPTIVE and not thing.is_queued_for_deletion():
+					again = true
+		check(not again, "and no second captive is shown, though another turtle is captured")
+		scene._on_game_over_chosen(true)
+		check(not scene.rescued_one, "CONTINUE clears that")
 	scene.free()

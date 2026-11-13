@@ -12,8 +12,13 @@ const SLICE := 0x03
 const WHOLE_PIZZA := 0x01
 const HALF_PIZZA := 0x02
 const POWER := 0x0B
+const CAPTIVE := 0x0E           ## a captured turtle, tied up: touching him brings him back (Research/losing_a_turtle.md)
+const SPRITE_LINES_UP := 4
 const SLICE_ENERGY := 32
 const HALF_ENERGY := 64
+
+## Picked up (the room scene sees to what a captive gives).
+signal taken(item: Item)
 
 var kind := SLICE
 var sprites: SpriteSet
@@ -31,7 +36,11 @@ func _ready() -> void:
 		picture.centered = false
 		var frame := sprites.frame_at("walk", 0)
 		picture.texture = sprites.textures[frame]
-		picture.position = sprites.offsets[frame]
+		# The original's sprites do not get the 4-line shift its background
+		# gets (Research/hud.md); the remake moves a whole room down 4 lines,
+		# so an item's picture goes 4 up to sit where the original shows it
+		# (measured for a slice of pizza and for the captive). Its box stays.
+		picture.position = sprites.offsets[frame] - Vector2(0, SPRITE_LINES_UP)
 		add_child(picture)
 	else:
 		var block := ColorRect.new()
@@ -61,4 +70,5 @@ func pick_up(turtle: Turtle) -> void:
 		turtle.heal(turtle.max_health)
 	elif kind == POWER:
 		turtle.start_power()
+	taken.emit(self)
 	queue_free()
