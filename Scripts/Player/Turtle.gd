@@ -14,7 +14,7 @@ signal moved   ## every frame, after he has (or has not) moved
 signal throw_started(crouching: bool)
 var swing_sound := 0x0A   ## the sound of his weapon's swing; the room scene sets it for each turtle
 
-enum State { NORMAL, CROUCH, HURT, DEAD, CLIMB }
+enum State { NORMAL, CROUCH, HURT, DEAD, CLIMB, SWIM }   ## SWIM: under water (the swimming section at the end of this file)
 
 ## --- Measured from the original (units: 1/256 pixel per update) ---
 const TICK_FRAMES := 2          ## one game update every 2 frames (30 per second)
@@ -47,7 +47,7 @@ const SCREEN_LEFT := 20.0         ## he is kept between these two on the screen
 const SCREEN_RIGHT := 236.0
 const SPRITE_FEET_BELOW := 24.0   ## the original's pictures are drawn with his feet this far below his position value
 ## His boxes when no ROM is there to ask (the ROM's own numbers).
-const DEFAULT_BODY_BOXES := { "stand": Vector2i(5, 16), "crouch": Vector2i(5, 11), "ball": Vector2i(5, 6) }
+const DEFAULT_BODY_BOXES := { "stand": Vector2i(5, 16), "crouch": Vector2i(5, 11), "ball": Vector2i(5, 6), "swim": Vector2i(11, 6) }
 const SWING_REST := 2
 const CENTRE_ABOVE_FEET := 20.0   ## the original measures his boxes and his weapon from his middle
 const MAX_FALL_SPEED := 2559    ## the original holds the whole pixels of his fall at 9
@@ -186,6 +186,8 @@ func _physics_process(delta: float) -> void:
 		art.visible = true
 
 	_frame += 1
+	if _frame % TICK_FRAMES != 0 and swimming:
+		_step_swim_picture()   # (swimming) pictures step on the frame between his updates
 	if _frame % TICK_FRAMES == 0:
 		_tick()
 	elif throw_tick >= 0:
@@ -197,6 +199,12 @@ func _physics_process(delta: float) -> void:
 func _tick() -> void:
 	_weapon_box_old = _weapon_box_new
 	_weapon_box_new = []
+	if swimming and room != null:
+		_swim_tick()   # (swimming) the whole update is the swimming section's
+		_jump_pressed = false
+		_attack_pressed = false
+		_update_art()
+		return
 	if state == State.CLIMB:
 		_climb()
 		_jump_pressed = false
@@ -263,6 +271,8 @@ func _tick() -> void:
 ## Picks the animation for what the turtle is doing and shows its frame.
 func _update_art() -> void:
 	_fit_body()
+	if swimming and _show_swim_picture():
+		return   # (swimming) his own pictures
 	var wanted := "stand"
 	if state == State.CLIMB:
 		wanted = "climb"
@@ -894,6 +904,8 @@ func _low_swing() -> bool:
 
 ## Which of his boxes he has just now.
 func _body_box_name() -> String:
+	if state == State.SWIM:
+		return "swim"   # (swimming) one flat box for all four swimming animations
 	if state == State.CROUCH or _low_swing() or _low_after >= 2:
 		return "crouch"
 	if state == State.NORMAL and _spinning and not on_floor() and attack_tick < 0 and _swing_lingers == 0:   # the swing's picture, and box, last one update past its end
@@ -970,6 +982,10 @@ func take_damage(amount: int, from_x: float = NAN) -> bool:
 		art.modulate = Color(0.5, 0.5, 0.5)
 		died.emit()
 		return true
+	if state == State.SWIM:
+		invulnerable_timer = invulnerable_time   # (swimming) hurt but not thrown; a guess for touches, read for tiles
+		_swim_hurt = true
+		return true
 	state = State.HURT   # a swing under way goes on (measured)
 	_hurt_ticks = 0
 	jump_tick = -1
@@ -991,6 +1007,7 @@ func tile_hurt(amount: int) -> void:
 	health = maxi(health - amount, 0)
 	health_changed.emit(health, max_health)
 	invulnerable_timer = invulnerable_time
+	_swim_hurt = swimming
 	if health == 0:
 		attack_tick = -1
 		_set_attacking(false)
@@ -1030,3 +1047,262 @@ func revive() -> void:
 	speed = Vector2i.ZERO
 	velocity = Vector2.ZERO
 	health_changed.emit(health, max_health)
+
+
+# =====================================================================
+# SWIMMING: the lake of world 2 (Research/swimming.md).
+# Written from the original's state 0F (bank 4, $A78B) and the lines of
+# its update that ask "is he swimming" ($D3). Nothing in this section is
+# used unless the room scene sets `swimming`; walking, jumping and
+# climbing never come here.
+# =====================================================================
+
+signal swim_row_wanted(way: int)   ## he has reached the top (-1) or bottom (1) of the screen: the room changes row
+
+const SWIM_SPEED := 512            ## 2 pixels an update, left or right
+const SWIM_SINK := 16              ## added to his downward speed every update
+const SWIM_STROKE := -224          ## a new press of jump
+const SWIM_FASTEST := 512          ## up or down: 2 pixels an update
+const SWIM_TOP := 16               ## his middle is kept between these two down the screen;
+const SWIM_BOTTOM := 181           ## at either the screen changes row
+const SWIM_SIDE := 13.0            ## the map is felt this far to the side, at
+const SWIM_SIDE_HIGH := 7.0        ## this far above and below his middle,
+const SWIM_HEAD := 7.0             ## and this far above (rising) or below (sinking) it, at
+const SWIM_HEAD_SIDE := 8.0        ## his middle and this far to each side
+const SWIM_CURRENT_UP := 0x10      ## the original's values for the current he is in
+const SWIM_CURRENT_DOWN := 0x20
+const SWIM_CURRENT_RIGHT := 0x40
+const SWIM_CURRENT_LEFT := 0x80
+const SWIM_CURRENT_DRIFT := 18     ## what a current up or down adds every update
+const SWIM_CURRENT_PUSH := 48      ## what one to the side adds; and Down held in any current, downward
+const SWIM_ANIMATION_STROKE := 0xBC   ## the original's animation numbers
+const SWIM_ANIMATION_ACROSS := 0xBE
+const SWIM_ANIMATION_SINK := 0xBF
+const SWIM_ANIMATION_DOWN := 0x8C
+const SWIM_PICTURES := { 0xBC: [0x80, 0x81, 0x82], 0xBE: [0x83, 0x84, 0x85], 0xBF: [0x83], 0x8C: [0x86, 0x87, 0x88] }
+const SWIM_PICTURE_UPDATES := 5
+const SWIM_DEAD_PICTURES := [0x9F, 0xA0, 0xA1]   ## out of energy: 6 updates each, then nothing
+const SWIM_CRUSHED_PICTURES := [0xA2, 0xA3, 0xA4, 0xA5]   ## killed by the map: 16 updates each
+const SWIM_CRUSHED_RISE := 13      ## and he is put this far up when that happens
+
+var swimming := false              ## set by the room scene in the underwater area
+var swim_current := 0              ## the current he is in (one of SWIM_CURRENT_..., the room scene sets it), 0 for none
+var swim_screen_top := 0.0         ## the top of the screen in the room (the room scene keeps it)
+var swim_animation := SWIM_ANIMATION_SINK
+var swim_step := 0                 ## which picture of the animation
+var swim_left := SWIM_PICTURE_UPDATES   ## updates before the next
+var swim_picture := 0x83
+var swim_sprites: SpriteSet        ## the swimming pictures, by the original's picture number
+var swim_crushed := false          ## killed by the map's deadly kind
+var _swim_hurt := false            ## hurt under water: the water flashes while he blinks
+var _swim_dead_updates := 0
+var _swim_bubble := Sprite2D.new()
+var _swim_bubble_at := Vector2.ZERO   ## the bubble's place in the room
+const SWIM_BUBBLE_FRAME := "p137"
+const SWIM_BUBBLE_LEFT := -8.0     ## where it starts from his middle, facing left
+const SWIM_BUBBLE_RIGHT := 14.0    ## ...and facing right
+const SWIM_BUBBLE_UP := 12.0
+const SWIM_BUBBLE_RISE := 1.5
+
+## One update under water, in the original's order: he is moved by the
+## speeds his last update left, kept on the screen, and then his routine
+## sets the speeds for the next one and feels the map.
+func _swim_tick() -> void:
+	if state == State.DEAD:
+		_swim_dead_updates += 1
+		return
+	var scroll_before := scroll_x
+	if hold_updates > 0:
+		hold_updates -= 1
+	else:
+		move_across(speed.x / 256.0)
+		position.y += speed.y / 256.0
+	var fraction := position.y - floorf(position.y)
+	var middle := floori(position.y) - int(CENTRE_ABOVE_FEET) - int(swim_screen_top)
+	if middle < SWIM_TOP or middle >= SWIM_BOTTOM:
+		speed.y = 0
+		middle = SWIM_TOP if middle < SWIM_TOP else SWIM_BOTTOM
+		position.y = swim_screen_top + middle + CENTRE_ABOVE_FEET + fraction
+	if (middle == SWIM_TOP or middle == SWIM_BOTTOM) and not scroll_locked:
+		# Nothing else happens on this update, and a step the screen was to
+		# scroll for is lost (measured: the screen stays where it was).
+		if scroll_x != scroll_before:
+			scroll_x = scroll_before
+			scroll_seen = scroll_x
+			position.x = floorf(scroll_x) + screen_x
+		swim_row_wanted.emit(-1 if middle == SWIM_TOP else 1)
+		return
+	if swim_crushed:
+		# Killed by the map: put 13 higher, all his energy gone.
+		position.y -= SWIM_CRUSHED_RISE
+		speed = Vector2i.ZERO
+		_swim_bubble.visible = false
+		drain(health)
+		return
+	if state != State.SWIM:
+		# The ground routine's first lines: under water it only changes him
+		# over, and his swimming begins with the next update.
+		state = State.SWIM
+		grounded = false
+		attack_tick = -1
+		_set_attacking(false)
+		_set_crouching(false)
+		return
+	_swim_routine()
+
+## The original's state 0F.
+func _swim_routine() -> void:
+	_start_bubble()
+	var left := Input.is_action_pressed("move_left")
+	var right := Input.is_action_pressed("move_right")
+	var up := Input.is_action_pressed("move_up")
+	var down := Input.is_action_pressed("move_down")
+	var stroke_held := Input.is_action_pressed("jump")
+	if left or right:
+		facing = -1 if left else 1   # with both held he faces left
+		art.scale.x = facing
+	var animation := SWIM_ANIMATION_STROKE
+	if not (left or right or up or down):
+		animation = SWIM_ANIMATION_STROKE if stroke_held or speed.y < 0 else SWIM_ANIMATION_SINK
+	elif not (up or down):
+		animation = SWIM_ANIMATION_ACROSS
+	elif down:
+		animation = SWIM_ANIMATION_DOWN
+	_start_swim_animation(animation)
+	# Sideways: the whole pixels are set, the fraction is left as it was.
+	var across := 0
+	if right != left:
+		across = SWIM_SPEED if right else -SWIM_SPEED
+	speed.x = across + posmod(speed.x, 256)
+	# Sinking, held to 2 whole pixels; a stroke; then the current.
+	speed.y += SWIM_SINK
+	if speed.y >= SWIM_FASTEST:
+		speed.y = SWIM_FASTEST + posmod(speed.y, 256)
+	if _jump_pressed:
+		speed.y += SWIM_STROKE
+		if speed.y < -768:
+			speed.y = -768 + posmod(speed.y, 256)
+	if swim_current != 0:
+		match swim_current & 0xF0:
+			SWIM_CURRENT_UP: speed.y -= SWIM_CURRENT_DRIFT
+			SWIM_CURRENT_DOWN: speed.y += SWIM_CURRENT_DRIFT
+			SWIM_CURRENT_RIGHT: speed.x += SWIM_CURRENT_PUSH
+			SWIM_CURRENT_LEFT: speed.x -= SWIM_CURRENT_PUSH
+		if down:
+			speed.y += SWIM_CURRENT_PUSH
+	speed.y = clampi(speed.y, -SWIM_FASTEST, SWIM_FASTEST)
+	# The map, felt where his speed's whole pixels would take him.
+	var here := floorf(scroll_seen) + floorf(screen_x)
+	var x := here + float(speed.x >> 8)
+	var y := floorf(position.y) - CENTRE_ABOVE_FEET + float(speed.y >> 8)
+	if speed.x != 0:
+		var side := SWIM_SIDE if speed.x >= 0 else -SWIM_SIDE
+		if _swim_blocked(x + side, y - SWIM_SIDE_HIGH) or _swim_blocked(x + side, y + SWIM_SIDE_HIGH):
+			speed.x = 0
+			x = here   # the looks up and down that follow use the speed as it now is
+	var ahead := -SWIM_HEAD if speed.y < 0 else SWIM_HEAD
+	if _swim_blocked(x, y + ahead) or _swim_blocked(x + SWIM_HEAD_SIDE, y + ahead) or _swim_blocked(x - SWIM_HEAD_SIDE, y + ahead):
+		speed.y = 0
+
+## One of the swimming routine's looks at the map: a wall stops him, the
+## hurting kind hurts and lets him through, the deadly kind kills.
+func _swim_blocked(x: float, y: float) -> bool:
+	if state == State.DEAD:
+		return true
+	var kind := room.kind_at_pixel(x, y)
+	if kind == RoomData.KIND_SOLID:
+		return true
+	if kind == RoomData.KIND_HURTS:
+		tile_hurt(RoomData.HURT_DAMAGE)
+	elif kind == RoomData.KIND_DEADLY:
+		swim_crushed = true   # the original's state 13: it acts on his next update
+		return true
+	return false
+
+func _start_swim_animation(animation: int) -> void:
+	if animation == swim_animation:
+		return
+	swim_animation = animation
+	swim_step = 0
+	swim_left = SWIM_PICTURE_UPDATES
+
+## The bubble: the original keeps it in the weapon's object slot. It
+## starts by his head whenever there is none (bank 4, $A910), rises 1.5
+## pixels an update and goes when it is less than 16 from the screen's top
+## (measured).
+func _start_bubble() -> void:
+	if _swim_bubble.get_parent() == null:
+		_swim_bubble.centered = false
+		_swim_bubble.top_level = true
+		_swim_bubble.z_index = 1
+		add_child(_swim_bubble)
+		_swim_bubble.visible = false
+	if _swim_bubble.visible or swim_sprites == null or not swim_sprites.textures.has(SWIM_BUBBLE_FRAME):
+		return
+	_swim_bubble.texture = swim_sprites.textures[SWIM_BUBBLE_FRAME]
+	_swim_bubble_at = Vector2(floorf(position.x) + (SWIM_BUBBLE_LEFT if facing < 0 else SWIM_BUBBLE_RIGHT), floorf(position.y) - CENTRE_ABOVE_FEET - SWIM_BUBBLE_UP)
+	_swim_bubble.visible = true
+	_place_bubble()
+
+func _place_bubble() -> void:
+	_swim_bubble.global_position = get_parent().to_global(_swim_bubble_at.floor()) + swim_sprites.offsets[SWIM_BUBBLE_FRAME] if get_parent() is Node2D else _swim_bubble_at
+
+func _step_bubble() -> void:
+	if not _swim_bubble.visible:
+		return
+	_swim_bubble_at.y -= SWIM_BUBBLE_RISE
+	if floorf(_swim_bubble_at.y) - swim_screen_top < SWIM_TOP:
+		_swim_bubble.visible = false
+	else:
+		_place_bubble()
+
+## The original steps every object's animation on the frame between the
+## turtle's updates.
+func _step_swim_picture() -> void:
+	if state != State.SWIM:
+		return
+	_step_bubble()
+	swim_left -= 1
+	var pictures: Array = SWIM_PICTURES[swim_animation]
+	if swim_left == 0:
+		swim_step += 1
+		swim_left = SWIM_PICTURE_UPDATES
+		if swim_step >= pictures.size():
+			swim_step = 0   # the list's end mark takes this frame: the first picture shows from the next
+			return
+	swim_picture = pictures[swim_step]
+
+## Shows the swimming picture; false when there is none to show (no ROM
+## pictures, or he is not yet swimming).
+func _show_swim_picture() -> bool:
+	if swim_sprites == null or (state != State.SWIM and state != State.DEAD):
+		return false
+	_fit_body()
+	_weapon_picture.visible = false
+	var picture := swim_picture
+	if state == State.DEAD:
+		var list: Array = SWIM_CRUSHED_PICTURES if swim_crushed else SWIM_DEAD_PICTURES
+		var each := 16 if swim_crushed else 6
+		var step := _swim_dead_updates / each
+		rom_sprite.visible = step < list.size()
+		if step >= list.size():
+			return true
+		picture = list[step]
+	else:
+		rom_sprite.visible = true
+	var frame := "p%d" % picture
+	if swim_sprites.textures.has(frame):
+		rom_sprite.texture = swim_sprites.textures[frame]
+		rom_sprite.position = swim_sprites.offsets[frame] + Vector2(0, -CENTRE_ABOVE_FEET)
+	return true
+
+## Out of the water (another room, the overworld, a new turtle).
+func stop_swimming() -> void:
+	swimming = false
+	swim_current = 0
+	swim_crushed = false
+	_swim_bubble.visible = false
+	_swim_hurt = false
+	_swim_dead_updates = 0
+	if state == State.SWIM:
+		state = State.NORMAL

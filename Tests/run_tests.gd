@@ -1799,6 +1799,7 @@ func _ready() -> void:
 	await _test_rescue()
 	await _test_special_weapons()
 	await _test_title_to_play()
+	await _test_world2_swimming()   # (world2) sections from here on
 
 	print("ROM screen")
 	var rom_path := "user://_test_fake.nes"
@@ -3493,3 +3494,153 @@ func _test_title_to_play() -> void:
 	plain.set_physics_process(false)
 	check(not plain.wiping(), "a game scene made any other way begins at once")
 	plain.free()
+
+
+# =====================================================================
+# (world2) World 2: swimming (Research/swimming.md)
+# =====================================================================
+func _test_world2_swimming() -> void:
+	print("World 2: swimming")
+	check(Turtle.SWIM_SINK == 16 and Turtle.SWIM_STROKE == -224 and Turtle.SWIM_SPEED == 512 and Turtle.SWIM_FASTEST == 512, "swimming: he sinks by 16 an update, a stroke takes 224 off, 2 pixels an update at most each way")
+	var scene = load("res://Scenes/Levels/Area1Sewer.tscn").instantiate()
+	scene.start_on_overworld = false
+	scene.door_wipe = false
+	add_child(scene)
+	scene.set_show_enemies(false)
+	var leo: Turtle = scene.turtle
+	if scene.levels == null:
+		print("  skip  no ROM: the lake's map is needed")
+		scene.free()
+		return
+	scene.set_physics_process(false)
+	leo.set_physics_process(false)
+	for action in ["move_left", "move_right", "move_up", "move_down", "jump", "attack"]:
+		Input.action_release(action)
+	scene.load_area(0, 0)
+	check(not leo.swimming and not scene.under_water(), "he does not swim in world 1")
+	scene.load_area(1, 0)
+	check(not leo.swimming, "nor inside the dam")
+	scene.load_area(1, 1)
+	check(leo.swimming and scene.under_water(), "he swims in world 2's second area")
+	check(scene.room.size_pixels() == Vector2i(9 * 256, 3 * 192), "the lake is 9 by 3 screens")
+	check(leo.swim_sprites != null and leo.swim_sprites.textures.has("p128") and leo.swim_sprites.textures.has("p136") and leo.swim_sprites.textures.has("p137"), "the swimming pictures $80 to $88 and the bubble are there")
+	check(Vector2i(leo.body_boxes["swim"]) == Vector2i(11, 6), "his box under water is 22 by 12 (the ROM's table)")
+	# Where the original sets him down after the jump in: (96, 96) on the bottom-left screen.
+	var put := func(x: float, middle: float) -> void:
+		leo.position = Vector2(x, middle + 20.0)
+		leo.put_screen(clampf(x - 128.0, 0.0, leo.scroll_max))
+		scene._settle_row()
+		scene._place_camera()
+		leo.speed = Vector2i.ZERO
+		leo.hold_updates = 0
+	put.call(96.0, 384.0 + 96.0)
+	leo.state = Turtle.State.NORMAL
+	leo._tick()
+	check(leo.state == Turtle.State.SWIM and leo.speed == Vector2i.ZERO, "his first update under water only changes him over to swimming")
+	check(leo.touch_box()[2] == 11 and leo.touch_box()[3] == 6 and leo.touch_box()[1] == 384 + 96, "his box is the flat one, at his middle")
+	leo._tick()
+	check(leo.speed == Vector2i(0, 16), "then he sinks: 16 more every update")
+	for i in 40:
+		leo._tick()
+	check(leo.speed.y == 512, "up to 2 pixels an update")
+	# Measured in the original from rest on the floor at (96, 169): a stroke gives 208 upward
+	# (16 down, 224 up), and he is at 168 and 48/256 after the next update.
+	put.call(96.0, 384.0 + 169.0)
+	leo._tick()
+	check(leo.speed.y == 0 and floori(leo.position.y) == 384 + 169 + 20, "he lies on the lake's floor where the original does (169 down the screen)")
+	leo._jump_pressed = true
+	leo._tick()
+	check(leo.speed.y == -208, "a stroke from rest: 208 upward")
+	leo._tick()
+	check(is_equal_approx(leo.position.y, 384.0 + 20.0 + 168.0 + 48.0 / 256.0) and leo.speed.y == -192, "and he rises by it (the original's numbers)")
+	for i in 6:
+		leo._jump_pressed = true
+		leo._tick()
+	check(leo.speed.y == -512, "strokes cannot make him rise faster than 2 pixels an update")
+	Input.action_press("move_right")
+	leo._tick()
+	check(leo.speed.x == 512 and leo.facing == 1 and leo.swim_animation == Turtle.SWIM_ANIMATION_ACROSS, "Right: 2 pixels an update, facing right, the sideways animation")
+	Input.action_press("move_left")
+	leo._tick()
+	check(leo.speed.x == 0 and leo.facing == -1, "Left and Right together: no speed, facing left")
+	Input.action_release("move_right")
+	Input.action_press("move_down")
+	leo._tick()
+	check(leo.speed.x == -512 and leo.swim_animation == Turtle.SWIM_ANIMATION_DOWN, "Down with a direction: the downward animation")
+	Input.action_release("move_left")
+	Input.action_release("move_down")
+	leo._attack_pressed = true
+	leo._tick()
+	check(leo.attack_tick < 0, "the attack button does nothing under water")
+	# A current: 48 across or 18 up or down every update, and Down adds 48 downward.
+	put.call(96.0, 384.0 + 100.0)
+	leo.swim_current = Turtle.SWIM_CURRENT_RIGHT
+	leo._tick()
+	check(leo.speed == Vector2i(48, 16), "a current to the right adds 48 across")
+	leo._tick()
+	check(leo.speed == Vector2i(96, 32), "the fraction of his sideways speed is kept, so it builds up")
+	leo.swim_current = Turtle.SWIM_CURRENT_DOWN
+	leo.speed = Vector2i.ZERO
+	Input.action_press("move_down")
+	leo._tick()
+	check(leo.speed.y == 16 + 18 + 48, "a current downward adds 18, and Down held in a current 48 more")
+	Input.action_release("move_down")
+	leo.swim_current = 0
+	# The weed (the hurting kind): 16 energy, no throw; then safe while he blinks.
+	var weed := Vector2(-1, -1)
+	var deadly := Vector2(-1, -1)
+	for row in range(2, scene.room.rows - 2, 2):
+		for column in range(2, scene.room.cols - 2, 2):
+			var above_clear: bool = scene.room.kind_at(column, row - 2) == RoomData.KIND_EMPTY and scene.room.kind_at(column, row - 4) == RoomData.KIND_EMPTY and scene.room.kind_at(column - 2, row - 2) == RoomData.KIND_EMPTY and scene.room.kind_at(column + 2, row - 2) == RoomData.KIND_EMPTY
+			if weed.x < 0 and above_clear and scene.room.kind_at(column, row) == RoomData.KIND_HURTS and (row * 8) % 192 >= 64:
+				weed = Vector2(column * 8 + 8, row * 8)
+	check(weed.x >= 0, "the lake has weed with open water above it")
+	leo.max_health = 128
+	leo.health = 128
+	leo.invulnerable_timer = 0.0
+	put.call(weed.x, weed.y - 7.0)      # his routine looks 7 below his middle
+	var energy_before := leo.health
+	leo._tick()
+	check(leo.health == energy_before - 16 and leo.state == Turtle.State.SWIM, "swimming down into the weed costs 16 energy and he swims on")
+	leo.invulnerable_timer = 0.0
+	leo.health = 128
+	# The deadly kind kills on the update after his routine finds it, 13 higher.
+	for row in range(2, scene.room.rows - 2, 2):
+		for column in range(2, scene.room.cols - 2, 2):
+			if deadly.x < 0 and scene.room.kind_at(column, row) == RoomData.KIND_DEADLY and scene.room.kind_at(column - 2, row) == RoomData.KIND_EMPTY and scene.room.kind_at(column - 4, row) == RoomData.KIND_EMPTY and (row * 8) % 192 >= 48 and (row * 8) % 192 < 150:
+				deadly = Vector2(column * 8, row * 8 + 8)
+	check(deadly.x >= 0, "the lake has the deadly kind beside open water")
+	put.call(deadly.x - 14.0, deadly.y)  # his routine looks 13 to the side, and 2 more for his speed
+	Input.action_press("move_right")
+	leo._tick()
+	check(leo.swim_crushed and leo.state == Turtle.State.SWIM and leo.health == 128, "the deadly kind beside him is found by his routine")
+	var height := leo.position.y
+	leo._tick()
+	check(leo.state == Turtle.State.DEAD and leo.health == 0 and is_equal_approx(leo.position.y, height - 13.0 + 16.0 / 256.0), "on his next update all his energy is gone and he is 13 higher")
+	Input.action_release("move_right")
+	# The screen changes row when his middle reaches 16 (or 181) down it.
+	leo.revive()
+	leo.max_health = 128
+	leo.health = 128
+	leo.swim_crushed = false
+	leo.state = Turtle.State.SWIM
+	put.call(652.0, 384.0 + 20.0)       # under the way up from the bottom row (where the original's run crossed)
+	check(scene._screen_row == 2, "he is on the bottom row of screens")
+	leo.speed = Vector2i(0, -512)
+	leo._tick()
+	leo._tick()
+	leo._tick()
+	check(scene._row_way == -1 and scene._row_swim, "reaching 16 from the screen's top starts a change of row")
+	var before := leo.position.y
+	var frames := 0
+	while scene._row_way != 0 and frames < 300:
+		scene._step_row_change()
+		frames += 1
+	check(frames == (48 + 1 + 2) * 2, "the change lasts 48 updates of 4 pixels, one to end it and two of rest")
+	check(scene._screen_row == 1 and scene._view_top == 192.0, "the screen is then one row up")
+	check(is_equal_approx(leo.position.y, before - 8 * 4 - 2), "he was carried for the first 8 updates and ends 2 higher: 174 down the new screen")
+	leo.set_physics_process(false)
+	# Leaving the water.
+	scene.load_area(1, 0)
+	check(not leo.swimming and leo.state != Turtle.State.SWIM, "out of the lake he walks again")
+	scene.free()
