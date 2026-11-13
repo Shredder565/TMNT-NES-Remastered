@@ -45,7 +45,7 @@ const MIX_SAMPLE := 0.00335
 const GAIN := 1.6                 ## overall loudness (a judgement, not measured)
 const OFFSET_FOLLOW := 0.004      ## how quickly the steady offset is taken out
 
-class Square:
+class SquareChannel:
 	var first := false            ## the first square wave slides down one step further
 	var on := true
 	var tone := 0                 ## 0-3: which DUTY
@@ -65,7 +65,7 @@ class Square:
 	var length := 0               ## half-frame ticks left
 	var phase := 0.0              ## where in its cycle, 0 to 1
 
-class Noise:
+class NoiseChannel:
 	var on := true
 	var hold := false
 	var steady := false
@@ -81,8 +81,8 @@ class Noise:
 var memory: SoundData             ## where sample bytes are read from (may be null)
 var mix_rate := 44100.0
 
-var squares: Array[Square] = [Square.new(), Square.new()]
-var noise := Noise.new()
+var squares: Array[SquareChannel] = [SquareChannel.new(), SquareChannel.new()]
+var noise := NoiseChannel.new()
 # triangle
 var triangle_on := true
 var triangle_control := false
@@ -278,13 +278,13 @@ func _half_tick() -> void:
 		triangle_length -= 1
 
 ## Where a slide would take the pitch number next.
-func _sweep_target(square: Square) -> int:
+func _sweep_target(square: SquareChannel) -> int:
 	var change := square.period >> square.sweep_shift
 	if not square.sweep_down:
 		return square.period + change
 	return maxi(square.period - change - (1 if square.first else 0), 0)
 
-func _square_level(square: Square) -> int:
+func _square_level(square: SquareChannel) -> int:
 	return square.setting if square.steady else square.fade_level
 
 # ---------------------------------------------------------------- samples
@@ -320,7 +320,7 @@ func render_frame(count: int) -> PackedVector2Array:
 	_offset = offset
 	return out
 
-func _add_square(square: Square, from: int, count: int) -> void:
+func _add_square(square: SquareChannel, from: int, count: int) -> void:
 	# No sound when its counter has run out, the pitch is too high for
 	# the chip, or a slide upwards would take it off the bottom.
 	if square.length == 0 or square.period < 8 or _sweep_target(square) > 0x7FF:

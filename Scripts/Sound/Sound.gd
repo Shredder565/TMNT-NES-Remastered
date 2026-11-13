@@ -17,6 +17,7 @@ const ACTION_TOGGLE := "toggle_sound"
 const MIX_RATE := 44100.0
 const FRAMES_PER_SECOND := 60
 const BUFFER_SECONDS := 0.15          ## how much sound Godot may hold waiting to be heard
+const CUSHION_FRAMES := 3              ## silence put in first, so a late frame does not leave a gap
 const REQUESTS_KEPT := 64
 
 var data: SoundData
@@ -32,6 +33,7 @@ var frame := 0
 
 var _player: AudioStreamPlayer
 var _playback: AudioStreamGeneratorPlayback
+var _buffer_room := 0                  ## what Godot's buffer holds when empty
 var _looked_for_rom := false
 
 func _ready() -> void:
@@ -55,15 +57,23 @@ func use_program(prg: PackedByteArray) -> void:
 		return
 	chip = SoundChip.new(data, MIX_RATE)
 	driver = SoundDriver.new(data, chip)
-	if DisplayServer.get_name() != "headless" and _player == null:
-		var stream := AudioStreamGenerator.new()
-		stream.mix_rate = MIX_RATE
-		stream.buffer_length = BUFFER_SECONDS
-		_player = AudioStreamPlayer.new()
-		_player.stream = stream
-		add_child(_player)
-		_player.play()
-		_playback = _player.get_stream_playback()
+	if DisplayServer.get_name() != "headless":
+		open_audio()
+
+## Make the Godot player the samples are handed to. Not done in a headless
+## run, where there is nobody to hear it.
+func open_audio() -> void:
+	if _player != null:
+		return
+	var stream := AudioStreamGenerator.new()
+	stream.mix_rate = MIX_RATE
+	stream.buffer_length = BUFFER_SECONDS
+	_player = AudioStreamPlayer.new()
+	_player.stream = stream
+	add_child(_player)
+	_player.play()
+	_playback = _player.get_stream_playback()
+	_buffer_room = _playback.get_frames_available()
 
 ## True when sounds can be played (a ROM was found).
 func ready_to_play() -> bool:
@@ -108,9 +118,17 @@ func _physics_process(_delta: float) -> void:
 	if _playback == null:
 		return
 	var count := int(MIX_RATE / FRAMES_PER_SECOND)
-	if _playback.get_frames_available() < count:
+	var room := _playback.get_frames_available()
+	if room >= _buffer_room:
+		# Nothing is waiting to be heard (the start, or a frame came
+		# late): begin again a little ahead.
+		var cushion := PackedVector2Array()
+		cushion.resize(count * CUSHION_FRAMES)
+		_playback.push_buffer(cushion)
+		room -= cushion.size()
+	if room < count:
 		return                        # Godot has plenty waiting already
+	var samples := chip.render_frame(count)   # also keeps the chip's clock going
 	if not enabled:
-		chip.render_frame(count)      # keep the chip's clock going, heard by no one
-		return
-	_playback.push_buffer(chip.render_frame(count))
+		samples.fill(Vector2.ZERO)
+	_playback.push_buffer(samples)
