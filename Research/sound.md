@@ -265,3 +265,101 @@ number asked for, $0197-$0199 fade amount, counter and stage, $019A last
 effect sweep, $019C last triangle length sent, $019D tune over. $0196 is
 read as "silence slot 0 when the effect gives the channel back" but
 nothing in the ROM ever writes it.
+
+## 8. Every call of "start sound" in the game
+
+All 76 places that call 7:$CEF0 (found by searching the ROM for the call;
+**read from code** means the lines just before the call were read, not
+always the whole routine). "Ours" is where our game makes the same call;
+"-" means that part of the game is not in the remake yet, or the call was
+not followed far enough to place it.
+
+**Measured**: in the ten whole-room recordings of `Research/live_play.md`,
+made again with the number asked for written down each frame
+(`Research/cynes/sound_live_record.py`, `sound_live_replay.gd.txt`), the
+original asked for a sound 204 times (jumps, landings, swings, hits,
+enemies beaten, the turtle hurt, the boss's tune); ours asks for the same
+number on the same frame all 204 times.
+
+### The turtle (bank 4)
+
+| Where | Number | When | Ours |
+| --- | --- | --- | --- |
+| 4:$9E7B | `$07` | a jump begins (his state becomes 7) | `Turtle._control` |
+| 4:$A1B0 | `$08` | he lands (any landing: a jump, a fall, a throw by a hit) | `Turtle._test_room` |
+| 4:$9F6B | `$0A $0C $0E $10` | a swing begins: one number per turtle (table 4:$9F7C); Donatello's is `$12` instead inside a room | `Turtle._begin_swing` (number set in `RoomScene.set_turtle`); the overworld swing is not wired |
+| 4:$9F79 | `$14 $14 $16 $17` | a special weapon is thrown, by its kind 1-4 (table 4:$9F80) | `RoomScene._on_throw_started` |
+| 4:$9845 | `$3C` | Select changes weapon (only if he has any special weapon) | `RoomScene.press_select` |
+| 4:$A5CE | `$25`, or `$2F` when $D3 is set | hurt by a hurting tile (16 energy) | `Turtle.tile_hurt` (`$25` only; what sets $D3 was not followed) |
+| 4:$97BB, 4:$A414 | `$83` | the turtle's energy is gone: the "caught" tune. The game then waits for $019D (4:$9797) before the Start screen opens | `RoomScene._on_turtle_died` |
+| 4:$999E | `$33` | energy below `$18`: the low-energy warning, once ($03D6 remembers) | - |
+| 4:$9A0B | `$2C` | his state becomes `$16` (going into a doorway/manhole; **guess**) | - |
+| 4:$9A45 | `$29` | his state becomes `$17` (coming out; **guess**) | - |
+| 4:$A561 | `$2A` | a count runs out in a state not followed | - |
+| 4:$A974 | `$33 $63 $67` | by $BB (`$16`, `$15`, `$05`): not followed | - |
+| 4:$A980 | `$4B` | not followed (overworld van; **guess**) | - |
+| 4:$AA16 | `$32` | getting into the van (**guess**) | - |
+
+### Hits and items (bank 6, $9600-$9B00)
+
+| Where | Number | When | Ours |
+| --- | --- | --- | --- |
+| 6:$994A | `$21`; `$41` for kinds 74/75 in slot 5 | a weapon lands on an enemy | `Turtle.weapon_lands` (`$21` only) |
+| 6:$9A13 | `$22` | an enemy is beaten. In a held fight ($5E = 3) only kinds 98 and 8D make it | `Puff.leave` (always `$22`) |
+| 6:$9A1B | `$42` | kind 76 beaten in a held fight | - |
+| 6:$9A4D | `$01` | on the overworld, kinds 12-14 beaten (stops their noise) | - |
+| 6:$98F7 | `$25` | the turtle is hurt by a touch | `Turtle.take_damage` |
+| 6:$96AF | `$34` | a pizza (kinds 01-03) is picked up | `Item.pick_up` |
+| 6:$971F | `$35` | a special weapon (05-08), the power item (0B), missiles (0C) or ropes (0D) picked up | `Item.pick_up` |
+| 6:$976E | `$3D` | a captured turtle is freed (kind 0E) | `Item.pick_up` |
+| 6:$97B6 | `$22` | touching kind 40 with $0606 set: not followed | - |
+| 6:$97BE | `$83` | touching kind 51 (it takes the turtle at once) | - |
+| 6:$97F0 | `$32` | touching kind A2 (getting in the van; **guess**) | - |
+| 6:$9ABC, 6:$BB32 | `$27` | something collected that sets a bit in $80/$81 or $8C: not followed | - |
+
+### Fights, bosses and the end of a world (bank 6, $9C00-$A800)
+
+| Where | Number | When | Ours |
+| --- | --- | --- | --- |
+| 6:$9CC7 | `$7B` | a held fight with a boss begins (encounter slot 0), after "silence everything" | see section 9 |
+| 6:$9CD6 | `$73` | the same for the other kind of boss entry | `RoomScene._start_fight` |
+| 6:$9DB4, 6:$9E03 | `$77` | the boss is beaten: the short tune that starts on top of everything | `RoomScene` (section 9) |
+| 6:$9DF2 | `$42` | world 3 only, when a count of bosses reaches 0 | - |
+| 6:$9E54 | `$7F` | the world is won (worlds 1-4) | `RoomScene` (section 9) |
+| 6:$A0CA, 6:$A324 | `$52` | world-end scene: silence | section 9 |
+| 6:$A1DD, 6:$A2AA, 6:$A41B, 6:$A49C, 6:$A567, 6:$A67A, 6:$A69E, 6:$A6E1, 6:$A715, 6:$A779 | `$32 $3F $19 $1B $1C $29 $2C $44 $48 $31` | steps of the scenes between worlds: not followed one by one | - |
+| 6:$AB5F, 6:$AB78 | `$20`, `$1E` | A and B in the van: firing | - |
+
+### Enemies (bank 5)
+
+| Where | Number | When | Ours |
+| --- | --- | --- | --- |
+| 5:$8A07, 5:$8A18 | `$24`, `$28` | kinds below 70 at 5:$89F8: not followed | - |
+| 5:$B156, 5:$BD07 | `$2D` | a boss fires or throws | - |
+| 5:$B6F4, 5:$BE4A | `$45`, `$46` | later bosses, after "silence everything" | - |
+| 5:$BA0B | `$42`, or `$48` for slot 5 | a boss is beaten | - |
+
+### Screens (banks 2, 3 and 7)
+
+| Where | Number | When | Ours |
+| --- | --- | --- | --- |
+| 7:$C5D6 | `$4E` | the title appears | `TitleScreen.show_phase` |
+| 7:$C605 | `$3C` | Start on the title | `TitleScreen.press_start` |
+| 7:$CDEE | `$3E` | Start in play: the Start screen opens | `RoomScene.open_start_screen` |
+| 3:$AA8B | `$3C` | the choice on the Start screen moves (more than one turtle left) | `StartScreen.move_selection` |
+| 3:$AF7E | `$39`, or `$36` when $24 is set | each letter of a message that is typed | `StartScreen._type_one` (`$36` for the world-end message is a **guess**) |
+| 3:$BAE4 | `$4E` | not followed | - |
+| 3:$BE57, 3:$BEB8 | `$3A` | not followed | - |
+| 7:$CBF9, 7:$CC01, 7:$CC09 | area's tune | a world, room or overworld begins (section 9) | `RoomScene.show_room` |
+| 7:$CD21 | `$8B` | a long count ($9D/$9E) reaches `$FF00`: not followed | - |
+| 7:$F3BD | `$38` | while a number in the top strip counts ($0A set): not followed | - |
+| 7:$FDA8 | `$16` | every update the boomerang (kind 27) flies | - |
+| 2:$B631, 2:$BDDD, 2:$BE10 | `$7F` | the scenes of bank 2 (the story pictures): not followed | - |
+| 2:$B66C | `$4E` | the same | - |
+| 2:$BA00 | `$31` | the same | - |
+| 2:$BDEA | `$87` | the same, after waiting for $019D | - |
+| 2:$BF91 | `$52` | the same | - |
+
+**Measured** on the Start screen: `$3E` on the frame it opens, `$39` for
+each letter (every 4 frames), `$3C` when the choice moves, nothing when it
+closes; **the tune goes on playing** behind the Start screen.

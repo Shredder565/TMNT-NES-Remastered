@@ -190,6 +190,7 @@ func move_selection(step: int) -> void:
 	var next := _first_fit(selected + step, step)
 	if next == selected:
 		return
+	Sound.play(0x3C)   # the choice moves (3:$AA89)
 	if data != null:
 		_write(data.unselect_writes(selected))
 		_light_row(next)
@@ -295,6 +296,7 @@ func _type_one() -> void:
 	if code == 0:
 		_text_place += 1
 	elif code < 0xF7:
+		Sound.play(0x36 if event else 0x39)   # a letter (3:$AF74)
 		_write([[_text_place, code]])
 		_text_place += 1
 	elif code == 0xF7:

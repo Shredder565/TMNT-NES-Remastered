@@ -72,5 +72,6 @@ func pick_up(turtle: Turtle) -> void:
 		turtle.heal(turtle.max_health)
 	elif kind == POWER:
 		turtle.start_power()
+	Sound.play(0x3D if kind == CAPTIVE else (0x34 if kind <= SLICE else 0x35))   # 6:$976C, 6:$96AD, 6:$971D
 	taken.emit(self)
 	queue_free()

@@ -528,6 +528,7 @@ func _show_hud_text() -> void:
 func open_start_screen() -> void:
 	if start_screen.is_open() or game_over.is_open() or _clearing or wiping() or room == null or turtle.state == Turtle.State.DEAD:
 		return
+	Sound.play(0x3E)   # Start in play (7:$CDEC)
 	turtle_energy[current_turtle] = turtle.health
 	if room.top_down:
 		overworld_spot = walker.position
@@ -548,6 +549,7 @@ func set_turtle(index: int) -> void:
 		return
 	turtle_energy[current_turtle] = turtle.health
 	current_turtle = index
+	turtle.swing_sound = [0x0A, 0x0C, 0x0E, 0x12][index]   # each weapon's swish (4:$9F7C)
 	turtle.health = int(turtle_energy[index])
 	turtle.health_changed.emit(turtle.health, turtle.max_health)
 	if levels != null:
@@ -832,6 +834,7 @@ func press_select() -> void:
 	if room == null or room.top_down or _clearing or wiping() or start_screen.is_open() or game_over.is_open() or turtle.state == Turtle.State.DEAD:
 		return
 	special_in_use = not special_in_use and int(special_count[current_turtle]) > 0
+	if int(special_count[current_turtle]) > 0: Sound.play(0x3C)   # 4:$9843
 	_show_special()
 
 func special_counts_shown() -> Array:
@@ -853,6 +856,7 @@ func _show_special() -> void:
 ## up. One is taken off the count; at 0 the weapon is gone.
 func _on_throw_started(crouching: bool) -> void:
 	var number := int(special_kind[current_turtle])
+	if number >= 1 and number <= 4: Sound.play([0x14, 0x14, 0x16, 0x17][number - 1])   # 4:$9F6E
 	if not SPECIAL_CAN_THROW.has(number):
 		return
 	var free_places := SPECIAL_THROWN_AT_ONCE
@@ -2026,6 +2030,7 @@ func set_flying(on: bool) -> void:
 ## turtle from the world's overworld start. If he was the last, GAME OVER
 ## comes up instead, then CONTINUE or END.
 func _on_turtle_died() -> void:
+	Sound.play(0x83)   # the "caught" tune (4:$97B9)
 	turtle_energy[current_turtle] = 0
 	_capture_frame = 0
 	if room != null and room.top_down:
