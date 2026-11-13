@@ -307,6 +307,24 @@ func touches_box(his: Array[int]) -> bool:
 	var half := box_half()
 	var x := whole_x()
 	var y := whole_y()
+	if view_corner.is_valid():
+		# The original works all of this out in single bytes, as places on
+		# the screen: an edge that goes past 0 or 255 comes round the other
+		# side, and a weapon swung off the screen's side is found at the far
+		# side and hits nothing here (measured against kind 71).
+		var corner := _corner()
+		var ex := (x - int(corner.x)) & 255
+		var ey := (y - int(corner.y)) & 255
+		var ox := (his[0] - int(corner.x)) & 255
+		var oy := (his[1] - int(corner.y)) & 255
+		if ex < ox:
+			if ((ex + half.x) & 255) < ((ox - his[2]) & 255):
+				return false
+		elif ((ex - half.x) & 255) >= ((ox + his[2]) & 255):
+			return false
+		if ey < oy:
+			return ((ey - 2) & 255) >= ((oy - his[3]) & 255)
+		return ((ey - half.y) & 255) < ((oy + his[3]) & 255)
 	var across: bool
 	if x < his[0]:
 		across = x + half.x >= his[0] - his[2]
@@ -548,8 +566,10 @@ func launch(fall_speed: int) -> bool:
 ## four places for thrown things, shared by every enemy on the screen,
 ## and does not make one that would start in a wall (8 above its own
 ## position). Returns null if none was made. The caller sets it up and
-## then gives it its first update with `tick()`, which the original does
-## in the same round as the throw.
+## then gives it its first update with `update_now()`: the original
+## updates it in the same round as the throw, and the touch and weapon
+## tests that follow take it in too (measured: a bullet fired into a
+## swing is gone on the frame it was made).
 func throw_object(thrown: OriginalEnemy, thrown_kind: int, across: int, down: int) -> OriginalEnemy:
 	var parent := get_parent()
 	var flying := 0

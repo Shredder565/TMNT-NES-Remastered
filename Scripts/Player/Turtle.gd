@@ -493,7 +493,8 @@ func _swing() -> void:
 ## Starts a swing: which one, and how long it lasts.
 func _begin_swing() -> void:
 	attack_tick = 0
-	_spinning = false   # a swing uncurls him: after it he has his full box for the rest of the jump (measured)
+	# A swing begun while he is curled up shows its own box for as long as
+	# it lasts; after it he is curled up again (measured in a boss fight).
 	if weapon_swings.is_empty():
 		attack_direction = 2 if state == State.CROUCH else 1
 		attack_length = 8 if state == State.CROUCH else 6

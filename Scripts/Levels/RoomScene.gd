@@ -85,6 +85,11 @@ const SCREEN_RIGHT := 236.0
 ## the boss coming in, and from that enemy being gone to the screen being freed.
 const HOLD_ENTER_UPDATES := 8
 const HOLD_LEAVE_UPDATES := 64
+const BOSS_LEAVE_UPDATES := 32
+const LEDGE_SCENE_UPDATES := 32
+const LEDGE_SCENE_FRAMES := 65
+const LEDGE_GONE_AT := 8             ## updates left when the last figure goes
+const BOSS_LEAVE_MORE_UPDATES := 63   ## the count runs from $C0 to $80; the update that sets it takes one off
 ## The line-up level (bank 6, $8174; Research/enemy_placement.md): the
 ## points made in this room pick a row, and the row's four times (in units
 ## of 128 frames) say how many steps up the level goes if the room's clock
@@ -157,6 +162,9 @@ var _camera_corner := Vector2.ZERO
 var _floor_frame := 0
 var _stood_before := false         ## was the turtle on the ground an update ago
 var items: Node2D                    ## holds the items of the room on show
+var _ledge_frame := 0
+var _ledge_updates := 0               ## updates left of the scene on the ledge after the first boss
+var _boss_end_stage := 0              ## after a boss is beaten: 1 the first wait, 2 the second
 var boss: Boss                       ## the room's boss while it is alive
 var boss_bar: Control                ## the boss's energy, under the turtle's
 ## With a ROM the screen is laid out as the original's (Research/hud.md):
@@ -738,6 +746,9 @@ func _place_items() -> void:
 		_boss_done.erase(_boss_key)   # he left with the boss still standing: it will be back
 	boss = null
 	_company = null
+	if _ledge_updates > 0:
+		_ledge_updates = 0
+		turtle.set_physics_process(true)
 	_end_fight()
 	_holds_done.clear()
 	if levels == null or room == null or room.top_down or not room.name.begins_with("World"):
@@ -760,6 +771,9 @@ func _enemies_frame() -> bool:
 func _screen_clear() -> bool:
 	for thing in enemies.get_children():
 		if not thing.is_queued_for_deletion() and not (thing is OriginalEnemy and thing.gone):
+			return false
+	for thing in items.get_children():
+		if thing is Puff and not thing.is_queued_for_deletion():
 			return false
 	return boss == null or not is_instance_valid(boss) or boss.is_queued_for_deletion()
 
@@ -815,6 +829,7 @@ func _check_boss() -> void:
 			_end_fight()
 		return
 	if hold_stage == 3:
+		_after_boss()
 		return
 	var index := _find_encounter()
 	if index < 0:
@@ -834,6 +849,53 @@ func _check_boss() -> void:
 	else:
 		hold_stage = 2
 		_bring_in(entry)
+
+## A boss beaten (bank 6, $9DD1): nothing while it, its puff or anything
+## else is on the screen. Then 32 updates; after the first boss of the
+## table (code F0, kind 70) 64 more; then the screen is freed. After the
+## boss that ends the world the scene below takes over instead.
+func _after_boss() -> void:
+	if (boss != null and is_instance_valid(boss) and not boss.gone) or not _screen_clear():
+		return
+	if _encounter == null or _encounter.kind == WORLD_END_BOSS or world_ending():
+		return
+	if _boss_end_stage == 0:
+		_boss_end_stage = 1
+		_hold_count = BOSS_LEAVE_UPDATES
+	_hold_count -= 1
+	if _hold_count > 0:
+		return
+	if _boss_end_stage == 1 and _encounter.code == 0:
+		_boss_end_stage = 2
+		_hold_count = BOSS_LEAVE_MORE_UPDATES
+		return
+	var with_scene := _encounter.code == 0
+	_end_fight()
+	if with_scene:
+		_ledge_frame = 0
+		_ledge_updates = LEDGE_SCENE_UPDATES
+		turtle.set_physics_process(false)
+
+## After the first boss (bank 6, $A019 and $A037; measured): for 32
+## updates nothing else runs, the turtle included. The one who stood by on
+## the ledge walks left a pixel an update; 16 updates in, the other figure
+## is gone and his picture changes; 8 later he is gone too. (The remake
+## has no pictures for the second figure or the changed one.)
+func _step_ledge_scene() -> void:
+	_ledge_frame += 1
+	if _ledge_frame % Turtle.TICK_FRAMES == 1 and _ledge_frame >= 3:
+		_ledge_updates -= 1
+		if _company != null and is_instance_valid(_company):
+			_company.position.x -= 1.0
+			if _ledge_updates <= LEDGE_GONE_AT:
+				_company.queue_free()
+				_company = null
+	if _ledge_frame >= LEDGE_SCENE_FRAMES:
+		_ledge_updates = 0
+		# The frame counter ran on meanwhile (measured: he moves again 68
+		# frames after his last step before the scene).
+		turtle._frame += LEDGE_SCENE_FRAMES + 1
+		turtle.set_physics_process(true)
 
 ## The screen stops for an entry of the table; see _check_boss for the rest.
 func _start_hold(entry: Encounter, index: int) -> void:
@@ -879,26 +941,34 @@ func living_enemies() -> int:
 			count += 1
 	return count
 
+## The boss comes in (bank 6, $9D05 and $82C9): an object like any other,
+## at the entry's place, with its first update in the same round. What it
+## brings with it (kind 11 beside kind 70) its own first update makes.
 func _start_fight(entry: Encounter, key: Vector2i) -> void:
 	_boss_key = key
 	boss = Bebop.new() if entry.kind == Bebop.KIND else Rocksteady.new()
-	boss.setup(entry.position, room, SpriteSet.cached("Kind%02X" % entry.kind), turtle)
-	boss.health = entry.hit_points
+	var spot := EnemySpot.new()
+	spot.position = entry.position
+	spot.kind = entry.kind
+	spot.hit_points = entry.hit_points
+	spot.touch_damage = entry.touch_damage
+	spot.points = entry.points
+	boss.view_corner = _view_corner
+	boss.setup(spot, room, SpriteSet.cached("Kind%02X" % entry.kind), turtle)
 	boss.full_health = entry.hit_points
-	boss.touch_damage = entry.touch_damage
+	boss.points = entry.points
+	boss.held_on_screen = true
 	var damage := levels.weapon_damage(current_turtle)
 	boss.weapon_damage = damage.x
 	boss.weapon_damage_low = damage.y
+	boss.beaten.connect(add_points)
 	boss.defeated.connect(_on_boss_defeated.bind(entry.kind))
 	_hold_screen(Vector2(entry.camera_x(), entry.row * VIEW_SIZE.y))
-	boss.view_left = fight_corner.x
-	items.add_child(boss)   # kept apart from the enemies so the camera rule never removes it
-	_fit_box(boss, entry.half_size, entry.kind)
-	if BOSS_COMPANY.has(entry.kind):
-		var company: Array = BOSS_COMPANY[entry.kind]
-		_company = _make_prop(company[0], fight_corner + company[1])
-		_company.scale.x = -1.0 if company[2] else 1.0
-		items.add_child(_company)
+	_boss_end_stage = 0
+	enemies.add_child(boss)
+	boss.update_now()
+	if boss is Bebop:
+		_company = boss.company
 	boss_bar.show()
 
 ## A picture that only stands there.
@@ -940,12 +1010,8 @@ func _end_fight() -> void:
 ## gone. Beating the last one ends the world: see the scene below.
 func _on_boss_defeated(kind: int) -> void:
 	_boss_done[_boss_key] = true
-	if _company != null and is_instance_valid(_company):
-		_company.queue_free()
-	_company = null
 	if kind != WORLD_END_BOSS:
-		_end_fight()
-		return
+		return   # the screen is freed later: see _after_boss
 	if _clearing:
 		return
 	# The screen stays held, with the boss's empty bar, until the walk begins.
@@ -1005,8 +1071,8 @@ func _step_world_end() -> bool:
 			return false
 		EndStage.WALK:
 			_mute_buttons()
-			if _end_frames % Turtle.TICK_FRAMES != 0:
-				return true
+			if _end_frames % Turtle.TICK_FRAMES != 1:
+				return true   # his first step comes the frame after the wait ends (measured in a whole fight)
 			var across := floorf(turtle.position.x) - fight_corner.x
 			if across < APRIL_AT.x or across - APRIL_AT.x < END_STOP_GAP:
 				turtle.position.x = fight_corner.x + END_STAND_AT
@@ -1015,7 +1081,7 @@ func _step_world_end() -> bool:
 				end_stage = EndStage.FREED
 				_end_frames = 0
 			else:
-				turtle.position.x = fight_corner.x + across - 1.0
+				turtle.position.x -= 1.0   # the fraction of his place is kept (measured)
 				turtle.pose(END_WALK_PICTURES[(_end_frames >> 3) & 3], -1)
 			return true
 		EndStage.FREED:
@@ -1061,7 +1127,7 @@ func _begin_end_walk() -> void:
 	turtle.attack_tick = -1
 	turtle.power_ticks = 0
 	turtle.art.visible = true
-	turtle.position = Vector2(floorf(turtle.position.x), fight_corner.y + END_FLOOR_MIDDLE + RoomData.CENTRE_TO_FEET)
+	turtle.position = Vector2(turtle.position.x, fight_corner.y + END_FLOOR_MIDDLE + RoomData.CENTRE_TO_FEET)   # the fraction across is kept (measured)
 	turtle.pose("stand", -1)
 
 ## April's words are done: the next world begins on its overworld, drawn
@@ -1692,6 +1758,9 @@ func _physics_process(_delta: float) -> void:
 	if turtle.position.y > room.size_pixels().y + 200.0:
 		turtle.position = room.start
 		turtle.speed = Vector2i.ZERO
+		return
+	if _ledge_updates > 0:
+		_step_ledge_scene()
 		return
 	var door := _room_door_in_use()
 	if door != null:

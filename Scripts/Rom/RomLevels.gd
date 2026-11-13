@@ -241,6 +241,7 @@ func _encounters(address: int, lineup: int) -> Array[Encounter]:
 		if code >= 0xF0 and code != 0xFF:
 			address += 1
 			entry.is_boss = true
+			entry.code = code & 0x0F
 			entry.kind = _kind_in_slot(_byte(6, T_ENCOUNTER_LINEUPS + (code & 0x0F)), entry.slot & 7)
 		else:
 			entry.kind = _kind_in_slot(lineup, entry.slot & 7)   # from the room's own line-up
