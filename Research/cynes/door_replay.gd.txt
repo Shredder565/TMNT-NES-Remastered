@@ -1,0 +1,201 @@
+extends Node
+## Every door of world 1 side by side: the remake goes through the same
+## door as the original did (rec_doors.py), and the turtle, the screen and
+## every enemy are compared on every frame from the moment the room runs;
+## then he goes back out by the door he came in by, and where he and the
+## screen are on the overworld is compared.
+## godot --headless --fixed-fps 60 res://tmp_run.tscn -- <recording.json> [scenario] [v]
+
+const SAFE_UNTIL := 100000
+const BUTTONS := { 1: "move_right", 2: "move_left", 4: "move_down", 8: "move_up", 0x40: "attack", 0x80: "jump" }
+
+func _ready() -> void:
+	var args := OS.get_cmdline_user_args()
+	var data: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(args[0]))
+	var only := args[1] if args.size() > 1 else "all"
+	var verbose := args.size() > 2 and args[2] == "v"
+	if args.size() > 3:
+		dump_from = int(args[3].split("-")[0])
+		dump_to = int(args[3].split("-")[1])
+	var sewer = load("res://Scenes/Levels/Area1Sewer.tscn").instantiate()
+	sewer.start_on_overworld = false
+	add_child(sewer)
+	await get_tree().physics_frame
+	var levels := RomLevels.open_installed()
+	var grand := [0, 0, 0, 0, 0]
+	for name: String in data:
+		if only != "all" and name != only:
+			continue
+		var result: Array = await _run(sewer, name, data[name], levels, verbose)
+		for i in 5:
+			grand[i] += result[i]
+	print("ALL: %d frames; turtle exact %d, energy %d, his box %d, enemies %d" % grand)
+	get_tree().quit()
+
+var dump_from := -1
+var dump_to := -1
+
+func _signed(v: int) -> int:
+	return v - 65536 if v >= 32768 else v
+
+func _run(sewer, name: String, run: Dictionary, levels: RomLevels, verbose: bool) -> Array:
+	var rows: Array = run.rows
+	# The room starts running on the first frame an object changes; before
+	# that the original is still bringing the room up.
+	var start := -1
+	for f in range(1, rows.size()):
+		if int(rows[f].c) % 2 == 0 and str(rows[f].o) != str(rows[f - 1].o) and not rows[f - 1].o.is_empty():
+			start = f
+			break
+	if start < 0:
+		start = 42 if int(rows[42].c) % 2 == 0 else 41
+	for action: String in BUTTONS.values():
+		Input.action_release(action)
+	# Leave nothing over from the run before.
+	var old_leo: Turtle = sewer.turtle
+	old_leo.revive()
+	old_leo.attack_tick = -1
+	old_leo._set_attacking(false)
+	old_leo.jump_tick = -1
+	old_leo.speed = Vector2i.ZERO
+	old_leo.power_ticks = 0
+	sewer.set_show_enemies(false)
+	for i in 4:
+		await get_tree().physics_frame
+	await get_tree().process_frame      # so that each turn of the loop below is exactly one physics frame
+	sewer.show_enemies = true
+	sewer.enemies_follow_camera = true
+	sewer.door_wipe = false
+	sewer.load_overworld(0)
+	var door: Door = sewer.room.doors[int(run.door)]
+	var record: Array = run.record
+	if door.to_area != int(record[4]) or door.arrive != Vector2(int(record[7]) * 256 + int(record[8]) + int(record[5]), int(record[9]) * 256 + int(record[10]) + int(record[6])):
+		print("   the remake's door %d is not the recording's: %s" % [int(run.door), str(door)])
+	# The original's screen on the overworld when the door was used.
+	if run.has("cam_before"):
+		sewer.set_overworld_screen(Vector2(float(run.cam_before[0]), float(run.cam_before[1])))
+	sewer.enter_door(door)
+	if run.has("left_over"):
+		# What the recording's own (teleported) overworld left in the cell memory.
+		var cells := PackedByteArray()
+		for line: String in run.left_over:
+			for i in 16:
+				cells.append(line.substr(i, 1).hex_to_int())
+		OriginalEnemy.left_over = cells
+	var leo: Turtle = sewer.turtle
+	leo.max_health = 128
+	leo.health = 128
+	leo.invulnerable_timer = 0.0
+	leo._frame = 0                      # the next frame is the enemies'
+	OriginalEnemy.counter_offset = (int(rows[start].c) - 1) & 255
+	OriginalEnemy.frame_counter = -1
+	var counts := [0, 0, 0, 0, 0]
+	var first := ["", "", "", ""]
+	var prev_c := int(rows[start - 1].c)
+	var obj_cam := [int(rows[start].cam), int(rows[start].camy)]
+	var cam_ok := 0
+	var first_cam := ""
+	for f in range(start, rows.size()):
+		var row: Dictionary = rows[f]
+		var c := int(row.c)
+		var lag := c == prev_c
+		prev_c = c
+		if not lag:
+			# The original acts on the buttons a frame after they are given
+			# to the emulator (it reads them at the end of its frame).
+			var buttons := int(rows[f - 1].b)
+			for bit: int in BUTTONS:
+				if buttons & bit != 0:
+					Input.action_press(BUTTONS[bit])
+				else:
+					Input.action_release(BUTTONS[bit])
+			# While the room comes up the original's turtle cannot be touched
+			# (the recorder holds him safe for the first 70 frames): the same here.
+			# The original's one unpredictable number is taken from the
+			# recording (kind 92 rolls it to decide when to throw).
+			OriginalEnemy.chance_byte = int(rows[f - 1].get("r", 1))
+			if f < SAFE_UNTIL:
+				leo.invulnerable_timer = 0.02
+			await get_tree().physics_frame
+			await get_tree().process_frame   # let the frame's work finish before looking
+		if leo.state == Turtle.State.DEAD or int(row.e) == 0:
+			break
+		counts[0] += 1
+		if sewer._view_corner() == Vector2(int(row.cam), int(row.camy)):
+			cam_ok += 1
+		elif first_cam == "":
+			first_cam = "frame %d: remake %s, original (%d, %d)" % [f, str(sewer._view_corner()), int(row.cam), int(row.camy)]
+			print("   first screen difference " + first_cam)
+		# The turtle.
+		var cam := int(row.cam)
+		var camy := int(row.camy)
+		var theirs := Vector2(cam + int(row.t[0]) + int(row.t[1]) / 256.0, camy + int(row.t[2]) + 20 + int(row.t[3]) / 256.0)
+		if theirs.distance_to(leo.position) < 0.01:
+			counts[1] += 1
+		elif first[0] == "":
+			first[0] = "frame %d: remake %s, original %s" % [f, str(leo.position), str(theirs)]
+		if int(row.e) == leo.health:
+			counts[2] += 1
+		elif first[1] == "":
+			first[1] = "frame %d: remake %d, original %d" % [f, leo.health, int(row.e)]
+		var half := levels.box_half_size(0, int(row.t[6]))
+		var his := leo.touch_box()
+		var lower := 8 if int(row.t[7]) & 2 != 0 else 0
+		if Vector2i(his[2], his[3]) == half and his[1] == camy + int(row.t[2]) + lower:
+			counts[3] += 1
+		elif first[2] == "":
+			first[2] = "frame %d: remake %s, original animation %02X half %s lower %d at %d" % [f, str(his), int(row.t[6]), str(half), lower, camy + int(row.t[2])]
+		# Enemies and what they throw.
+		if not lag and c % 2 == 0:
+			obj_cam = [cam, camy]
+		var want := []
+		for slot: String in row.o:
+			var o: Array = row.o[slot]
+			if int(slot) < 5 or int(o[0]) < 0x10 or int(o[0]) == 0x15:
+				continue   # the weapon, items, the puff
+			want.append("%02X %d %d a%02X hp%d" % [int(o[0]), ((obj_cam[0] + int(o[1])) << 8) | int(o[2]), ((obj_cam[1] + int(o[3])) << 8) | int(o[4]), int(o[7]), int(o[15])])
+		var have := []
+		for thing in sewer.enemies.get_children():
+			if thing is OriginalEnemy and not thing.gone and not thing.is_queued_for_deletion():
+				have.append("%02X %d %d a%02X hp%d" % [thing.kind, thing.sub_x, thing.sub_y, thing.animation, thing.health])
+		want.sort()
+		have.sort()
+		if f >= dump_from and f <= dump_to:
+			print("f%d c%02X cam %d/%d hold %d | turtle R %s O %s state %s | scroll %s fight %s/%s stage %d\n     R %s\n     O %s" % [f, c, cam, camy, int(row.hold), str(leo.position), str(theirs), str(leo.state), str(leo.scroll_x), str(sewer.fighting), str(sewer.fight_corner), sewer.hold_stage, str(have), str(want)])
+		if want == have:
+			counts[4] += 1
+		else:
+			if first[3] == "":
+				first[3] = "frame %d (counter %02X, camera %d):\n      remake   %s\n      original %s" % [f, c, cam, str(have), str(want)]
+			if verbose and counts[0] - counts[4] < 4:
+				print("   frame %d\n      remake   %s\n      original %s" % [f, str(have), str(want)])
+	OriginalEnemy.chance_byte = -1
+	# The way back out: Up (with a step left first where the door needs it).
+	sewer.set_show_enemies(false)
+	var left := -1
+	for f in 400:
+		for action: String in BUTTONS.values():
+			Input.action_release(action)
+		Input.action_press("move_left" if f >= 60 and f < 66 else "move_up")
+		leo.invulnerable_timer = 0.02
+		await get_tree().physics_frame
+		await get_tree().process_frame
+		if sewer.room.top_down:
+			left = f
+			break
+	for action: String in BUTTONS.values():
+		Input.action_release(action)
+	var out: Dictionary = run.out[run.out.size() - 1]
+	var their_spot := Vector2(int(out.cam) + int(out.t[0]), int(out.camy) + int(out.t[2]))
+	var back := "back out after %d frames (original %d): turtle %s, screen %s" % [left, int(run.left_after), str(sewer.walker.position), str(sewer.overworld_screen)]
+	if left < 0 or sewer.walker.position != their_spot or sewer.overworld_screen != Vector2(int(out.cam), int(out.camy)):
+		back += "  DIFFERENT: original turtle %s, screen (%d, %d)" % [str(their_spot), int(out.cam), int(out.camy)]
+	else:
+		back += "  as the original"
+	print("%s: screen right on %d frames; %s" % [name, cam_ok, back])
+	print("%s: from frame %d, %d frames; turtle exact %d, energy %d, his box %d, enemies %d" % [name, start, counts[0], counts[1], counts[2], counts[3], counts[4]])
+	var labels := ["turtle", "energy", "box", "enemies"]
+	for i in 4:
+		if first[i] != "":
+			print("   first %s difference %s" % [labels[i], first[i]])
+	return counts

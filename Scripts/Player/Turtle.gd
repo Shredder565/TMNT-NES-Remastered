@@ -31,6 +31,7 @@ const KNOCKBACK_LEFT := -384
 const KNOCKBACK_UP := -258
 ## --- Not measured yet: guesses ---
 const WALK_OFF_DELAY := 1
+const DOOR_HOLD_UPDATES := 7
 const POWER_WALK_SPEED := 768   ## 3 px per update with the power item
 const POWER_UPDATES := 256      ## how long the power item lasts
 const POWER_BLINK_FROM := 48    ## he blinks for its last 48 updates
@@ -101,6 +102,10 @@ var _ladder_wait := 0                  ## updates left before he moves on a ladd
 var _swing_lingers := 0                ## updates left of the swing's own box after it has ended
 var _low_after := 0                    ## updates left of the low box after a downward swing has ended
 var _swing_rest := 0                   ## updates left in which a new swing cannot start
+## After a door his speeds do not move him for this many updates (bank 4,
+## $9761: the door sets a count of 7). His routine runs meanwhile: states
+## change, gravity builds up.
+var hold_updates := 0
 var _crouch_ticks := 0                 ## updates he has been crouching
 var _crouched_before := false          ## was he crouching at the end of the update before this one
 var _spinning := false                 ## in the high part of a held jump: his box is the small one
@@ -308,6 +313,9 @@ func _update_art() -> void:
 func _climb() -> void:
 	# Like everything else he is moved by what the update before decided,
 	# so letting go of Up or Down takes one more step (measured).
+	if hold_updates > 0:
+		hold_updates -= 1    # just through a door: not moved yet
+		_climb_step = 0.0
 	position.y += _climb_step
 	climb_distance += absf(_climb_step)
 	_climb_step = 0.0
@@ -505,8 +513,11 @@ func _begin_swing() -> void:
 ##   2 pixels at a time if he is against one.
 ## Every test is made where he is, before he moves, as the original does.
 func _move_in_room() -> void:
-	move_across(speed.x / 256.0)
-	position.y += speed.y / 256.0
+	if hold_updates > 0:
+		hold_updates -= 1    # just through a door: not moved yet
+	else:
+		move_across(speed.x / 256.0)
+		position.y += speed.y / 256.0
 	if not grounded:
 		# In the air: gravity, the whole pixels of the speed held at 9.
 		speed.y = mini(speed.y + GRAVITY, MAX_FALL_SPEED)
@@ -589,6 +600,33 @@ func _feel(x: float, y: float) -> int:
 func _blocks_in_air(x: float, y: float) -> bool:
 	var kind := _feel(x, y)
 	return kind == RoomData.KIND_SOLID or kind == RoomData.KIND_MOVING_FLOOR or kind == RoomData.KIND_MOVING_FLOOR_LEFT
+
+## Puts the screen's left edge where a door's record says, with him where
+## he already is.
+func put_screen(left: float) -> void:
+	scroll_x = clampf(left, 0.0, scroll_max)
+	scroll_seen = scroll_x
+	screen_x = position.x - scroll_x
+
+## He has just come through a door: hanging on a ladder, standing, or in
+## the air; and held for his first 7 updates.
+func arrive(on_ladder: bool, on_ground: bool) -> void:
+	_set_crouching(false)
+	attack_tick = -1
+	_set_attacking(false)
+	jump_tick = -1
+	speed = Vector2i.ZERO
+	_climb_step = 0.0
+	_ladder_wait = 0
+	_unheld_ticks = 0
+	hold_updates = DOOR_HOLD_UPDATES
+	if on_ladder:
+		state = State.CLIMB
+		climb_ticks = 0
+	else:
+		state = State.NORMAL
+		grounded = true       # in the air he finds that out on his first update, as in the original
+		_was_grounded = true
 
 ## Brings the screen numbers into line when something else has moved him
 ## (a door, a test, the fly key): the screen is put with him at its middle,

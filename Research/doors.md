@@ -136,3 +136,75 @@ are in `enemy_kinds.md`), the two unexplained doors in world 4's room 15, the
 dam's dive into the water in world 2 (the game sets turtle state $0D when a
 door tile is touched there once the camera is 128 pixels or more to the
 right), and the fade between screens.
+
+## Arriving in a room, from the code and against the emulator (13 November 2026)
+
+Read from 7:$E755 to $E837 and 4:$9761; then every door of world 1 was
+gone through in the emulator and in the remake
+(`Research/cynes/door_record.py`, `door_replay.gd.txt`).
+
+- The record's bytes 5 and 6 become his place on the screen and bytes 7
+  to 10 the screen's corner, as they are. He is not stood on a floor and
+  the screen is not centred on him. (The remake centred the screen and
+  lifted him out of floors.) World 1's records put him on a ladder at
+  (40, 24) or (200, 24) on the screen, on a floor, or, at the second
+  room's ledge door, 8 pixels above the ledge.
+- His state is set to 0 unless the cell at his middle is ladder (kinds 9
+  and 0A), when the ladder is taken. Measured: on a ladder he is in state
+  0B on his first update and 0C from the next; over a floor he stands; in
+  the air he goes through states 6 and 7 and falls.
+- The door sets a count of 7 ($03EE). While it runs down, one a turtle
+  update, his routine runs but his speeds do not move him: Up on the
+  ladder does nothing yet, and at the ledge door his fall speed builds up
+  for 7 updates before he drops (measured: first moved on his 8th update,
+  by 420/256 of a pixel).
+- The same routine clears the held-fight bits, the room's clock and the
+  room's points (`encounters.md`, `enemy_placement.md`).
+- Measured timing: enemies are made 25 frames after the door, stand
+  still until frame 42, when everything starts; items appear on that
+  frame.
+
+### The map cells left over from the overworld (measured)
+
+The cell memory (7:$C7C7) is sixteen columns wide and wraps every 480
+pixels down (two pages of 15 rows). A one-screen room fills its own
+twelve rows only. Below it, 192 to 255 down, and just above it (the wrap
+brings the same row round), enemies' map tests find what the overworld
+left: its own cells 192 to 255 down its first page, in the columns that
+were on screen. After the first manhole that is water (kind 0C) nearly
+everywhere, which is what `enemy_routines.md` measured. After the
+building's door part of it is empty, and the kind 86 on that room's
+ceiling rises out of the room there on arriving. The remake works these
+cells out from its own overworld map (`RoomScene._cells_left_over`); it
+gives the emulator's cells for the five doors where those overworld rows
+were on screen when the door was used. Where they were not, the original
+has whatever was drawn there last, which depends on the way walked; the
+remake still takes the columns on screen (a guess).
+
+### Things at fixed places (read from code 4:$AB94, table 4:$ACCD)
+
+Per world and area, 8-byte entries ending in $FF: screen, X from and to,
+Y from and to, kind, a number, flags. Kinds below $10 are the items;
+world 1's five are exactly those the remake had listed by hand, and it
+now reads the table (`RomLevels.fixed_things`). Other kinds there (11 in
+world 1's last room; 12 to 26 in the dam; 28 to 3D later) are obstacles
+and the like, not looked at. The original keeps up to eight of them at a
+time in a list of their own as the screen comes near and gives each an
+object slot from 5 up (measured: slot 7 with two enemies there, slot 11
+with six), so an item can take one of the six enemy slots. The remake
+puts all of a room's items out at once and does not count them.
+
+### Result
+
+Nine doors in, nine out. From the frame the room starts, 288 frames each
+with no buttons: the screen, the turtle's position, his energy, his box
+and every enemy agree on all 2592 frames. Going back out by Up, the
+small turtle and the overworld's screen end where the original's do for
+all nine. Not matched: the door acts on the first frame Up is down in
+the remake, 3 or 4 frames later in the original.
+
+One recording of `live_play.md` (the fifth room, walking left) starts
+with the turtle put 32 pixels inside a pillar by the recorder. The
+original leaves him there and raises him onto the pillar the moment he
+jumps; the remake now also leaves him there but its jump does not raise
+him, so that run differs from frame 72. It cannot happen in play.

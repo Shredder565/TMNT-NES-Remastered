@@ -1519,7 +1519,12 @@ func _ready() -> void:
 		check(not sewer.room.top_down and sewer.area == 0 and leo.state == Turtle.State.CLIMB and leo.position == Vector2(40, 44), "walking left onto the manhole puts him on the sewer ladder, as in the original")
 		await get_tree().physics_frame
 		Input.action_press("move_up")
-		for i in 12:
+		# (enemies2) For his first 7 updates after a door his speeds do not move
+		# him (some of them have gone by while the walk above ran on).
+		for i in 4:
+			await get_tree().physics_frame
+		check(not sewer.room.top_down and leo.position == Vector2(40, 44), "just through the door, Up does not move him yet")
+		for i in 40:
 			await get_tree().physics_frame
 			if sewer.room.top_down:
 				break
@@ -2807,6 +2812,42 @@ func _test_enemies2() -> void:
 	check(left_held == 6 and extra.whole_x() - 509 == 246 and not extra.gone, "it is kept between 6 and 246 across the held screen")
 	sewer.free()
 	Input.action_release("move_up")
+
+	# --- Doors: where a room comes up (enemies2) ---
+	print("Arriving through a door, as the door's record has it")
+	var things := levels.room(0, 4).fixed_things
+	check(things.size() == 2 and things[0][0] == Item.WHOLE_PIZZA and things[0][1] == Vector2(32, 48) and things[1][0] == Item.SLICE and things[1][1] == Vector2(304, 64) and levels.room(0, 0).fixed_things[0][1] == Vector2(928, 32), "the ROM's own list of things at fixed places gives world 1's items (they were listed by hand)")
+	var door_scene = load("res://Scenes/Levels/Area1Sewer.tscn").instantiate()
+	add_child(door_scene)
+	var door_leo: Turtle = door_scene.turtle
+	await get_tree().physics_frame
+	door_scene.door_wipe = false
+	door_scene.set_show_enemies(false)
+	var doors: Array = door_scene.room.doors
+	door_scene.enter_door(doors[5])   # the first sewer's far ladder
+	check(door_scene.area == 0 and door_leo.position == Vector2(968, 44) and door_scene._view_corner() == Vector2(768, 0) and door_leo.state == Turtle.State.CLIMB and door_leo.hold_updates == 7, "the first sewer's far manhole: he hangs at (968, 44) with the screen at 768, where the record puts both")
+	door_scene.load_overworld(0)
+	door_scene.enter_door(doors[1])   # the last room, lower floor
+	check(door_scene.area == 5 and door_leo.position == Vector2(48, 368) and door_scene._view_corner() == Vector2(0, 192) and door_leo.state == Turtle.State.NORMAL and door_leo.on_floor(), "the last room's door: he stands at (48, 368) on the lower row of screens")
+	door_scene.load_overworld(0)
+	door_scene.enter_door(doors[6])   # the second room's ledge
+	check(door_scene.area == 1 and door_leo.position == Vector2(682, 72) and door_scene._view_corner() == Vector2(512, 0), "the second room's ledge door: he arrives 8 pixels above the ledge, the screen at 512 (not centred on him)")
+	var fall_y := []
+	for i in 46:
+		await get_tree().physics_frame
+		if i % 2 == 1:
+			fall_y.append(door_leo.position.y)
+	check(fall_y[6] == 72.0 and fall_y[7] > 72.0 and door_leo.position.y == 80.0 + 124.0 / 256.0 and door_leo.on_floor(), "for 7 updates he hangs in the air while his fall speed builds up; then he drops onto the ledge (%s, %s, end %.3f)" % [str(fall_y[6]), str(fall_y[7]), door_leo.position.y])
+	door_scene.load_overworld(0)
+	door_scene.set_overworld_screen(Vector2(256, 174))
+	door_scene.enter_door(doors[8])   # the building
+	var cells: PackedByteArray = OriginalEnemy.left_over
+	check(door_scene.area == 4 and door_leo.position == Vector2(44, 160) and cells.size() == 64 and cells[48 + 6] == 0x0C and cells[48 + 7] == RoomData.KIND_EMPTY and cells[48 + 9] == RoomData.KIND_SOLID, "the building: he stands at (44, 160); above its ceiling the map cells the overworld left behind are partly empty")
+	door_scene._place_turtle(Vector2(392, 140))
+	check(door_leo.position == Vector2(392, 160), "putting him at a place does not lift him out of a floor any more")
+	door_scene.load_area(0, 0)
+	check(OriginalEnemy.left_over.is_empty(), "a room not entered through a door has the cells measured after the first manhole")
+	door_scene.free()
 
 	# The turtle's lowered box runs one update behind his crouch, both ways.
 	var low_turtle: Turtle = load("res://Scenes/Player/Turtle.tscn").instantiate()
