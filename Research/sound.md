@@ -225,7 +225,7 @@ effect is making noise there.
 
 | Byte | Meaning |
 | --- | --- |
-| `0n` (n not 0) + bytes | Frames for each following note = n. Square wave: two more bytes, the tone byte (sent whole as the channel's first register, see below) and the sweep byte for the second register (`$88` means "no sweep": `$7F` is sent). Noise: one more byte, not used. Triangle: one more byte, sent to $4008 |
+| `0n` (n not 0) + bytes | Frames for each following note = n. Square wave: two more bytes, the tone byte (sent whole as the channel's first register, see below) and the sweep byte for the second register (`$88` means "no sweep": `$7F` is sent). Noise: nothing more. Triangle: one more byte, sent to $4008 |
 | `F8 xx` | Frames for each note = xx (not for the noise) |
 | `F9 xx` | Tone byte = xx (not for the noise) |
 | `FA xx` | Sweep byte = xx (not for the noise) |
