@@ -24,6 +24,7 @@ def base_state():
     while nes[0x5C] == 0: run(nes, 1, NES_INPUT_LEFT)      # into world 1's first manhole
     return nes.save()
 BASE = base_state()
+RUNS_OF_ITS_OWN = __name__ == "__main__"
 
 def wipe(n):
     for slot in range(5, 16): n[0x440 + slot] = 0
@@ -93,9 +94,10 @@ RUNS2 = {
  'bottom_deadly': ((650,500), lambda f:0, 400, True),
  'down_hold': ((1888,100), lambda f:D|(R if f%50<25 else L), 900, True),
 }
-first = {name: record(place(*at), ctl, frames) for name, (at, ctl, frames) in RUNS.items()}
-json.dump(first, open(sys.argv[2], "w"))
-second = {name: record(place(*at), ctl, frames, energy) for name, (at, ctl, frames, energy) in RUNS2.items()}
-json.dump(second, open(sys.argv[3], "w"))
-for name, rows in list(first.items()) + list(second.items()):
-    print(name, len(rows), "frames; row changes:", sum(1 for i in range(1, len(rows)) if rows[i][17] and not rows[i - 1][17]), "least energy:", min(r[15] for r in rows), "last state: %02X" % rows[-1][11])
+if __name__ == "__main__":
+    first = {name: record(place(*at), ctl, frames) for name, (at, ctl, frames) in RUNS.items()}
+    json.dump(first, open(sys.argv[2], "w"))
+    second = {name: record(place(*at), ctl, frames, energy) for name, (at, ctl, frames, energy) in RUNS2.items()}
+    json.dump(second, open(sys.argv[3], "w"))
+    for name, rows in list(first.items()) + list(second.items()):
+        print(name, len(rows), "frames; row changes:", sum(1 for i in range(1, len(rows)) if rows[i][17] and not rows[i - 1][17]), "least energy:", min(r[15] for r in rows), "last state: %02X" % rows[-1][11])

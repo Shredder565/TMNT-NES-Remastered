@@ -1090,6 +1090,8 @@ var swim_crushed := false          ## killed by the map's deadly kind
 var _swim_hurt := false            ## hurt under water: the water flashes while he blinks
 var _swim_dead_updates := 0
 var _swim_bubble := Sprite2D.new()
+var swim_clock := Callable()       ## the lake's clock: called on each update of his routine, false once the time is up
+var _swim_posed := -1              ## a picture a scene has put him in (at a bomb), -1 when none
 var _swim_bubble_at := Vector2.ZERO   ## the bubble's place in the room
 const SWIM_BUBBLE_FRAME := "p137"
 const SWIM_BUBBLE_LEFT := -8.0     ## where it starts from his middle, facing left
@@ -1145,6 +1147,8 @@ func _swim_tick() -> void:
 
 ## The original's state 0F.
 func _swim_routine() -> void:
+	if swim_clock.is_valid() and not swim_clock.call():
+		return   # the lake's clock has run out: nothing more is done
 	_start_bubble()
 	var left := Input.is_action_pressed("move_left")
 	var right := Input.is_action_pressed("move_right")
@@ -1254,6 +1258,7 @@ func _step_bubble() -> void:
 func _step_swim_picture() -> void:
 	if state != State.SWIM:
 		return
+	_swim_posed = -1
 	_step_bubble()
 	swim_left -= 1
 	var pictures: Array = SWIM_PICTURES[swim_animation]
@@ -1272,7 +1277,7 @@ func _show_swim_picture() -> bool:
 		return false
 	_fit_body()
 	_weapon_picture.visible = false
-	var picture := swim_picture
+	var picture := swim_picture if _swim_posed < 0 else _swim_posed
 	if state == State.DEAD:
 		var list: Array = SWIM_CRUSHED_PICTURES if swim_crushed else SWIM_DEAD_PICTURES
 		var each := 16 if swim_crushed else 6
@@ -1289,9 +1294,20 @@ func _show_swim_picture() -> bool:
 		rom_sprite.position = swim_sprites.offsets[frame] + Vector2(0, -CENTRE_ABOVE_FEET)
 	return true
 
+## A scene shows him in one picture (at a bomb). His own animation stands
+## still meanwhile, and its next step once he is back shows again.
+func swim_pose(picture: int) -> void:
+	_swim_posed = picture
+	_show_swim_picture()
+
+func swim_hide_bubble() -> void:
+	_swim_bubble.visible = false
+
 ## Out of the water (another room, the overworld, a new turtle).
 func stop_swimming() -> void:
 	swimming = false
+	swim_clock = Callable()
+	_swim_posed = -1
 	swim_current = 0
 	swim_crushed = false
 	_swim_bubble.visible = false

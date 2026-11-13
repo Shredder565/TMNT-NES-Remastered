@@ -1,0 +1,210 @@
+{
+ "about": "Which ROM tiles make up the bombs in world 2's lake (object kind 09 there), taken from the game's sprite table: frames f140 and f141 while it ticks (animation 38), and 'off' once it is disarmed (animation 39). 'palettes' are its colours while live; 'palettes_off' the colours the game changes them to when it is disarmed. Tile numbers and positions only; no graphics. Positions are in pixels from its own position value.",
+ "tile_height": 16,
+ "palettes": {
+  "1": [
+   15,
+   6,
+   23,
+   55
+  ],
+  "2": [
+   15,
+   15,
+   7,
+   41
+  ]
+ },
+ "palettes_off": {
+  "1": [
+   15,
+   6,
+   23,
+   55
+  ],
+  "2": [
+   15,
+   15,
+   0,
+   18
+  ]
+ },
+ "animations": {
+  "walk": {
+   "frames": [
+    "f140",
+    "f141"
+   ],
+   "ticks": 4,
+   "loop": true
+  }
+ },
+ "frames": {
+  "f140": [
+   {
+    "x": -8,
+    "y": -48,
+    "index": 4432,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -32,
+    "index": 4436,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -16,
+    "index": 4440,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": -56,
+    "index": 4446,
+    "palette": 1,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -48,
+    "index": 4430,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -32,
+    "index": 4434,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -16,
+    "index": 4438,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   }
+  ],
+  "f141": [
+   {
+    "x": -8,
+    "y": -48,
+    "index": 4432,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -32,
+    "index": 4436,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -16,
+    "index": 4440,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": -4,
+    "y": -56,
+    "index": 4446,
+    "palette": 1,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -48,
+    "index": 4430,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -32,
+    "index": 4434,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -16,
+    "index": 4438,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   }
+  ],
+  "off": [
+   {
+    "x": -8,
+    "y": -48,
+    "index": 4432,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -32,
+    "index": 4444,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": -16,
+    "index": 4440,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -48,
+    "index": 4430,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -32,
+    "index": 4442,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -16,
+    "index": 4438,
+    "palette": 2,
+    "flip_h": true,
+    "flip_v": false
+   }
+  ]
+ }
+}

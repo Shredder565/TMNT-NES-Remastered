@@ -1,5 +1,5 @@
 {
- "about": "Which ROM tiles make up the turtles' pictures under water, by the original's picture number (frame 'p128' is picture $80): $80 to $88 swimming, $9F to $A1 out of energy, $A2 to $A5 killed by the map, and $89 the bubble (from its own position). The four turtles share these; only the bandana's colour number differs. Taken from the game's sprite table. Tile numbers and positions only; no graphics. Positions are in pixels from his middle (the original's position value), facing right.",
+ "about": "Which ROM tiles make up the turtles' pictures under water, by the original's picture number (frame 'p128' is picture $80): $80 to $88 swimming, $9F to $A1 out of energy, $A2 to $A5 killed by the map, $8A and $8B at a bomb, and $89 the bubble (from its own position). The four turtles share these; only the bandana's colour number differs. Taken from the game's sprite table. Tile numbers and positions only; no graphics. Positions are in pixels from his middle (the original's position value), facing right.",
  "tile_height": 16,
  "palettes": {
   "0": [
@@ -623,6 +623,74 @@
     "y": -8,
     "index": 4458,
     "palette": 3,
+    "flip_h": false,
+    "flip_v": false
+   }
+  ],
+  "p139": [
+   {
+    "x": -8,
+    "y": -16,
+    "index": 4426,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": 0,
+    "index": 4424,
+    "palette": 0,
+    "flip_h": true,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -16,
+    "index": 4428,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": 0,
+    "index": 4422,
+    "palette": 0,
+    "flip_h": true,
+    "flip_v": false
+   }
+  ],
+  "p138": [
+   {
+    "x": -8,
+    "y": -16,
+    "index": 4418,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": -8,
+    "y": 0,
+    "index": 4422,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": -16,
+    "index": 4420,
+    "palette": 0,
+    "flip_h": false,
+    "flip_v": false
+   },
+   {
+    "x": 0,
+    "y": 0,
+    "index": 4424,
+    "palette": 0,
     "flip_h": false,
     "flip_v": false
    }

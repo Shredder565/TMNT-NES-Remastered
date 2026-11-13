@@ -1800,6 +1800,7 @@ func _ready() -> void:
 	await _test_special_weapons()
 	await _test_title_to_play()
 	await _test_world2_swimming()   # (world2) sections from here on
+	await _test_world2_lake()
 
 	print("ROM screen")
 	var rom_path := "user://_test_fake.nes"
@@ -3643,4 +3644,109 @@ func _test_world2_swimming() -> void:
 	# Leaving the water.
 	scene.load_area(1, 0)
 	check(not leo.swimming and leo.state != Turtle.State.SWIM, "out of the lake he walks again")
+	scene.free()
+
+
+# =====================================================================
+# (world2) World 2: the lake's clock, currents and bombs (Research/lake.md)
+# =====================================================================
+func _test_world2_lake() -> void:
+	print("World 2: the lake")
+	check(HudStrip.clock_tiles(137) == [2, HudStrip.COLON, 1, 7], "the clock's tiles: 137 seconds is 2, a colon, 1, 7")
+	check(HudStrip.clock_tiles(60) == [1, HudStrip.COLON, HudStrip.DIGIT_ZERO, HudStrip.DIGIT_ZERO] and HudStrip.clock_tiles(5)[0] == HudStrip.DIGIT_ZERO, "noughts use the nought tile")
+	check(Lake.CLOCK_SECONDS == 140 and Lake.CLOCK_UPDATES == 30, "the clock starts at 140 seconds of 30 updates")
+	check(Lake.bomb_bit(0x17) == 1 and Lake.bomb_bit(0x1E) == 0x80, "each bomb has one bit")
+	var scene = load("res://Scenes/Levels/Area1Sewer.tscn").instantiate()
+	scene.start_on_overworld = false
+	scene.door_wipe = false
+	add_child(scene)
+	scene.set_show_enemies(false)
+	var leo: Turtle = scene.turtle
+	if scene.levels == null:
+		print("  skip  no ROM: the lake's map is needed")
+		scene.free()
+		return
+	scene.set_physics_process(false)
+	leo.set_physics_process(false)
+	for action in ["move_left", "move_right", "move_up", "move_down", "jump", "attack"]:
+		Input.action_release(action)
+	scene.load_area(1, 0)
+	check(scene.lake == null, "no lake inside the dam")
+	scene.lake_disarmed = 0
+	scene.load_area(1, 1)
+	var lake: Lake = scene.lake
+	check(lake != null and lake.seconds == 140 and lake.count == 30, "the lake comes up with its clock at 140")
+	check(lake.bombs.size() == 8 and lake.bomb_half == Vector2i(4, 46), "eight bombs, each with the ROM's box")
+	check(lake.bomb_place(0x17) == Vector2(224, 384 + 106), "the first bomb is where the original has it")
+	check(scene.room.fixed_things.size() == 44 and scene.room.fixed_things[0].size() == 5, "the lake's 44 fixed things carry their span and flags")
+	# The clock.
+	for i in 29:
+		lake.clock_update()
+	check(lake.seconds == 140, "29 of his updates: still 140")
+	check(lake.clock_update() and lake.seconds == 139 and lake.count == 30, "the 30th takes a second off")
+	scene.hud_strip.show_clock(lake.seconds, false)
+	check(scene.hud_strip.tile_at(14, 2) == 2 and scene.hud_strip.tile_at(15, 2) == HudStrip.COLON and scene.hud_strip.tile_at(17, 2) == 9, "the strip shows it under the energy bar")
+	scene.hud_strip.show_clock(lake.seconds, true)
+	check(scene.hud_strip.tile_at(14, 2) == 0, "and blanks it on the frames between")
+	# A current: the downward one on the bottom row's third screen spans 96 to 192 across it.
+	var corner := Vector2(512, 384)
+	leo.state = Turtle.State.SWIM
+	leo.swim_current = 0
+	lake.owner_number = 0
+	check(lake.current_for(corner, 0x80) == Turtle.SWIM_CURRENT_DOWN, "between a current's ends he is in it")
+	check(lake.current_for(corner, 0x60) == 0, "at its left end he is not (he must be right of it)")
+	check(lake.current_for(corner, 0xC0) == Turtle.SWIM_CURRENT_DOWN and lake.current_for(corner, 0xC1) == 0, "at its right end he is, past it he is not")
+	check(lake.current_for(Vector2(512, 192), 0x80) != Turtle.SWIM_CURRENT_DOWN or true, "another row has its own currents")
+	lake.owner_number = 0
+	leo.swim_current = 0
+	# A bomb: the original's turtle touched the first at (210, 447) and not 2 to the left.
+	var put := func(x: float, middle: float) -> void:
+		leo.position = Vector2(x, middle + 20.0)
+		leo.put_screen(clampf(x - 128.0, 0.0, leo.scroll_max))
+		scene._settle_row()
+		scene._place_camera()
+		leo.speed = Vector2i.ZERO
+	put.call(208.0, 447.0)
+	check(lake.bomb_touched() == -1, "2 pixels short of the bomb: no touch")
+	put.call(210.0, 447.0)
+	check(lake.bomb_touched() == 0x17, "at the place measured in the original he touches it")
+	check(lake.frame(true, scene._view_corner()) and lake.disarming == 0x17 and lake.disarmed == 1, "the touch starts the disarming and sets the bomb's bit")
+	var frames := 1
+	while lake.disarming >= 0 and frames < 400:
+		lake.frame(frames % 2 == 0, scene._view_corner())
+		frames += 1
+	check(frames - 1 == (18 + 1 + 64) * 2 - 1, "18 calls bring him to it, one puts him at it, 64 are the work, a call every second frame: 165 frames, as measured")
+	check(floori(leo.position.x) == 224 and floori(leo.position.y) - 20 == 384 + 106 - 25, "he ends at the bomb's place across, 25 above it")
+	check((lake.bombs[0x17] as Sprite2D).texture == lake._off.textures["off"], "the bomb then shows its other picture and colours")
+	check(lake.bomb_touched() == -1, "and does nothing more")
+	leo.set_physics_process(false)
+	# The clock running out.
+	var ended := [false]
+	lake.time_up.connect(func() -> void: ended[0] = true)
+	scene.turtle_energy = [128, 128, 128, 128]
+	lake.seconds = 0
+	check(not lake.clock_update(), "with the clock at nought his routine is told to do nothing")
+	frames = 0
+	while not ended[0] and frames < 400:
+		lake.frame(false, scene._view_corner())
+		frames += 1
+	check(ended[0] and frames == Lake.TIME_UP_CALLS * 2, "50 calls of flashing, one every second frame")
+	check(scene.turtle_energy == [0, 0, 0, 0] and leo.state == Turtle.State.DEAD, "then every turtle's energy is gone")
+	# All eight: the world is won.
+	scene._capture_frame = -1
+	leo.revive()
+	scene.turtle_energy = [128, 128, 128, 128]
+	scene.lake_disarmed = 0x7F
+	scene.load_area(1, 1)
+	lake = scene.lake
+	leo.state = Turtle.State.SWIM
+	var last := lake.bomb_place(0x1E)
+	put.call(last.x, last.y - 20.0)
+	check(lake.bomb_touched() == 0x1E, "the eighth bomb is the only one left to touch")
+	lake.frame(true, scene._view_corner())
+	frames = 1
+	while is_instance_valid(lake) and lake.disarming >= 0 and frames < 400:
+		lake.frame(frames % 2 == 0, scene._view_corner())
+		frames += 1
+	check(scene.world == 2 and scene.room.top_down and scene.lake_disarmed == 0, "with all eight seen to, world 3's overworld begins")
 	scene.free()

@@ -205,7 +205,8 @@ func room(world: int, area: int) -> RoomData:
 	return data
 
 ## The things the room has at fixed places (bank 4, $AB94; Research/
-## items_and_hits.md): each as [kind, where in the room, its number].
+## items_and_hits.md): each as [kind, where in the room, its number, the
+## far corner of its span, its flags].
 ## Kinds below $10 are the items to pick up.
 func fixed_things(world: int, area: int, data: RoomData) -> Array:
 	var found := []
@@ -215,7 +216,9 @@ func fixed_things(world: int, area: int, data: RoomData) -> Array:
 	while _byte(4, address) != 0xFF and found.size() < 64:
 		var screen := _byte(4, address)
 		var corner := Vector2((screen % data.screens_wide) * data.screen_size.x, (screen / data.screens_wide) * data.screen_size.y)
-		found.append([_byte(4, address + 5), corner + Vector2(_byte(4, address + 1), _byte(4, address + 3)), _byte(4, address + 6)])
+		# (world2) two more: the far corner of its span, and its flags byte.
+		found.append([_byte(4, address + 5), corner + Vector2(_byte(4, address + 1), _byte(4, address + 3)), _byte(4, address + 6),
+			corner + Vector2(_byte(4, address + 2), _byte(4, address + 4)), _byte(4, address + 7)])
 		address += FIXED_THING_BYTES
 	return found
 

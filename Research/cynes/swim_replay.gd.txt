@@ -10,11 +10,13 @@ extends Node
 const BUTTONS := { 1: "move_right", 2: "move_left", 4: "move_down", 8: "move_up", 0x40: "attack", 0x80: "jump" }
 var dump_from := -1
 var dump_to := -1
+var live_lake := false
 
 func _ready() -> void:
 	var args := OS.get_cmdline_user_args()
 	var data: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(args[0]))
 	var only := args[1] if args.size() > 1 else "all"
+	live_lake = args[0].contains("lake")
 	if args.size() > 2:
 		dump_from = int(args[2].split("-")[0])
 		dump_to = int(args[2].split("-")[1])
@@ -22,14 +24,14 @@ func _ready() -> void:
 	scene.start_on_overworld = false
 	add_child(scene)
 	await get_tree().physics_frame
-	var grand := [0, 0, 0, 0, 0, 0]
+	var grand := [0, 0, 0, 0, 0, 0, 0]
 	for name: String in data:
 		if only != "all" and name != only:
 			continue
 		var result: Array = await _run(scene, name, data[name])
 		for i in grand.size():
 			grand[i] += result[i]
-	print("ALL: %d frames; place %d, speeds %d, animation and picture %d, facing %d, energy %d" % grand)
+	print("ALL: %d frames; place %d, speeds %d, animation and picture %d, facing %d, energy %d, current clock and bombs %d" % grand)
 	get_tree().quit()
 
 func _signed(whole: int, fraction: int) -> int:
@@ -58,6 +60,10 @@ func _run(scene, name: String, rows: Array) -> Array:
 	scene.load_area(1, 1)
 	scene.set_show_enemies(false)
 	scene._row_way = 0
+	if not live_lake and scene.lake != null:   # the first recordings have no currents and no bombs
+		scene.lake.free()
+		scene.lake = null
+		leo.swim_clock = Callable()
 	leo.set_physics_process(true)
 	leo.max_health = 128
 	leo.health = 128
@@ -74,10 +80,17 @@ func _run(scene, name: String, rows: Array) -> Array:
 	leo.swim_step = int(row[27])
 	leo.swim_left = int(row[28])
 	leo.hold_updates = 0
+	if live_lake:
+		scene.lake.seconds = int(row[19])
+		scene.lake.count = int(row[20])
+		scene.lake.disarmed = int(row[32])
+		scene.lake_disarmed = int(row[32])
+		scene.lake.owner_number = int(row[33])
+		leo.swim_current = int(row[16])
 	leo._frame = 1                      # the next frame is his update
 	leo._jump_pressed = false
-	var counts := [0, 0, 0, 0, 0, 0]
-	var first := ["", "", "", "", ""]
+	var counts := [0, 0, 0, 0, 0, 0, 0]
+	var first := ["", "", "", "", "", ""]
 	var previous := int(row[0])
 	var refill := false
 	for f in range(start + 1, rows.size()):
@@ -105,9 +118,10 @@ func _run(scene, name: String, rows: Array) -> Array:
 		var checks := [
 			theirs.distance_to(leo.position) < 0.001 and int(row[1]) == floori(leo.scroll_x) and int(row[2]) == int(scene._view_top),
 			their_speed == leo.speed,
-			int(row[12]) == leo.swim_animation and int(row[13]) == leo.swim_picture,
+			int(row[12]) == leo.swim_animation and int(row[13]) == (leo.swim_picture if leo._swim_posed < 0 else leo._swim_posed),
 			(int(row[14]) & 1 != 0) == (leo.facing < 0),
 			int(row[15]) == leo.health,
+			not live_lake or (int(row[16]) == leo.swim_current and int(row[19]) == scene.lake.seconds and int(row[20]) == scene.lake.count and int(row[32]) == scene.lake.disarmed),
 		]
 		for i in checks.size():
 			if checks[i]:
@@ -115,6 +129,8 @@ func _run(scene, name: String, rows: Array) -> Array:
 			elif first[i] == "":
 				first[i] = "frame %d" % f
 		if f >= dump_from and f <= dump_to:
-			print("  %d c%d b%02X | orig at %s corner %d,%d speed %s an %02X pic %02X e %d | remake at %s corner %d,%d speed %s an %02X pic %02X e %d row %d" % [f, int(row[0]), int(rows[f - 1][30]), str(theirs), int(row[1]), int(row[2]), str(their_speed), int(row[12]), int(row[13]), int(row[15]), str(leo.position), floori(leo.scroll_x), int(scene._view_top), str(leo.speed), leo.swim_animation, leo.swim_picture, leo.health, scene._row_way])
-	print("%s: %d frames; place %d, speeds %d, animation and picture %d, facing %d, energy %d; first differences: %s" % [name, counts[0], counts[1], counts[2], counts[3], counts[4], counts[5], str(first)])
+			print("  %d c%d b%02X | orig at %s corner %d,%d speed %s an %02X pic %02X e %d | remake at %s corner %d,%d speed %s an %02X pic %02X e %d row %d" % [f, int(row[0]), int(rows[f - 1][30]), str(theirs), int(row[1]), int(row[2]), str(their_speed), int(row[12]), int(row[13]), int(row[15]), str(leo.position), floori(leo.scroll_x), int(scene._view_top), str(leo.speed), leo.swim_animation, leo.swim_picture if leo._swim_posed < 0 else leo._swim_posed, leo.health, scene._row_way])
+			if live_lake:
+				print("      orig current %02X clock %d %d bombs %02X scene %02X | remake %02X clock %d %d bombs %02X" % [int(row[16]), int(row[19]), int(row[20]), int(row[32]), int(row[31]), leo.swim_current, scene.lake.seconds, scene.lake.count, scene.lake.disarmed])
+	print("%s: %d frames; place %d, speeds %d, animation and picture %d, facing %d, energy %d, lake %d; first differences: %s" % [name, counts[0], counts[1], counts[2], counts[3], counts[4], counts[5], counts[6], str(first)])
 	return counts

@@ -46,6 +46,8 @@ const HI_SCORE_AT := Vector2i(4, 2)
 const SPECIAL_COUNT_AT := Vector2i(24, 2)   ## two digits under the special weapon's box
 const THIRD_COUNT_AT := Vector2i(27, 2)
 const BOSS_BAR_AT := Vector2i(12, 2)
+const CLOCK_AT := Vector2i(14, 2)       ## (world2) the lake's clock: minutes, a colon, two digits of seconds (bank 0, $8146; measured)
+const COLON := 0x2E
 const ROWS := 5                ## rows of tiles the strip reaches (the last ones are empty)
 
 var ripper: ChrRipper
@@ -61,6 +63,8 @@ var special := 0               ## the playing turtle's special weapon number, 0 
 var special_count := 0         ## how many of it he has (shown as two digits when not 0)
 var special_blanked := false   ## while the special weapon is the one in use its box blinks: true on the frames it is blank
 var third_count := 0           ## how many of the third box's item are held
+var clock := -1                ## (world2) seconds left on the lake's clock, under 0 for no clock
+var clock_blanked := false     ## it shows for 8 frames in every 16 (measured)
 
 func _init() -> void:
 	position = Vector2(0, FIRST_LINE)
@@ -168,7 +172,21 @@ func tiles() -> PackedByteArray:
 	_put(cells, HI_SCORE_AT, digit_tiles(high_score))
 	if boss_energy >= 0:
 		_put(cells, BOSS_BAR_AT, bar_tiles(boss_energy))
+	if clock >= 0 and not clock_blanked:
+		_put(cells, CLOCK_AT, clock_tiles(clock))
 	return cells
+
+## (world2) The clock's four tiles: minutes, colon, seconds.
+static func clock_tiles(seconds: int) -> Array[int]:
+	var digit := func(value: int) -> int: return DIGIT_ZERO if value == 0 else value
+	return [digit.call(seconds / 60), COLON, digit.call((seconds % 60) / 10), digit.call(seconds % 10)]
+
+func show_clock(seconds: int, blanked: bool) -> void:
+	if seconds == clock and blanked == clock_blanked:
+		return
+	clock = seconds
+	clock_blanked = blanked
+	refresh()
 
 func tile_at(col: int, row: int) -> int:
 	return tiles()[row * COLS + col]

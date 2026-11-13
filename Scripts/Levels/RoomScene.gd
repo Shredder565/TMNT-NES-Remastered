@@ -163,6 +163,8 @@ var _screen_row := 0                 ## which row of screens is on show
 var _row_way := 0                    ## -1 or 1 while the screen changes row
 var _row_frame := 0
 var _row_swim := false               ## (world2) the change of row going on is a swimmer's
+var lake: Lake                       ## (world2) the lake's clock, currents and bombs while that room is on show
+var lake_disarmed := 0               ## (world2) the bombs seen to so far, one bit each
 var _view_top := 0.0                 ## the top of the screen in the room
 var _made: Node2D                    ## what _make_enemy_at has just made, if anything
 var _camera_corner := Vector2.ZERO
@@ -416,8 +418,21 @@ func show_room(new_room: RoomData) -> void:
 	turtle.state = Turtle.State.NORMAL
 	turtle.stop_swimming()
 	_row_swim = false
+	if lake != null:
+		lake.queue_free()
+		lake = null
+		background.modulate = Color.WHITE
+	if hud_strip != null:
+		hud_strip.show_clock(-1, false)
 	if under_water():
-		turtle.swimming = true   # (world2) the lake: Research/swimming.md
+		turtle.swimming = true   # (world2) the lake: Research/swimming.md, lake.md
+		lake = Lake.new()
+		lake.z_index = -1
+		add_child(lake)
+		lake.bomb_half = levels.box_half_size(Lake.KIND_BOMB_OBJECT, Lake.BOMB_ANIMATION)
+		lake.setup(self, turtle, room.fixed_things, lake_disarmed)
+		lake.all_disarmed.connect(_on_lake_finished)
+		lake.time_up.connect(_on_lake_time_up)
 	if room.top_down:
 		walker.position = room.start
 	else:
@@ -1693,6 +1708,22 @@ func _step_row_change() -> void:
 func under_water() -> bool:
 	return levels != null and room != null and not room.top_down and world == SWIM_WORLD and area == SWIM_AREA
 
+## The eighth bomb is seen to: the world is won. The original shows a
+## scene of its own first (bank 6, $A1ED: not made); the remake goes
+## straight on to the next world.
+func _on_lake_finished() -> void:
+	lake_disarmed = 0
+	_clearing = true
+	_begin_next_world()
+
+## The lake's clock ran out: every turtle's energy is gone (bank 6, $A11B),
+## and the usual end of a turtle follows.
+func _on_lake_time_up() -> void:
+	for i in turtle_energy.size():
+		turtle_energy[i] = 0
+	turtle.set_physics_process(true)
+	turtle.drain(turtle.health)
+
 ## A swimmer has reached the top or the bottom of the screen (bank 4,
 ## $98C3): the screen changes row, by the same routine as on a ladder
 ## (bank 4, $9A87), unless there is no row that way.
@@ -2078,6 +2109,13 @@ func _physics_process(_delta: float) -> void:
 		_step_row_change()
 		_place_camera()
 		return
+	if lake != null:   # (world2)
+		var held := lake.frame(_enemies_frame(), _view_corner())
+		lake_disarmed = lake.disarmed
+		hud_strip.show_clock(lake.seconds, (turtle._frame & 8) == 0)
+		if held:
+			_place_camera()
+			return
 	_check_row()
 	_apply_floor_kinds()
 	_place_camera()
@@ -2173,6 +2211,7 @@ func _on_game_over_chosen(carry_on: bool) -> void:
 ## Puts the playing turtle on his feet with his own energy at the start of
 ## the world: its overworld with a ROM, the stand-in room without.
 func _restart_world() -> void:
+	lake_disarmed = 0   # (world2) a guess: where the original clears its bombs was not traced
 	var energy := int(turtle_energy[current_turtle])
 	turtle.revive()
 	turtle.health = energy
