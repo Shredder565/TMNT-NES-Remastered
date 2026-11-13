@@ -216,11 +216,13 @@ var _clearing := false               ## true from the last boss's fall until the
 ## Start screen comes up with April's words; when they are typed out the
 ## next world begins.
 enum EndStage { NONE, WAIT, WALK, FREED, MESSAGE }
-const END_WAIT_FRAMES := 64          ## from the screen being clear to the walk (measured: 82 frames from the blow, 18 of them the puff)
-const END_FREED_FRAMES := 252        ## from her standing up to the dark (250 until the program moves on, and 2 more on show)
+const END_WAIT_FRAMES := 68          ## from the screen being clear to the walk (the program waits 64; set so that the first step shows on the measured frame)
+const END_FREED_FRAMES := 249        ## from her standing up to the dark
+const END_BAR_GOES := 8             ## frames into the walk at which the boss's empty bar leaves the strip (its parts are written every 8th frame)
 const END_FLOOR_MIDDLE := 140        ## his middle, down the screen, while he walks
 const END_STOP_GAP := 16             ## he stops when less than this far right of her
 const END_STAND_AT := 50             ## and is then put this far across the screen
+const END_WALK_PHASE := 30           ## the original picks the picture by its frame counter; this is where it stood in the recording
 const END_WALK_PICTURES := ["walk1", "stand", "walk2", "stand"]   ## 8 frames each
 const APRIL_AT := Vector2(26, 166)   ## where she sits on the fight's screen (object slot 15)
 const MUTED_ACTIONS := ["move_left", "move_right", "move_up", "move_down", "jump", "attack", "pause"]
@@ -1071,8 +1073,11 @@ func _step_world_end() -> bool:
 			return false
 		EndStage.WALK:
 			_mute_buttons()
+			if _end_frames == END_BAR_GOES:
+				boss_bar.hide()
+				hud_strip.show_boss(-1)
 			if _end_frames % Turtle.TICK_FRAMES != 1:
-				return true   # his first step comes the frame after the wait ends (measured in a whole fight)
+				return true
 			var across := floorf(turtle.position.x) - fight_corner.x
 			if across < APRIL_AT.x or across - APRIL_AT.x < END_STOP_GAP:
 				turtle.position.x = fight_corner.x + END_STAND_AT + turtle.position.x - floorf(turtle.position.x)   # the fraction stays
@@ -1080,9 +1085,11 @@ func _step_world_end() -> bool:
 				_show_april("f145", Vector2(0, -1))
 				end_stage = EndStage.FREED
 				_end_frames = 0
+				boss_bar.hide()
+				hud_strip.show_boss(-1)
 			else:
 				turtle.position.x -= 1.0   # the fraction of his place is kept (measured)
-				turtle.pose(END_WALK_PICTURES[(_end_frames >> 3) & 3], -1)
+				turtle.pose(END_WALK_PICTURES[((_end_frames + END_WALK_PHASE) >> 3) & 3], -1)
 			return true
 		EndStage.FREED:
 			_mute_buttons()
@@ -1112,9 +1119,7 @@ func _anything_left_on_screen() -> bool:
 ## The walk begins: everything else is cleared away and he is put on the
 ## floor facing left.
 func _begin_end_walk() -> void:
-	# The screen stays where the fight held it; only the boss's bar goes.
-	boss_bar.hide()
-	hud_strip.show_boss(-1)
+	# The screen stays where the fight held it.
 	for child in enemies.get_children():
 		enemies.remove_child(child)
 		child.queue_free()
@@ -1128,7 +1133,6 @@ func _begin_end_walk() -> void:
 	turtle.power_ticks = 0
 	turtle.art.visible = true
 	turtle.position = Vector2(turtle.position.x, fight_corner.y + END_FLOOR_MIDDLE + RoomData.CENTRE_TO_FEET)   # the fraction across is kept (measured)
-	turtle.pose("stand", -1)
 
 ## April's words are done: the next world begins on its overworld, drawn
 ## in as after a door.
@@ -1679,6 +1683,10 @@ func _step_wipe() -> void:
 	_wipe_frame += 1
 	var lines := _picture_lines()
 	var drawn := minf((_wipe_frame - 1) * RoomData.TILE, lines)
+	if _wipe_world_begin:
+		# Measured: two frames later than after a door, and the rows end on
+		# the map's own lines, which are 4 lower than the screen's.
+		drawn = clampf((_wipe_frame - 3) * RoomData.TILE + ROOM_TOP_LINE, 0.0, lines)
 	_wipe_cover.position.y = _picture_top() + drawn
 	_wipe_cover.size.y = lines - drawn
 	_wipe_cover.visible = drawn < lines

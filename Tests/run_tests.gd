@@ -1851,6 +1851,7 @@ func _ready() -> void:
 	await _test_screen_layout()
 	# --- the second screens agent's sections ---
 	await _test_score()
+	await _test_world_end()
 
 	print("ROM screen")
 	var rom_path := "user://_test_fake.nes"
@@ -3010,6 +3011,7 @@ func _test_enemies2() -> void:
 	pig.tick()
 	check(pig.state == 2 and pig.speed_x == 512 and pig.animation == Bebop.WALK and pig.position.x == 102.0, "then it turns to the turtle and walks 2 pixels an update")
 	var walked := 0
+	OriginalEnemy.frame_counter = 0x52   # bits 4 and 5 not both 0: no jump on the way
 	while pig.state == 2 and walked < 80:
 		pig.tick()
 		walked += 1
@@ -3019,7 +3021,7 @@ func _test_enemies2() -> void:
 	while pig.state == 6 and stopped < 40:
 		pig.tick()
 		stopped += 1
-	check(stop_gap == 12.0 and stopped == 12 and pig.state == 9 and pig.speed_x == 0, "under 16 pixels from him it stops (12 away, having taken one more step) for the 12 updates of its stopped animation, then stands")
+	check(stop_gap == 12.0 and stopped == 12 and pig.state == 9 and pig.speed_x == 0, "under 16 pixels from him it stops (12 away, having taken one more step) for the 12 updates of its stopped animation, then stands (%s, %d, state %d, walked %d)" % [str(stop_gap), stopped, pig.state, walked])
 	OriginalEnemy.frame_counter = 0x44
 	pig.tick()
 	var waits: bool = pig.state == 9
@@ -3105,7 +3107,7 @@ func _test_enemies2() -> void:
 	# The box test in single bytes, as places on the screen.
 	var edge_spot := EnemySpot.new()
 	edge_spot.kind = 0x98
-	edge_spot.position = Vector2(24, 100)
+	edge_spot.position = Vector2(10, 100)
 	var at_edge := Soldier.new()
 	at_edge.setup(edge_spot, yard, null, victim)
 	holder.add_child(at_edge)
@@ -3126,3 +3128,115 @@ func _test_enemies2() -> void:
 	low_turtle._crouched_before = true
 	check(low_turtle.touch_box() == [100, 98, 5, 16], "on the update he gets up (or jumps) out of a crouch his box is full size again but still 8 lower")
 	low_turtle.free()
+
+# ============================ The end of world 1 (Research/world_end.md) ============================
+func _test_world_end() -> void:
+	print("The end of world 1")
+	var scene = load("res://Scenes/Levels/Area1Sewer.tscn").instantiate()
+	scene.start_on_overworld = false
+	scene.door_wipe = false
+	add_child(scene)
+	scene.set_physics_process(false)
+	var levels: RomLevels = scene.levels
+	var screen: StartScreen = scene.start_screen
+	if levels == null or screen.data == null:
+		check(not scene.world_ending(), "without a ROM there is no boss and no scene after it")
+		print("  skip  no verified ROM is installed, so the scene after the last boss is not exercised")
+		scene.free()
+		return
+	check(levels.overworld(1).start == Vector2(128, 136) and levels.overworld(1).start_camera == Vector2.ZERO, "world 2 begins with the screen at the map's corner and the turtle at (128, 136) on it (measured)")
+	check(levels.overworld(2).start == Vector2(352, 284) and levels.overworld(3).start == Vector2(896, 936), "worlds 3 and 4 begin where the ROM's two tables say")
+	check(screen.data.event_message(0).speaker == 1 and screen.data.event_message(2).speaker == 0, "April speaks after a world's last boss, Splinter after the third world's")
+	scene.load_area(0, 5)
+	var leo: Turtle = scene.turtle
+	scene.set_physics_process(true)
+	scene.set_flying(true)
+	leo.position = Vector2(300, 160)
+	for i in 4:
+		await get_tree().physics_frame
+	scene.set_flying(false)
+	leo.position = Vector2(60, 160)
+	for i in 60:
+		leo.invulnerable_timer = 1.0
+		for thing in scene.enemies.get_children():
+			if thing != scene.boss:   # (enemies2) the boss is an object among the enemies now
+				thing.free()
+		await get_tree().physics_frame
+		if scene.april != null:
+			break
+	scene.set_physics_process(false)
+	leo.set_physics_process(false)
+	check(scene.boss != null and scene.boss.kind == 0x71, "the last boss comes in")
+	if scene.boss == null:
+		scene.free()
+		return
+	check(scene.april != null and scene.april.get_meta("at") == scene.fight_corner + Vector2(26, 166), "and April with it, tied up at (26, 166) on its screen")
+	var tied: Texture2D = scene.april.texture
+	leo.position = Vector2(153, 160)
+	var score_before: int = scene.score
+	scene.boss.take_hit(999)
+	check(scene.world_ending() and scene.end_stage == scene.EndStage.WAIT and scene.fighting and scene.score == score_before + 5000, "beating it gives 5000 and starts the scene; the screen stays held")
+	scene.open_start_screen()
+	check(not screen.is_open(), "Start does nothing from then on")
+	check(scene._step_world_end() == false and scene._end_frames == 0, "nothing happens while the boss's puff is on the screen")
+	for thing in scene.items.get_children():
+		if thing is Puff or thing is Boss:
+			thing.free()
+	for thing in scene.enemies.get_children():
+		thing.free()
+	var waited := 0
+	while scene.end_stage == scene.EndStage.WAIT and waited < 200:
+		scene._step_world_end()
+		waited += 1
+	check(waited == scene.END_WAIT_FRAMES and scene.end_stage == scene.EndStage.WALK and leo.position == Vector2(153, 160), "%d frames after the screen is clear the walk begins (%d)" % [scene.END_WAIT_FRAMES, waited])
+	scene._step_world_end()
+	check(leo.position.x == 152.0 and leo.facing == -1, "he turns left and takes his first step at once")
+	scene._step_world_end()
+	scene._step_world_end()
+	check(leo.position.x == 151.0, "a pixel every second frame")
+	var walked := 3
+	while scene.end_stage == scene.EndStage.WALK and walked < 1000:
+		scene._step_world_end()
+		walked += 1
+	# 153 down to 41 is 112 steps of two frames, and the next step sees he is there.
+	check(walked == 225 and leo.position.x == 50.0 and scene.end_stage == scene.EndStage.FREED, "he stops when less than 16 right of her and is put at 50 across (after %d frames)" % walked)
+	check(scene.april.texture != tied and scene.hud_strip.boss_energy < 0, "April stands up, and the boss's bar has gone from the strip")
+	for i in scene.END_FREED_FRAMES - 1:
+		scene._step_world_end()
+	check(not screen.is_open(), "nothing more for %d frames" % (scene.END_FREED_FRAMES - 1))
+	scene._step_world_end()
+	check(screen.is_open() and screen.event and scene.end_stage == scene.EndStage.MESSAGE and get_tree().paused, "then the Start screen comes up by itself")
+	for i in StartScreen.EVENT_BUILD_FRAMES:
+		screen.tick()
+	check(screen.phase == StartScreen.Phase.SHOWN and screen.tile_at(21, 1) != 0, "after %d dark frames" % (StartScreen.EVENT_BUILD_FRAMES - 1))
+	screen.request_close()
+	screen.move_selection(1)
+	check(screen.is_open() and screen.selected == 0, "it takes no buttons")
+	var blank: int = screen.tile_at(3, 17)
+	for i in StartScreen.EVENT_TYPE_FRAMES - 1:
+		screen.tick()
+	check(screen.tile_at(3, 17) == blank and blank != 0x10 + 3, "the first letter comes %d frames later" % StartScreen.EVENT_TYPE_FRAMES)
+	screen.tick()
+	check(screen.tile_at(3, 17) == 0x10 + 3, "and is the first letter of the message the ROM gives for world 1's end")
+	var typed := 0
+	while screen.is_open() and typed < 2000:
+		screen.tick()
+		typed += 1
+	# 64 steps of 8 frames in all: 63 more after the first, and one frame on show.
+	check(typed == 63 * StartScreen.EVENT_TYPE_FRAMES + 1 and not get_tree().paused, "the words take 64 steps of 8 frames, and the screen goes a frame after the last (%d)" % typed)
+	check(scene.world == 1 and scene.room.top_down and not scene.world_ending() and not scene.fighting, "world 2 begins")
+	check(scene.walker.position == Vector2(128, 136) and scene.overworld_screen == Vector2.ZERO, "on its overworld, at the place the ROM gives")
+	check(scene.score == score_before + 5000, "nothing in the scene gives points")
+	# The same again as the player sees it: the map is drawn in.
+	scene.door_wipe = true
+	scene._restart_world()
+	check(scene.wiping() and scene._wipe_world_begin and scene.wipe_appear_frames() == scene.WIPE_APPEAR_WORLD_BEGIN, "a world's beginning is drawn in like a door, the turtle 5 frames after the hold")
+	for i in scene.WIPE_WORLD_BEGIN_ENERGY_FROM:
+		scene._step_wipe()
+	check(scene.overworld_energy.visible and scene.overworld_energy.energy == 0, "with the eight energy sprites on show, empty, from the fifth frame")
+	var frames: int = scene.WIPE_WORLD_BEGIN_ENERGY_FROM
+	while scene.wiping() and frames < 200:
+		scene._step_wipe()
+		frames += 1
+	check(frames == 1 + 32 + 16 + 5 and scene.overworld_energy.energy == leo.health and scene.walker.visible, "and the turtle and his energy back after %d frames" % frames)
+	scene.free()

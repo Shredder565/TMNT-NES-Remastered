@@ -112,8 +112,10 @@ enemies, three pizzas and one other item, the first boss at the end of the
 second sewer and the last boss in the last room. The bosses come in where
 the ROM's own table says, the screen holds still while one is fought, and
 its energy shows under the turtle's. Three more places stop the screen
-until the enemies there are beaten. Beating the last boss opens world 2's
-overworld.
+until the enemies there are beaten. Beating the last boss plays the
+original's ending of the world (the turtle walks to April, she speaks on
+the Start screen: `Research/world_end.md`) and opens world 2's overworld.
+The score is kept as the original keeps it (`Research/score.md`).
 
 How the turtle meets walls, ledges and ceilings, and how the screen
 scrolls, follow the original's own rules, read from its code. In eighteen
